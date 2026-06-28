@@ -1,0 +1,47 @@
+AL, 03, 2014072906,   ,chunshu,   0,  96N,  371W,  25, 1013, LO
+AL, 03, 2014072912,   ,chunshu,   0,  95N,  386W,  30, 1012, LO
+AL, 03, 2014072918,   ,chunshu,   0,  95N,  401W,  30, 1012, LO
+AL, 03, 2014073000,   ,chunshu,   0,  96N,  415W,  30, 1012, LO,     INVEST
+AL, 03, 2014073006,   ,chunshu,   0,  97N,  430W,  30, 1012, LO,     INVEST
+AL, 03, 2014073012,   ,chunshu,   0,  98N,  447W,  30, 1012, LO,     INVEST
+AL, 03, 2014073018,   ,chunshu,   0, 100N,  464W,  30, 1011, LO,     INVEST
+AL, 03, 2014073100,   ,chunshu,   0, 104N,  480W,  35, 1010, LO,     INVEST
+AL, 03, 2014073106,   ,chunshu,   0, 107N,  497W,  35, 1009, LO,     INVEST
+AL, 03, 2014073112,   ,chunshu,   0, 110N,  514W,  40, 1008, LO,     INVEST
+AL, 03, 2014073118,   ,chunshu,   0, 115N,  531W,  40, 1007, LO,     INVEST
+AL, 03, 2014080100,   ,chunshu,   0, 122N,  546W,  40, 1007, TS,     BERTHA
+AL, 03, 2014080106,   ,chunshu,   0, 130N,  562W,  40, 1007, TS,     BERTHA
+AL, 03, 2014080112,   ,chunshu,   0, 138N,  581W,  45, 1006, TS,     BERTHA
+AL, 03, 2014080118,   ,chunshu,   0, 145N,  603W,  45, 1006, TS,     BERTHA
+AL, 03, 2014080200,   ,chunshu,   0, 152N,  623W,  45, 1007, TS,     BERTHA
+AL, 03, 2014080206,   ,chunshu,   0, 159N,  641W,  40, 1008, TS,     BERTHA
+AL, 03, 2014080212,   ,chunshu,   0, 167N,  659W,  40, 1009, TS,     BERTHA
+AL, 03, 2014080218,   ,chunshu,   0, 179N,  676W,  40, 1010, TS,     BERTHA
+AL, 03, 2014080300,   ,chunshu,   0, 192N,  690W,  40, 1011, TS,     BERTHA
+AL, 03, 2014080306,   ,chunshu,   0, 203N,  704W,  40, 1012, TS,     BERTHA
+AL, 03, 2014080312,   ,chunshu,   0, 214N,  716W,  40, 1013, TS,     BERTHA
+AL, 03, 2014080314,   ,chunshu,   0, 218N,  719W,  40, 1013, TS
+AL, 03, 2014080318,   ,chunshu,   0, 227N,  725W,  45, 1012, TS,     BERTHA
+AL, 03, 2014080400,   ,chunshu,   0, 241N,  731W,  55, 1007, TS,     BERTHA
+AL, 03, 2014080406,   ,chunshu,   0, 254N,  735W,  60, 1004, TS,     BERTHA
+AL, 03, 2014080412,   ,chunshu,   0, 268N,  736W,  70,  998, HU,     BERTHA
+AL, 03, 2014080418,   ,chunshu,   0, 285N,  736W,  70,  999, HU,     BERTHA
+AL, 03, 2014080500,   ,chunshu,   0, 305N,  734W,  65, 1001, HU,     BERTHA
+AL, 03, 2014080506,   ,chunshu,   0, 325N,  732W,  55, 1003, TS,     BERTHA
+AL, 03, 2014080512,   ,chunshu,   0, 342N,  727W,  50, 1005, TS,     BERTHA
+AL, 03, 2014080518,   ,chunshu,   0, 355N,  712W,  45, 1006, TS,     BERTHA
+AL, 03, 2014080600,   ,chunshu,   0, 368N,  693W,  45, 1007, TS,     BERTHA
+AL, 03, 2014080606,   ,chunshu,   0, 381N,  669W,  45, 1007, TS,     BERTHA
+AL, 03, 2014080612,   ,chunshu,   0, 394N,  641W,  45, 1006, TS,     BERTHA
+AL, 03, 2014080618,   ,chunshu,   0, 408N,  613W,  45, 1002, EX
+AL, 03, 2014080700,   ,chunshu,   0, 421N,  584W,  50,  996, EX
+AL, 03, 2014080706,   ,chunshu,   0, 434N,  556W,  45,  998, EX
+AL, 03, 2014080712,   ,chunshu,   0, 446N,  525W,  40,  999, EX
+AL, 03, 2014080718,   ,chunshu,   0, 460N,  495W,  40, 1000, EX
+AL, 03, 2014080800,   ,chunshu,   0, 474N,  466W,  35, 1001, EX
+AL, 03, 2014080806,   ,chunshu,   0, 479N,  430W,  35, 1001, EX
+AL, 03, 2014080812,   ,chunshu,   0, 475N,  394W,  35, 1002, EX
+AL, 03, 2014080818,   ,chunshu,   0, 469N,  349W,  35, 1002, EX
+AL, 03, 2014080900,   ,chunshu,   0, 470N,  290W,  35, 1003, EX
+AL, 03, 2014080906,   ,chunshu,   0, 471N,  220W,  35, 1003, EX
+AL, 03, 2014080912,   ,chunshu,   0, 475N,  150W,  35, 1003, EX

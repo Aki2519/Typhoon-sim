@@ -1,0 +1,17 @@
+IO, 05, 2009121018,   ,chunshu,   0,  73N,  850E,  20, 1007, DB
+IO, 05, 2009121100,   ,chunshu,   0,  80N,  848E,  25, 1004, TD,     INVEST
+IO, 05, 2009121106,   ,chunshu,   0,  87N,  849E,  30, 1000, TD,     INVEST
+IO, 05, 2009121112,   ,chunshu,   0,  91N,  852E,  40,  993, TS,     INVEST
+IO, 05, 2009121118,   ,chunshu,   0,  96N,  851E,  45,  989, TS,       FIVE
+IO, 05, 2009121200,   ,chunshu,   0,  98N,  847E,  45,  989, TS,       WARD
+IO, 05, 2009121206,   ,chunshu,   0,  99N,  843E,  45,  989, TS,       WARD
+IO, 05, 2009121212,   ,chunshu,   0,  97N,  838E,  45,  989, TS,       WARD
+IO, 05, 2009121218,   ,chunshu,   0,  93N,  835E,  45,  989, TS,       WARD
+IO, 05, 2009121300,   ,chunshu,   0,  91N,  833E,  40,  993, TS,       WARD
+IO, 05, 2009121306,   ,chunshu,   0,  90N,  830E,  35,  996, TS,       WARD
+IO, 05, 2009121312,   ,chunshu,   0,  89N,  826E,  35,  996, TS,       WARD
+IO, 05, 2009121318,   ,chunshu,   0,  89N,  821E,  35,  996, TS,       WARD
+IO, 05, 2009121400,   ,chunshu,   0,  89N,  816E,  30, 1000, TD,       WARD
+IO, 05, 2009121406,   ,chunshu,   0,  85N,  815E,  30, 1000, TD,       WARD
+IO, 05, 2009121412,   ,chunshu,   0,  85N,  813E,  25, 1004, DB
+IO, 05, 2009121418,   ,chunshu,   0,  85N,  811E,  15, 1010, DB,       WARD

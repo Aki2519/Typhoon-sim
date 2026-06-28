@@ -1,0 +1,33 @@
+SH, 04, 2008121312,   ,chunshu,   0, 104S,  765E,  20, 1007, DB,     INVEST
+SH, 04, 2008121318,   ,chunshu,   0, 103S,  757E,  20, 1007, DB,     INVEST
+SH, 04, 2008121400,   ,chunshu,   0, 102S,  750E,  20, 1007, DB,     INVEST
+SH, 04, 2008121406,   ,chunshu,   0, 101S,  742E,  20, 1007, DB
+SH, 04, 2008121412,   ,chunshu,   0, 100S,  732E,  20, 1007, DB
+SH, 04, 2008121418,   ,chunshu,   0,  99S,  722E,  20, 1007, DB,     INVEST
+SH, 04, 2008121500,   ,chunshu,   0,  96S,  710E,  25, 1004, TD,     INVEST
+SH, 04, 2008121506,   ,chunshu,   0,  92S,  700E,  25, 1004, TD,     INVEST
+SH, 04, 2008121509,   ,chunshu,   0,  91S,  696E,  25, 1004, TD
+SH, 04, 2008121512,   ,chunshu,   0,  91S,  693E,  25, 1004, TD,     INVEST
+SH, 04, 2008121518,   ,chunshu,   0,  92S,  689E,  25, 1004, TD,     INVEST
+SH, 04, 2008121600,   ,chunshu,   0,  93S,  686E,  25, 1004, TD,     INVEST
+SH, 04, 2008121606,   ,chunshu,   0,  95S,  682E,  25, 1004, TD,     INVEST
+SH, 04, 2008121612,   ,chunshu,   0,  97S,  678E,  25, 1004, TD,     INVEST
+SH, 04, 2008121618,   ,chunshu,   0, 100S,  674E,  30, 1000, TD,     INVEST
+SH, 04, 2008121700,   ,chunshu,   0, 102S,  671E,  35,  996, TS,       FOUR
+SH, 04, 2008121706,   ,chunshu,   0, 104S,  669E,  35,  996, TS,       FOUR
+SH, 04, 2008121712,   ,chunshu,   0, 107S,  670E,  40,  993, TS,       FOUR
+SH, 04, 2008121718,   ,chunshu,   0, 110S,  670E,  45,  989, TS,       FOUR
+SH, 04, 2008121800,   ,chunshu,   0, 117S,  670E,  50,  985, TS,      CINDA
+SH, 04, 2008121803,   ,chunshu,   0, 121S,  670E,  50,  985, TS
+SH, 04, 2008121806,   ,chunshu,   0, 124S,  669E,  55,  982, TS,      CINDA
+SH, 04, 2008121812,   ,chunshu,   0, 127S,  667E,  55,  982, TS,      CINDA
+SH, 04, 2008121818,   ,chunshu,   0, 130S,  664E,  50,  985, TS,      CINDA
+SH, 04, 2008121900,   ,chunshu,   0, 134S,  658E,  50,  985, TS,      CINDA
+SH, 04, 2008121906,   ,chunshu,   0, 136S,  653E,  45,  989, TS,      CINDA
+SH, 04, 2008121912,   ,chunshu,   0, 137S,  649E,  40,  993, TS,      CINDA
+SH, 04, 2008121918,   ,chunshu,   0, 140S,  642E,  40,  993, TS,      CINDA
+SH, 04, 2008122000,   ,chunshu,   0, 140S,  635E,  40,  993, TS,      CINDA
+SH, 04, 2008122006,   ,chunshu,   0, 138S,  629E,  35,  996, TS,      CINDA
+SH, 04, 2008122012,   ,chunshu,   0, 141S,  626E,  35,  996, TS,      CINDA
+SH, 04, 2008122018,   ,chunshu,   0, 148S,  623E,  30, 1000, TD,      CINDA
+SH, 04, 2008122100,   ,chunshu,   0, 154S,  614E,  25, 1004, TD,      CINDA

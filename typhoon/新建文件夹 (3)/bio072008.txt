@@ -1,0 +1,28 @@
+IO, 07, 2008120300,   ,chunshu,   0,  58N,  915E,  20, 1007, DB
+IO, 07, 2008120306,   ,chunshu,   0,  59N,  913E,  20, 1007, DB,     INVEST
+IO, 07, 2008120312,   ,chunshu,   0,  60N,  911E,  25, 1004, TD,     INVEST
+IO, 07, 2008120318,   ,chunshu,   0,  62N,  908E,  30, 1006, TD,     INVEST
+IO, 07, 2008120400,   ,chunshu,   0,  64N,  905E,  30, 1000, TD,     INVEST
+IO, 07, 2008120406,   ,chunshu,   0,  67N,  902E,  30, 1000, TD,      SEVEN
+IO, 07, 2008120412,   ,chunshu,   0,  71N,  897E,  30, 1000, TD,      SEVEN
+IO, 07, 2008120418,   ,chunshu,   0,  75N,  892E,  30, 1000, TD,      SEVEN
+IO, 07, 2008120500,   ,chunshu,   0,  78N,  887E,  30, 1000, TD,      SEVEN
+IO, 07, 2008120506,   ,chunshu,   0,  82N,  881E,  35,  996, TS,      SEVEN
+IO, 07, 2008120512,   ,chunshu,   0,  86N,  874E,  35,  996, TS,      SEVEN
+IO, 07, 2008120518,   ,chunshu,   0,  86N,  864E,  35,  996, TS,      SEVEN
+IO, 07, 2008120600,   ,chunshu,   0,  83N,  856E,  35,  996, TS,      SEVEN
+IO, 07, 2008120606,   ,chunshu,   0,  81N,  848E,  35,  996, TS,      SEVEN
+IO, 07, 2008120612,   ,chunshu,   0,  79N,  841E,  35,  996, TS,      SEVEN
+IO, 07, 2008120618,   ,chunshu,   0,  78N,  836E,  30, 1000, TD,      SEVEN
+IO, 07, 2008120700,   ,chunshu,   0,  78N,  832E,  25, 1004, TD,      SEVEN
+IO, 07, 2008120706,   ,chunshu,   0,  78N,  828E,  25, 1004, TD
+IO, 07, 2008120712,   ,chunshu,   0,  78N,  820E,  25, 1004, TD
+IO, 07, 2008120718,   ,chunshu,   0,  75N,  810E,  25, 1004, TD
+IO, 07, 2008120800,   ,chunshu,   0,  70N,  799E,  25, 1004, TD
+IO, 07, 2008120806,   ,chunshu,   0,  67N,  791E,  25, 1004, TD
+IO, 07, 2008120812,   ,chunshu,   0,  64N,  787E,  25, 1004, TD
+IO, 07, 2008120818,   ,chunshu,   0,  66N,  781E,  25, 1004, TD
+IO, 07, 2008120900,   ,chunshu,   0,  67N,  773E,  20, 1007, DB
+IO, 07, 2008120906,   ,chunshu,   0,  67N,  765E,  15, 1010, DB
+IO, 07, 2008120912,   ,chunshu,   0,  67N,  753E,  15, 1010, DB
+IO, 07, 2008120918,   ,chunshu,   0,  71N,  739E,  15, 1010, DB

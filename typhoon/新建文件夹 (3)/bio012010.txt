@@ -1,0 +1,21 @@
+IO, 01, 2010051618,   ,chunshu,   0,  98N,  904E,  15, 1010, DB
+IO, 01, 2010051700,   ,chunshu,   0, 105N,  897E,  20, 1007, DB,     INVEST
+IO, 01, 2010051706,   ,chunshu,   0, 109N,  888E,  25, 1004, TD
+IO, 01, 2010051712,   ,chunshu,   0, 114N,  879E,  30, 1000, TD,     INVEST
+IO, 01, 2010051718,   ,chunshu,   0, 117N,  869E,  35,  996, TS,     INVEST
+IO, 01, 2010051800,   ,chunshu,   0, 121N,  860E,  40,  993, TS,        ONE
+IO, 01, 2010051806,   ,chunshu,   0, 125N,  847E,  45,  989, TS,        ONE
+IO, 01, 2010051812,   ,chunshu,   0, 131N,  834E,  55,  982, TS,        ONE
+IO, 01, 2010051818,   ,chunshu,   0, 132N,  826E,  60,  978, TS,      LAILA
+IO, 01, 2010051900,   ,chunshu,   0, 134N,  819E,  65,  974, TY,      LAILA
+IO, 01, 2010051906,   ,chunshu,   0, 137N,  815E,  65,  974, TY
+IO, 01, 2010051912,   ,chunshu,   0, 140N,  814E,  60,  978, TS,      LAILA
+IO, 01, 2010051918,   ,chunshu,   0, 146N,  812E,  55,  982, TS,      LAILA
+IO, 01, 2010052000,   ,chunshu,   0, 151N,  809E,  55,  982, TS,      LAILA
+IO, 01, 2010052006,   ,chunshu,   0, 154N,  806E,  55,  982, TS,      LAILA
+IO, 01, 2010052012,   ,chunshu,   0, 157N,  805E,  55,  982, TS,      LAILA
+IO, 01, 2010052018,   ,chunshu,   0, 160N,  806E,  55,  982, TS,      LAILA
+IO, 01, 2010052100,   ,chunshu,   0, 164N,  808E,  50,  985, TS,      LAILA
+IO, 01, 2010052106,   ,chunshu,   0, 167N,  811E,  40,  993, TS,      LAILA
+IO, 01, 2010052112,   ,chunshu,   0, 169N,  815E,  30, 1000, TD,      LAILA
+IO, 01, 2010052118,   ,chunshu,   0, 171N,  819E,  25, 1004, TD

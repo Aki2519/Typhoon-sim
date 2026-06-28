@@ -1,0 +1,53 @@
+SH, 22, 2006040312,   ,chunshu,   0,  84S,  865E,  15, 1006, DB
+SH, 22, 2006040318,   ,chunshu,   0,  83S,  867E,  15, 1006, DB
+SH, 22, 2006040400,   ,chunshu,   0,  82S,  868E,  15, 1006, DB
+SH, 22, 2006040406,   ,chunshu,   0,  81S,  869E,  20, 1004, DB
+SH, 22, 2006040412,   ,chunshu,   0,  79S,  870E,  25, 1002, TD
+SH, 22, 2006040418,   ,chunshu,   0,  77S,  868E,  25, 1002, TD
+SH, 22, 2006040500,   ,chunshu,   0,  75S,  866E,  25, 1002, TD
+SH, 22, 2006040506,   ,chunshu,   0,  73S,  865E,  25, 1002, TD
+SH, 22, 2006040512,   ,chunshu,   0,  70S,  864E,  25, 1002, TD
+SH, 22, 2006040518,   ,chunshu,   0,  68S,  861E,  25, 1002, TD
+SH, 22, 2006040600,   ,chunshu,   0,  69S,  857E,  25, 1002, TD
+SH, 22, 2006040606,   ,chunshu,   0,  70S,  853E,  25, 1002, TD
+SH, 22, 2006040612,   ,chunshu,   0,  74S,  854E,  25, 1002, TD
+SH, 22, 2006040618,   ,chunshu,   0,  75S,  859E,  25, 1002, TD
+SH, 22, 2006040700,   ,chunshu,   0,  74S,  866E,  25, 1002, TD
+SH, 22, 2006040706,   ,chunshu,   0,  76S,  875E,  25, 1002, TD
+SH, 22, 2006040712,   ,chunshu,   0,  82S,  883E,  25, 1002, TD
+SH, 22, 2006040718,   ,chunshu,   0,  85S,  895E,  25, 1004, TD
+SH, 22, 2006040800,   ,chunshu,   0,  86S,  907E,  25, 1004, TD
+SH, 22, 2006040806,   ,chunshu,   0,  87S,  921E,  25, 1004, TD,     INVEST
+SH, 22, 2006040812,   ,chunshu,   0,  87S,  935E,  25, 1004, TD,     INVEST
+SH, 22, 2006040818,   ,chunshu,   0,  85S,  947E,  25, 1004, TD,     INVEST
+SH, 22, 2006040900,   ,chunshu,   0,  84S,  956E,  25, 1002, TD,     INVEST
+SH, 22, 2006040906,   ,chunshu,   0,  86S,  963E,  25, 1002, TD,     INVEST
+SH, 22, 2006040912,   ,chunshu,   0,  91S,  961E,  25, 1002, TD,     INVEST
+SH, 22, 2006040918,   ,chunshu,   0,  90S,  956E,  30, 1000, TD,     INVEST
+SH, 22, 2006041000,   ,chunshu,   0,  92S,  952E,  30, 1000, TD,     INVEST
+SH, 22, 2006041006,   ,chunshu,   0,  96S,  950E,  30, 1000, TD,     INVEST
+SH, 22, 2006041012,   ,chunshu,   0,  99S,  953E,  30, 1000, TD,     INVEST
+SH, 22, 2006041018,   ,chunshu,   0, 104S,  950E,  30, 1000, TD,     INVEST
+SH, 22, 2006041100,   ,chunshu,   0, 109S,  947E,  30, 1000, TD,     INVEST
+SH, 22, 2006041106,   ,chunshu,   0, 111S,  939E,  30, 1000, TD,     INVEST
+SH, 22, 2006041112,   ,chunshu,   0, 113S,  930E,  30, 1000, TD,     INVEST
+SH, 22, 2006041118,   ,chunshu,   0, 116S,  924E,  30, 1000, TD,     INVEST
+SH, 22, 2006041200,   ,chunshu,   0, 121S,  919E,  30, 1000, TD,     INVEST
+SH, 22, 2006041206,   ,chunshu,   0, 124S,  913E,  30, 1000, TD,     INVEST
+SH, 22, 2006041212,   ,chunshu,   0, 128S,  909E,  35,  997, TS,     INVEST
+SH, 22, 2006041218,   ,chunshu,   0, 130S,  904E,  35,  997, TS,     NONAME
+SH, 22, 2006041300,   ,chunshu,   0, 132S,  901E,  40,  994, TS,     NONAME
+SH, 22, 2006041306,   ,chunshu,   0, 133S,  898E,  45,  991, TS,     NONAME
+SH, 22, 2006041312,   ,chunshu,   0, 133S,  895E,  45,  991, TS,     NONAME
+SH, 22, 2006041318,   ,chunshu,   0, 135S,  893E,  45,  991, TS,       ELIA
+SH, 22, 2006041400,   ,chunshu,   0, 138S,  891E,  45,  991, TS,       ELIA
+SH, 22, 2006041406,   ,chunshu,   0, 142S,  887E,  50,  987, TS,       ELIA
+SH, 22, 2006041412,   ,chunshu,   0, 146S,  882E,  50,  985, TS,       ELIA
+SH, 22, 2006041418,   ,chunshu,   0, 149S,  875E,  50,  985, TS,       ELIA
+SH, 22, 2006041500,   ,chunshu,   0, 151S,  868E,  45,  991, TS,       ELIA
+SH, 22, 2006041506,   ,chunshu,   0, 152S,  861E,  35,  997, TS,       ELIA
+SH, 22, 2006041512,   ,chunshu,   0, 155S,  854E,  35,  997, TS,       ELIA
+SH, 22, 2006041518,   ,chunshu,   0, 160S,  848E,  30, 1000, TD
+SH, 22, 2006041600,   ,chunshu,   0, 168S,  844E,  30, 1000, TD
+SH, 22, 2006041606,   ,chunshu,   0, 173S,  836E,  25, 1002, TD
+SH, 22, 2006041612,   ,chunshu,   0, 177S,  827E,  25, 1002, TD

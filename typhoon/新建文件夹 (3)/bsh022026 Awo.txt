@@ -1,0 +1,16 @@
+SH, 02, 2025080500,   ,chunshu,   0,  73S,  651E,  15, 1008, DB,     INVEST
+SH, 02, 2025080506,   ,chunshu,   0,  65S,  650E,  20, 1008, DB,     INVEST
+SH, 02, 2025080512,   ,chunshu,   0,  62S,  656E,  15, 1002, DB,     INVEST
+SH, 02, 2025080518,   ,chunshu,   0,  76S,  653E,  20, 1000, DB,     INVEST
+SH, 02, 2025080600,   ,chunshu,   0,  73S,  647E,  25,  998, TD,     INVEST
+SH, 02, 2025080606,   ,chunshu,   0,  73S,  635E,  30,  998, TD,     INVEST
+SH, 02, 2025080612,   ,chunshu,   0,  73S,  630E,  30, 1000, TD,     INVEST
+SH, 02, 2025080618,   ,chunshu,   0,  74S,  626E,  35, 1002, TD,     INVEST
+SH, 02, 2025080700,   ,chunshu,   0,  74S,  622E,  40, 1000, TS,        TWO
+SH, 02, 2025080706,   ,chunshu,   0,  75S,  615E,  45,  998, TS,        TWO
+SH, 02, 2025080712,   ,chunshu,   0,  72S,  608E,  50,  995, TS,        AWO
+SH, 02, 2025080718,   ,chunshu,   0,  69S,  602E,  45, 1002, TS,        AWO
+SH, 02, 2025080800,   ,chunshu,   0,  64S,  597E,  35, 1002, TS,        AWO
+SH, 02, 2025080806,   ,chunshu,   0,  58S,  595E,  30, 1005, TD,        AWO
+SH, 02, 2025080812,   ,chunshu,   0,  56S,  597E,  25, 1005, TD,        AWO
+SH, 02, 2025080818,   ,chunshu,   0,  60S,  597E,  20, 1008, DB,        AWO

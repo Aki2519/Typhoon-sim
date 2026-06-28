@@ -1,0 +1,9 @@
+SH, 04, 2006120100,   ,chunshu,   0, 104S, 1640E,  25, 1004, TD,     NONAME
+SH, 04, 2006120106,   ,chunshu,   0, 110S, 1646E,  30, 1000, TD,     NONAME
+SH, 04, 2006120112,   ,chunshu,   0, 117S, 1649E,  35,  997, TS,     NONAME
+SH, 04, 2006120118,   ,chunshu,   0, 123S, 1650E,  35,  997, TS,     NONAME
+SH, 04, 2006120200,   ,chunshu,   0, 125S, 1650E,  25, 1002, TD,     NONAME
+SH, 04, 2006120206,   ,chunshu,   0, 126S, 1650E,  25, 1002, TD,     NONAME
+SH, 04, 2006120212,   ,chunshu,   0, 132S, 1647E,  25, 1002, TD
+SH, 04, 2006120218,   ,chunshu,   0, 136S, 1639E,  25, 1002, TD
+SH, 04, 2006120300,   ,chunshu,   0, 140S, 1631E,  25, 1002, TD

@@ -1,0 +1,26 @@
+IO, 90, 2026010512,   ,chunshu,   0,  48N,  904E,  15, 1008, DB,     INVEST
+IO, 90, 2026010518,   ,chunshu,   0,  49N,  886E,  20, 1008, DB,     INVEST
+IO, 90, 2026010600,   ,chunshu,   0,  52N,  881E,  20, 1008, DB,     INVEST
+IO, 90, 2026010606,   ,chunshu,   0,  46N,  894E,  25, 1008, TD,     INVEST
+IO, 90, 2026010612,   ,chunshu,   0,  46N,  889E,  25, 1005, TD,     INVEST
+IO, 90, 2026010618,   ,chunshu,   0,  46N,  883E,  25, 1005, TD,     INVEST
+IO, 90, 2026010700,   ,chunshu,   0,  47N,  875E,  25, 1005, TD,     INVEST
+IO, 90, 2026010706,   ,chunshu,   0,  49N,  870E,  30, 1002, TD,     INVEST
+IO, 90, 2026010712,   ,chunshu,   0,  52N,  866E,  35, 1002, TS,     INVEST
+IO, 90, 2026010718,   ,chunshu,   0,  53N,  859E,  35, 1002, TS,     INVEST
+IO, 90, 2026010800,   ,chunshu,   0,  54N,  851E,  30, 1002, TD,     INVEST
+IO, 90, 2026010806,   ,chunshu,   0,  64N,  845E,  40,  998, TS,     INVEST
+IO, 90, 2026010812,   ,chunshu,   0,  72N,  837E,  40,  998, TS,     INVEST
+IO, 90, 2026010818,   ,chunshu,   0,  67N,  838E,  40,  995, TS,     INVEST
+IO, 90, 2026010900,   ,chunshu,   0,  73N,  836E,  40,  998, TS,     INVEST
+IO, 90, 2026010906,   ,chunshu,   0,  80N,  828E,  35,  998, TS,     INVEST
+IO, 90, 2026010912,   ,chunshu,   0,  83N,  824E,  30, 1000, TD,     INVEST
+IO, 90, 2026010918,   ,chunshu,   0,  84N,  821E,  30, 1002, TD,     INVEST
+IO, 90, 2026011000,   ,chunshu,   0,  86N,  815E,  25, 1002, TD,     INVEST
+IO, 90, 2026011006,   ,chunshu,   0,  93N,  810E,  25, 1002, TD,     INVEST
+IO, 90, 2026011012,   ,chunshu,   0,  95N,  806E,  25, 1002, TD,     INVEST
+IO, 90, 2026011018,   ,chunshu,   0,  98N,  798E,  20, 1005, DB,     INVEST
+IO, 90, 2026011100,   ,chunshu,   0, 107N,  796E,  20, 1008, DB,     INVEST
+IO, 90, 2026011106,   ,chunshu,   0, 108N,  804E,  20, 1008, LO,     INVEST
+IO, 90, 2026011106,   ,chunshu,   0, 104N,  802E,  15, 1008, LO,     INVEST
+

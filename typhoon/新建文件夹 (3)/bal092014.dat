@@ -1,0 +1,37 @@
+AL, 09, 2014102100,   ,chunshu,   0, 195N,  953W,  25, 1002, LO
+AL, 09, 2014102106,   ,chunshu,   0, 195N,  948W,  25, 1002, LO
+AL, 09, 2014102112,   ,chunshu,   0, 195N,  942W,  25, 1001, LO
+AL, 09, 2014102118,   ,chunshu,   0, 195N,  937W,  30, 1000, LO
+AL, 09, 2014102200,   ,chunshu,   0, 195N,  933W,  30, 1000, TD
+AL, 09, 2014102206,   ,chunshu,   0, 195N,  929W,  30, 1001, TD
+AL, 09, 2014102212,   ,chunshu,   0, 194N,  924W,  30, 1002, TD
+AL, 09, 2014102218,   ,chunshu,   0, 193N,  919W,  30, 1003, TD,       NINE
+AL, 09, 2014102300,   ,chunshu,   0, 192N,  913W,  25, 1004, LO,       NINE
+AL, 09, 2014102306,   ,chunshu,   0, 189N,  908W,  20, 1005, LO
+AL, 09, 2014102312,   ,chunshu,   0, 186N,  905W,  20, 1006, LO,           
+AL, 09, 2014102318,   ,chunshu,   0, 182N,  900W,  20, 1007, LO,     INVEST
+AL, 09, 2014102400,   ,chunshu,   0, 179N,  894W,  20, 1008, LO,     INVEST
+AL, 09, 2014102406,   ,chunshu,   0, 181N,  885W,  20, 1008, LO
+AL, 09, 2014102412,   ,chunshu,   0, 184N,  877W,  20, 1008, LO,     INVEST
+AL, 09, 2014102418,   ,chunshu,   0, 188N,  870W,  20, 1008, LO,     INVEST
+AL, 09, 2014102500,   ,chunshu,   0, 190N,  862W,  20, 1008, DB,     INVEST
+AL, 09, 2014102506,   ,chunshu,   0, 188N,  853W,  20, 1008, DB
+AL, 09, 2014102512,   ,chunshu,   0, 183N,  845W,  25, 1008, DB,     INVEST
+AL, 09, 2014102518,   ,chunshu,   0, 177N,  837W,  25, 1008, DB,     INVEST
+AL, 09, 2014102600,   ,chunshu,   0, 171N,  829W,  25, 1007, DB,     INVEST
+AL, 09, 2014102606,   ,chunshu,   0, 165N,  822W,  25, 1007, DB,     INVEST
+AL, 09, 2014102612,   ,chunshu,   0, 160N,  818W,  30, 1006, LO,     INVEST
+AL, 09, 2014102618,   ,chunshu,   0, 155N,  818W,  30, 1006, LO,     INVEST
+AL, 09, 2014102700,   ,chunshu,   0, 151N,  820W,  30, 1006, TD,     INVEST
+AL, 09, 2014102706,   ,chunshu,   0, 150N,  824W,  35, 1005, TS,     INVEST
+AL, 09, 2014102712,   ,chunshu,   0, 149N,  830W,  35, 1005, TS,      HANNA
+AL, 09, 2014102716,   ,chunshu,   0, 149N,  833W,  35, 1005, TS
+AL, 09, 2014102718,   ,chunshu,   0, 149N,  835W,  30, 1006, TD,      HANNA
+AL, 09, 2014102800,   ,chunshu,   0, 150N,  843W,  30, 1007, TD,      HANNA
+AL, 09, 2014102806,   ,chunshu,   0, 154N,  852W,  25, 1008, LO
+AL, 09, 2014102812,   ,chunshu,   0, 159N,  859W,  20, 1009, LO,     INVEST
+AL, 09, 2014102818,   ,chunshu,   0, 165N,  867W,  20, 1010, LO,     INVEST
+AL, 09, 2014102900,   ,chunshu,   0, 168N,  876W,  20, 1010, LO
+AL, 09, 2014102906,   ,chunshu,   0, 169N,  886W,  20, 1011, LO
+AL, 09, 2014102912,   ,chunshu,   0, 169N,  896W,  20, 1011, LO,           
+AL, 09, 2014102918,   ,chunshu,   0, 168N,  905W,  15, 1012, LO

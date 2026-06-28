@@ -1,0 +1,62 @@
+SH, 14, 2026010618,   ,chunshu,   0, 110S,  717E,15 , 1008, DB,     INVEST
+SH, 14, 2026010700,   ,chunshu,   0, 111S,  722E,15 , 1008, DB,     INVEST
+SH, 14, 2026010706,   ,chunshu,   0, 111S,  728E,20 , 1008, DB,     INVEST
+SH, 14, 2026010712,   ,chunshu,   0, 109S,  732E,20 , 1005, DB,     INVEST
+SH, 14, 2026010718,   ,chunshu,   0, 109S,  733E,20 , 1005, DB,     INVEST
+SH, 14, 2026010800,   ,chunshu,   0, 109S,  735E,20 , 1005, DB,     INVEST
+SH, 14, 2026010806,   ,chunshu,   0, 109S,  737E,20 , 1005, DB,     INVEST
+SH, 14, 2026010812,   ,chunshu,   0, 110S,  739E,20 , 1005, DB,     INVEST
+SH, 14, 2026010818,   ,chunshu,   0, 111S,  745E,25 , 1005, TD,     INVEST
+SH, 14, 2026010900,   ,chunshu,   0, 113S,  746E,25 , 1005, TD,     INVEST
+SH, 14, 2026010906,   ,chunshu,   0, 116S,  748E,25 , 1005, TD,     INVEST
+SH, 14, 2026010912,   ,chunshu,   0, 117S,  752E,30 , 1005, TD,     INVEST
+SH, 14, 2026010918,   ,chunshu,   0, 118S,  756E,30 , 1002, TD,     INVEST
+SH, 14, 2026011000,   ,chunshu,   0, 122S,  760E,35 , 1002, TS,     INVEST
+SH, 14, 2026011006,   ,chunshu,   0, 128S,  761E,40 ,  998, TS,     INVEST
+SH, 14, 2026011012,   ,chunshu,   0, 134S,  761E,45 ,  995, TS,     INVEST
+SH, 14, 2026011018,   ,chunshu,   0, 140S,  760E,50 ,  995, TS,   FOURTEEN
+SH, 14, 2026011100,   ,chunshu,   0, 145S,  765E,55 ,  992, TS,   FOURTEEN
+SH, 14, 2026011106,   ,chunshu,   0, 150S,  767E,65 ,  988, TT,     DUDZAI
+SH, 14, 2026011112,   ,chunshu,   0, 155S,  770E,75 ,  980, TY,     DUDZAI
+SH, 14, 2026011118,   ,chunshu,   0, 159S,  773E,90 ,  968, TY,     DUDZAI
+SH, 14, 2026011200,   ,chunshu,   0, 164S,  777E,100,  958, TY,     DUDZAI
+SH, 14, 2026011206,   ,chunshu,   0, 166S,  778E,115,  948, TY,     DUDZAI
+SH, 14, 2026011212,   ,chunshu,   0, 168S,  779E,125,  945, TY,     DUDZAI
+SH, 14, 2026011218,   ,chunshu,   0, 170S,  780E,115,  948, TY,     DUDZAI
+SH, 14, 2026011300,   ,chunshu,   0, 172S,  781E,105,  952, TY,     DUDZAI
+SH, 14, 2026011306,   ,chunshu,   0, 173S,  780E,110,  948, TY,     DUDZAI
+SH, 14, 2026011312,   ,chunshu,   0, 173S,  778E,85 ,  968, TY,     DUDZAI
+SH, 14, 2026011318,   ,chunshu,   0, 172S,  776E,70 ,  978, TY,     DUDZAI
+SH, 14, 2026011400,   ,chunshu,   0, 172S,  775E,60 ,  982, TY,     DUDZAI
+SH, 14, 2026011406,   ,chunshu,   0, 172S,  771E,75 ,  980, TY,     DUDZAI
+SH, 14, 2026011412,   ,chunshu,   0, 172S,  767E,80 ,  975, TY,     DUDZAI
+SH, 14, 2026011418,   ,chunshu,   0, 172S,  758E,85 ,  970, TY,     DUDZAI
+SH, 14, 2026011500,   ,chunshu,   0, 171S,  749E,90 ,  965, TY,     DUDZAI
+SH, 14, 2026011506,   ,chunshu,   0, 171S,  744E,105,  960, TY,     DUDZAI
+SH, 14, 2026011512,   ,chunshu,   0, 171S,  736E,115,  945, TY,     DUDZAI
+SH, 14, 2026011518,   ,chunshu,   0, 169S,  727E,130,  935, ST,     DUDZAI
+SH, 14, 2026011600,   ,chunshu,   0, 168S,  721E,120,  942, TY,     DUDZAI
+SH, 14, 2026011606,   ,chunshu,   0, 168S,  713E,115,  948, TY,     DUDZAI
+SH, 14, 2026011612,   ,chunshu,   0, 169S,  705E,105,  955, TY,     DUDZAI
+SH, 14, 2026011618,   ,chunshu,   0, 171S,  695E,85 ,  968, TY,     DUDZAI
+SH, 14, 2026011700,   ,chunshu,   0, 173S,  687E,75 ,  975, TY,     DUDZAI
+SH, 14, 2026011706,   ,chunshu,   0, 176S,  679E,65 ,  982, TY,     DUDZAI
+SH, 14, 2026011712,   ,chunshu,   0, 180S,  674E,60 ,  985, TS,     DUDZAI
+SH, 14, 2026011718,   ,chunshu,   0, 185S,  669E,55 ,  988, TS,     DUDZAI
+SH, 14, 2026011800,   ,chunshu,   0, 194S,  664E,55 ,  988, TS,     DUDZAI
+SH, 14, 2026011806,   ,chunshu,   0, 203S,  655E,65 ,  985, TY,     DUDZAI
+SH, 14, 2026011812,   ,chunshu,   0, 208S,  650E,55 ,  988, TS,     DUDZAI
+SH, 14, 2026011818,   ,chunshu,   0, 210S,  640E,50 ,  990, TS,     DUDZAI
+SH, 14, 2026011900,   ,chunshu,   0, 211S,  628E,50 ,  992, TS,     DUDZAI
+SH, 14, 2026011906,   ,chunshu,   0, 211S,  617E,50 ,  992, TS,     DUDZAI
+SH, 14, 2026011912,   ,chunshu,   0, 217S,  607E,55 ,  990, TS,     DUDZAI
+SH, 14, 2026011918,   ,chunshu,   0, 220S,  596E,55 ,  990, TS,     DUDZAI
+SH, 14, 2026012000,   ,chunshu,   0, 228S,  584E,55 ,  988, TS,     DUDZAI
+SH, 14, 2026012006,   ,chunshu,   0, 236S,  577E,60 ,  985, TS,     DUDZAI
+SH, 14, 2026012012,   ,chunshu,   0, 250S,  569E,65 ,  982, TY,     DUDZAI
+SH, 14, 2026012018,   ,chunshu,   0, 262S,  568E,65 ,  980, TY,     DUDZAI
+SH, 14, 2026012100,   ,chunshu,   0, 277S,  571E,70 ,  978, TY,     DUDZAI
+SH, 14, 2026012106,   ,chunshu,   0, 298S,  580E,65 ,  980, TY,     DUDZAI
+SH, 14, 2026012112,   ,chunshu,   0, 323S,  597E,55 ,  988, TS,     DUDZAI
+SH, 14, 2026012118,   ,chunshu,   0, 357S,  623E,50 ,  985, EX,     DUDZAI
+SH, 14, 2026012200,   ,chunshu,   0, 393S,  665E,50 ,  985, EX,     DUDZAI

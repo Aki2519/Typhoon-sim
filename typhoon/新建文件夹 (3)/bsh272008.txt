@@ -1,0 +1,9 @@
+SH, 27, 2008041700,   ,chunshu,   0, 127S, 1575E,  15, 1010, DB
+SH, 27, 2008041706,   ,chunshu,   0, 132S, 1580E,  20, 1007, DB
+SH, 27, 2008041712,   ,chunshu,   0, 138S, 1587E,  25, 1004, TD
+SH, 27, 2008041718,   ,chunshu,   0, 144S, 1596E,  30, 1000, TD,     INVEST
+SH, 27, 2008041800,   ,chunshu,   0, 151S, 1608E,  30, 1000, TD,     NONAME
+SH, 27, 2008041806,   ,chunshu,   0, 159S, 1622E,  30, 1000, TD,     NONAME
+SH, 27, 2008041812,   ,chunshu,   0, 168S, 1635E,  30, 1000, TD,     NONAME
+SH, 27, 2008041818,   ,chunshu,   0, 177S, 1646E,  20, 1007, DB,     NONAME
+SH, 27, 2008041900,   ,chunshu,   0, 186S, 1659E,  15, 1010, TD,     NONAME

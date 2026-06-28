@@ -1,0 +1,64 @@
+AL, 12, 2011082800,   ,chunshu,   0,  95N,  190W,  20, 1012, LO,     INVEST
+AL, 12, 2011082806,   ,chunshu,   0,  94N,  203W,  20, 1011, LO,     INVEST
+AL, 12, 2011082812,   ,chunshu,   0,  93N,  216W,  25, 1010, LO,     INVEST
+AL, 12, 2011082818,   ,chunshu,   0,  93N,  229W,  25, 1009, LO,     INVEST
+AL, 12, 2011082900,   ,chunshu,   0,  93N,  242W,  25, 1009, LO,     INVEST
+AL, 12, 2011082906,   ,chunshu,   0,  95N,  256W,  25, 1009, TD,     TWELVE
+AL, 12, 2011082912,   ,chunshu,   0,  99N,  270W,  30, 1008, TD,     TWELVE
+AL, 12, 2011082918,   ,chunshu,   0, 106N,  282W,  30, 1008, TD,     TWELVE
+AL, 12, 2011083000,   ,chunshu,   0, 110N,  296W,  35, 1006, TS,     TWELVE
+AL, 12, 2011083006,   ,chunshu,   0, 115N,  311W,  40, 1004, TS,     TWELVE
+AL, 12, 2011083012,   ,chunshu,   0, 120N,  329W,  45, 1001, TS,      KATIA
+AL, 12, 2011083018,   ,chunshu,   0, 126N,  346W,  50,  997, TS,      KATIA
+AL, 12, 2011083100,   ,chunshu,   0, 131N,  364W,  50,  997, TS,      KATIA
+AL, 12, 2011083106,   ,chunshu,   0, 136N,  382W,  55,  994, TS,      KATIA
+AL, 12, 2011083112,   ,chunshu,   0, 140N,  400W,  55,  994, TS,      KATIA
+AL, 12, 2011083118,   ,chunshu,   0, 144N,  418W,  60,  990, TS,      KATIA
+AL, 12, 2011090100,   ,chunshu,   0, 148N,  435W,  65,  988, HU,      KATIA
+AL, 12, 2011090106,   ,chunshu,   0, 151N,  452W,  65,  988, HU,      KATIA
+AL, 12, 2011090112,   ,chunshu,   0, 153N,  469W,  65,  988, HU,      KATIA
+AL, 12, 2011090118,   ,chunshu,   0, 157N,  485W,  65,  988, HU,      KATIA
+AL, 12, 2011090200,   ,chunshu,   0, 162N,  500W,  65,  988, HU,      KATIA
+AL, 12, 2011090206,   ,chunshu,   0, 168N,  512W,  65,  988, HU,      KATIA
+AL, 12, 2011090212,   ,chunshu,   0, 174N,  521W,  65,  987, HU,      KATIA
+AL, 12, 2011090218,   ,chunshu,   0, 180N,  530W,  65,  987, HU,      KATIA
+AL, 12, 2011090300,   ,chunshu,   0, 184N,  539W,  65,  987, HU,      KATIA
+AL, 12, 2011090306,   ,chunshu,   0, 188N,  547W,  65,  987, HU,      KATIA
+AL, 12, 2011090312,   ,chunshu,   0, 194N,  554W,  65,  986, HU,      KATIA
+AL, 12, 2011090318,   ,chunshu,   0, 199N,  562W,  65,  982, HU,      KATIA
+AL, 12, 2011090400,   ,chunshu,   0, 204N,  571W,  70,  978, HU,      KATIA
+AL, 12, 2011090406,   ,chunshu,   0, 211N,  579W,  75,  969, HU,      KATIA
+AL, 12, 2011090412,   ,chunshu,   0, 217N,  588W,  85,  961, HU,      KATIA
+AL, 12, 2011090418,   ,chunshu,   0, 223N,  597W,  90,  959, HU,      KATIA
+AL, 12, 2011090500,   ,chunshu,   0, 230N,  606W,  90,  957, HU,      KATIA
+AL, 12, 2011090506,   ,chunshu,   0, 236N,  616W,  95,  954, HU,      KATIA
+AL, 12, 2011090512,   ,chunshu,   0, 242N,  626W, 100,  950, HU,      KATIA
+AL, 12, 2011090518,   ,chunshu,   0, 248N,  634W, 110,  946, HU,      KATIA
+AL, 12, 2011090600,   ,chunshu,   0, 256N,  640W, 120,  942, HU,      KATIA
+AL, 12, 2011090606,   ,chunshu,   0, 262N,  648W, 115,  946, HU,      KATIA
+AL, 12, 2011090612,   ,chunshu,   0, 267N,  656W, 105,  954, HU,      KATIA
+AL, 12, 2011090618,   ,chunshu,   0, 273N,  662W,  95,  959, HU,      KATIA
+AL, 12, 2011090700,   ,chunshu,   0, 277N,  669W,  85,  964, HU,      KATIA
+AL, 12, 2011090706,   ,chunshu,   0, 282N,  676W,  85,  967, HU,      KATIA
+AL, 12, 2011090712,   ,chunshu,   0, 288N,  684W,  80,  969, HU,      KATIA
+AL, 12, 2011090718,   ,chunshu,   0, 294N,  693W,  80,  969, HU,      KATIA
+AL, 12, 2011090800,   ,chunshu,   0, 303N,  699W,  80,  968, HU,      KATIA
+AL, 12, 2011090806,   ,chunshu,   0, 315N,  701W,  80,  967, HU,      KATIA
+AL, 12, 2011090812,   ,chunshu,   0, 328N,  702W,  80,  966, HU,      KATIA
+AL, 12, 2011090818,   ,chunshu,   0, 341N,  700W,  80,  965, HU,      KATIA
+AL, 12, 2011090900,   ,chunshu,   0, 356N,  694W,  80,  964, HU,      KATIA
+AL, 12, 2011090906,   ,chunshu,   0, 371N,  684W,  75,  963, HU,      KATIA
+AL, 12, 2011090912,   ,chunshu,   0, 385N,  671W,  75,  961, HU,      KATIA
+AL, 12, 2011090918,   ,chunshu,   0, 398N,  646W,  75,  960, HU,      KATIA
+AL, 12, 2011091000,   ,chunshu,   0, 410N,  605W,  75,  958, HU,      KATIA
+AL, 12, 2011091006,   ,chunshu,   0, 422N,  561W,  75,  956, HU,      KATIA
+AL, 12, 2011091012,   ,chunshu,   0, 435N,  506W,  75,  954, EX,      KATIA
+AL, 12, 2011091018,   ,chunshu,   0, 454N,  437W,  75,  954, EX,      KATIA
+AL, 12, 2011091100,   ,chunshu,   0, 473N,  372W,  70,  957, EX
+AL, 12, 2011091106,   ,chunshu,   0, 491N,  313W,  70,  960, EX
+AL, 12, 2011091112,   ,chunshu,   0, 511N,  260W,  60,  964, EX
+AL, 12, 2011091118,   ,chunshu,   0, 528N,  211W,  60,  966, EX
+AL, 12, 2011091200,   ,chunshu,   0, 547N,  163W,  60,  968, EX
+AL, 12, 2011091206,   ,chunshu,   0, 562N,  116W,  60,  970, EX
+AL, 12, 2011091212,   ,chunshu,   0, 580N,   70W,  60,  972, EX
+AL, 12, 2011091218,   ,chunshu,   0, 595N,    0W,  60,  974, EX

@@ -1,0 +1,52 @@
+SH, 10, 2007012806,   ,chunshu,   0,  85S,  667E,  30, 1000, TS,     INVEST
+SH, 10, 2007012812,   ,chunshu,   0,  91S,  670E,  30, 1000, TS
+SH, 10, 2007012818,   ,chunshu,   0, 101S,  675E,  35,  996, TS,     NONAME
+SH, 10, 2007012900,   ,chunshu,   0, 111S,  670E,  35,  996, TS,     NONAME
+SH, 10, 2007012906,   ,chunshu,   0, 118S,  664E,  35,  996, TS,     NONAME
+SH, 10, 2007012912,   ,chunshu,   0, 120S,  659E,  40,  994, TS,       DORA
+SH, 10, 2007012918,   ,chunshu,   0, 122S,  655E,  45,  991, TS,       DORA
+SH, 10, 2007013000,   ,chunshu,   0, 125S,  653E,  55,  984, TS,       DORA
+SH, 10, 2007013006,   ,chunshu,   0, 128S,  654E,  60,  978, TS
+SH, 10, 2007013012,   ,chunshu,   0, 131S,  655E,  65,  976, TY,       DORA
+SH, 10, 2007013018,   ,chunshu,   0, 133S,  657E,  70,  970, TY,       DORA
+SH, 10, 2007013100,   ,chunshu,   0, 136S,  658E,  75,  967, TY,       DORA
+SH, 10, 2007013106,   ,chunshu,   0, 138S,  660E,  75,  967, TY,       DORA
+SH, 10, 2007013112,   ,chunshu,   0, 140S,  661E,  75,  967, TY,       DORA
+SH, 10, 2007013118,   ,chunshu,   0, 142S,  663E,  75,  967, TY,       DORA
+SH, 10, 2007020100,   ,chunshu,   0, 145S,  666E,  75,  967, TY,       DORA
+SH, 10, 2007020106,   ,chunshu,   0, 149S,  672E,  80,  963, TY,       DORA
+SH, 10, 2007020112,   ,chunshu,   0, 155S,  676E,  85,  958, TY,       DORA
+SH, 10, 2007020118,   ,chunshu,   0, 162S,  682E,  90,  956, TY,       DORA
+SH, 10, 2007020200,   ,chunshu,   0, 167S,  683E,  95,  952, TY,       DORA
+SH, 10, 2007020206,   ,chunshu,   0, 173S,  683E,  90,  954, TY,       DORA
+SH, 10, 2007020212,   ,chunshu,   0, 177S,  681E,  90,  954, TY,       DORA
+SH, 10, 2007020218,   ,chunshu,   0, 181S,  679E, 110,  933, TY,       DORA
+SH, 10, 2007020300,   ,chunshu,   0, 184S,  677E, 110,  933, TY,       DORA
+SH, 10, 2007020306,   ,chunshu,   0, 186S,  674E, 115,  927, TY,       DORA
+SH, 10, 2007020312,   ,chunshu,   0, 187S,  672E, 115,  927, TY,       DORA
+SH, 10, 2007020318,   ,chunshu,   0, 187S,  671E, 115,  937, TY,       DORA
+SH, 10, 2007020400,   ,chunshu,   0, 188S,  670E, 105,  944, TY,       DORA
+SH, 10, 2007020406,   ,chunshu,   0, 189S,  669E, 100,  948, TY,       DORA
+SH, 10, 2007020412,   ,chunshu,   0, 190S,  668E,  85,  959, TY,       DORA
+SH, 10, 2007020418,   ,chunshu,   0, 191S,  666E,  75,  967, TY,       DORA
+SH, 10, 2007020500,   ,chunshu,   0, 190S,  663E,  70,  972, TY,       DORA
+SH, 10, 2007020506,   ,chunshu,   0, 191S,  660E,  70,  970, TY,       DORA
+SH, 10, 2007020512,   ,chunshu,   0, 192S,  656E,  60,  980, TS,       DORA
+SH, 10, 2007020518,   ,chunshu,   0, 194S,  653E,  60,  980, TS,       DORA
+SH, 10, 2007020600,   ,chunshu,   0, 199S,  652E,  60,  978, TS,       DORA
+SH, 10, 2007020606,   ,chunshu,   0, 203S,  648E,  55,  984, TS,       DORA
+SH, 10, 2007020612,   ,chunshu,   0, 206S,  644E,  50,  985, TS,       DORA
+SH, 10, 2007020618,   ,chunshu,   0, 210S,  639E,  45,  991, TS,       DORA
+SH, 10, 2007020700,   ,chunshu,   0, 213S,  633E,  40,  994, TS,       DORA
+SH, 10, 2007020706,   ,chunshu,   0, 217S,  631E,  40,  994, TS,       DORA
+SH, 10, 2007020712,   ,chunshu,   0, 223S,  633E,  40,  994, TS,       DORA
+SH, 10, 2007020718,   ,chunshu,   0, 230S,  635E,  40,  993, TS,       DORA
+SH, 10, 2007020800,   ,chunshu,   0, 238S,  633E,  40,  994, TS,       DORA
+SH, 10, 2007020806,   ,chunshu,   0, 245S,  632E,  35,  997, TS,       DORA
+SH, 10, 2007020812,   ,chunshu,   0, 249S,  629E,  35,  997, TS,       DORA
+SH, 10, 2007020818,   ,chunshu,   0, 253S,  628E,  35,  997, TS,       DORA
+SH, 10, 2007020900,   ,chunshu,   0, 256S,  625E,  30, 1000, TD,       DORA
+SH, 10, 2007020906,   ,chunshu,   0, 260S,  624E,  30, 1000, TD,       DORA
+SH, 10, 2007020912,   ,chunshu,   0, 265S,  616E,  25, 1002, TD
+SH, 10, 2007020918,   ,chunshu,   0, 269S,  607E,  25, 1002, TD
+SH, 10, 2007021000,   ,chunshu,   0, 275S,  592E,  25, 1002, TD

@@ -1,0 +1,13 @@
+IO, 04, 2008102406,   ,chunshu,   0, 160N,  850E,  15, 1010, TD,     INVEST
+IO, 04, 2008102412,   ,chunshu,   0, 160N,  855E,  20, 1007, DB,     INVEST
+IO, 04, 2008102418,   ,chunshu,   0, 161N,  860E,  25, 1004, TD,     INVEST
+IO, 04, 2008102500,   ,chunshu,   0, 164N,  865E,  25, 1004, TD,     INVEST
+IO, 04, 2008102506,   ,chunshu,   0, 167N,  871E,  30, 1000, TD,     INVEST
+IO, 04, 2008102512,   ,chunshu,   0, 172N,  875E,  30, 1000, TD,     INVEST
+IO, 04, 2008102518,   ,chunshu,   0, 177N,  878E,  30, 1000, TD,     INVEST
+IO, 04, 2008102600,   ,chunshu,   0, 182N,  881E,  35,  996, TS,     INVEST
+IO, 04, 2008102606,   ,chunshu,   0, 187N,  884E,  35,  996, TS,       FOUR
+IO, 04, 2008102612,   ,chunshu,   0, 198N,  888E,  35,  996, TS,       FOUR
+IO, 04, 2008102618,   ,chunshu,   0, 210N,  896E,  45,  989, TS,     RASHMI
+IO, 04, 2008102700,   ,chunshu,   0, 234N,  904E,  35,  996, TS
+IO, 04, 2008102706,   ,chunshu,   0, 250N,  906E,  25, 1004, TD

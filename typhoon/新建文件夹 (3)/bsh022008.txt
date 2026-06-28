@@ -1,0 +1,27 @@
+SH, 02, 2007111300,   ,chunshu,   0, 110S, 1496E,  25, 1004, TD
+SH, 02, 2007111306,   ,chunshu,   0, 113S, 1490E,  25, 1004, TD,     INVEST
+SH, 02, 2007111312,   ,chunshu,   0, 114S, 1482E,  30, 1000, TD,     NONAME
+SH, 02, 2007111318,   ,chunshu,   0, 112S, 1474E,  35,  996, TS,     NONAME
+SH, 02, 2007111400,   ,chunshu,   0, 108S, 1469E,  35,  996, TS,     NONAME
+SH, 02, 2007111406,   ,chunshu,   0, 107S, 1467E,  35,  996, TS,     NONAME
+SH, 02, 2007111412,   ,chunshu,   0, 107S, 1463E,  35,  996, TS,       GUBA
+SH, 02, 2007111418,   ,chunshu,   0, 105S, 1460E,  35,  996, TS,       GUBA
+SH, 02, 2007111500,   ,chunshu,   0, 105S, 1458E,  40,  993, TS,       GUBA
+SH, 02, 2007111506,   ,chunshu,   0, 106S, 1461E,  45,  989, TS,       GUBA
+SH, 02, 2007111512,   ,chunshu,   0, 107S, 1464E,  45,  989, TS,       GUBA
+SH, 02, 2007111518,   ,chunshu,   0, 109S, 1464E,  50,  985, TS,       GUBA
+SH, 02, 2007111600,   ,chunshu,   0, 111S, 1466E,  60,  978, TS,       GUBA
+SH, 02, 2007111606,   ,chunshu,   0, 114S, 1467E,  70,  970, TY,       GUBA
+SH, 02, 2007111612,   ,chunshu,   0, 115S, 1471E,  75,  967, TY,       GUBA
+SH, 02, 2007111618,   ,chunshu,   0, 114S, 1474E,  65,  974, TY,       GUBA
+SH, 02, 2007111700,   ,chunshu,   0, 113S, 1475E,  55,  982, TS
+SH, 02, 2007111706,   ,chunshu,   0, 115S, 1476E,  55,  982, TS,       GUBA
+SH, 02, 2007111712,   ,chunshu,   0, 118S, 1473E,  50,  985, TS,       GUBA
+SH, 02, 2007111718,   ,chunshu,   0, 122S, 1470E,  45,  989, TS,       GUBA
+SH, 02, 2007111800,   ,chunshu,   0, 124S, 1469E,  45,  989, TS,       GUBA
+SH, 02, 2007111806,   ,chunshu,   0, 126S, 1465E,  45,  989, TS,       GUBA
+SH, 02, 2007111812,   ,chunshu,   0, 127S, 1460E,  40,  993, TS,       GUBA
+SH, 02, 2007111818,   ,chunshu,   0, 124S, 1453E,  35,  996, TS,       GUBA
+SH, 02, 2007111900,   ,chunshu,   0, 120S, 1445E,  35,  996, TS,       GUBA
+SH, 02, 2007111906,   ,chunshu,   0, 111S, 1445E,  30, 1000, TD
+SH, 02, 2007111912,   ,chunshu,   0, 103S, 1448E,  25, 1004, TD

@@ -1,0 +1,14 @@
+IO, 01, 2011060906,   ,chunshu,   0, 181N,  699E,  20, 1007, DB
+IO, 01, 2011060912,   ,chunshu,   0, 183N,  703E,  25, 1004, TD
+IO, 01, 2011060918,   ,chunshu,   0, 186N,  706E,  25, 1004, TD,     INVEST
+IO, 01, 2011061000,   ,chunshu,   0, 190N,  707E,  25, 1004, TD,     INVEST
+IO, 01, 2011061006,   ,chunshu,   0, 191N,  711E,  25, 1004, TD,     INVEST
+IO, 01, 2011061012,   ,chunshu,   0, 190N,  717E,  30, 1000, TD,     INVEST
+IO, 01, 2011061018,   ,chunshu,   0, 191N,  719E,  30,  999, TD,     INVEST
+IO, 01, 2011061100,   ,chunshu,   0, 192N,  721E,  30,  998, TD,     INVEST
+IO, 01, 2011061106,   ,chunshu,   0, 195N,  720E,  35,  996, TS,     INVEST
+IO, 01, 2011061112,   ,chunshu,   0, 200N,  717E,  35,  996, TS,        ONE
+IO, 01, 2011061118,   ,chunshu,   0, 203N,  713E,  35,  996, TS,        ONE
+IO, 01, 2011061200,   ,chunshu,   0, 205N,  709E,  30, 1000, TD
+IO, 01, 2011061206,   ,chunshu,   0, 204N,  703E,  20, 1007, DB,        ONE
+IO, 01, 2011061212,   ,chunshu,   0, 209N,  701E,  25, 1004, TD,        ONE

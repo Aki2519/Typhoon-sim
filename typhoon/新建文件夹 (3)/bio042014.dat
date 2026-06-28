@@ -1,0 +1,37 @@
+IO, 04, 2014102312,   ,chunshu,   0, 108N,  621E,  15, 1010, DB
+IO, 04, 2014102318,   ,chunshu,   0, 111N,  618E,  15, 1010, DB
+IO, 04, 2014102400,   ,chunshu,   0, 113N,  616E,  20, 1007, DB
+IO, 04, 2014102406,   ,chunshu,   0, 116N,  615E,  20, 1007, DB,     INVEST
+IO, 04, 2014102412,   ,chunshu,   0, 118N,  617E,  20, 1007, DB,     INVEST
+IO, 04, 2014102418,   ,chunshu,   0, 120N,  620E,  25, 1004, TD,     INVEST
+IO, 04, 2014102500,   ,chunshu,   0, 123N,  623E,  30, 1000, TD,     INVEST
+IO, 04, 2014102506,   ,chunshu,   0, 129N,  624E,  30, 1000, TD,     INVEST
+IO, 04, 2014102512,   ,chunshu,   0, 135N,  628E,  35,  996, TS,       FOUR
+IO, 04, 2014102518,   ,chunshu,   0, 139N,  630E,  35,  996, TS,       FOUR
+IO, 04, 2014102600,   ,chunshu,   0, 141N,  630E,  40,  993, TS,       FOUR
+IO, 04, 2014102606,   ,chunshu,   0, 142N,  630E,  45,  989, TS,       FOUR
+IO, 04, 2014102612,   ,chunshu,   0, 143N,  630E,  55,  982, TS,    NILOFAR
+IO, 04, 2014102618,   ,chunshu,   0, 145N,  629E,  55,  982, TS,    NILOFAR
+IO, 04, 2014102700,   ,chunshu,   0, 147N,  628E,  65,  974, TY,    NILOFAR
+IO, 04, 2014102706,   ,chunshu,   0, 148N,  625E,  70,  970, TY,    NILOFAR
+IO, 04, 2014102712,   ,chunshu,   0, 150N,  623E,  80,  963, TY,    NILOFAR
+IO, 04, 2014102718,   ,chunshu,   0, 151N,  621E,  90,  956, TY,    NILOFAR
+IO, 04, 2014102800,   ,chunshu,   0, 155N,  617E,  95,  952, TY,    NILOFAR
+IO, 04, 2014102806,   ,chunshu,   0, 160N,  617E, 100,  948, TY,    NILOFAR
+IO, 04, 2014102812,   ,chunshu,   0, 168N,  618E, 115,  937, TY,    NILOFAR
+IO, 04, 2014102818,   ,chunshu,   0, 177N,  616E, 115,  937, TY,    NILOFAR
+IO, 04, 2014102900,   ,chunshu,   0, 180N,  616E, 105,  944, TY,    NILOFAR
+IO, 04, 2014102906,   ,chunshu,   0, 185N,  618E,  95,  952, TY,    NILOFAR
+IO, 04, 2014102912,   ,chunshu,   0, 188N,  622E,  80,  963, TY,    NILOFAR
+IO, 04, 2014102918,   ,chunshu,   0, 191N,  629E,  70,  970, TY,    NILOFAR
+IO, 04, 2014103000,   ,chunshu,   0, 196N,  635E,  60,  978, TS,    NILOFAR
+IO, 04, 2014103006,   ,chunshu,   0, 199N,  640E,  50,  985, TS,    NILOFAR
+IO, 04, 2014103012,   ,chunshu,   0, 200N,  645E,  45,  989, TS,    NILOFAR
+IO, 04, 2014103018,   ,chunshu,   0, 204N,  648E,  35,  996, TS,    NILOFAR
+IO, 04, 2014103100,   ,chunshu,   0, 207N,  650E,  30, 1000, TD,    NILOFAR
+IO, 04, 2014103106,   ,chunshu,   0, 210N,  651E,  25, 1004, TD,    NILOFAR
+IO, 04, 2014103112,   ,chunshu,   0, 214N,  650E,  25, 1004, TD,    NILOFAR
+IO, 04, 2014103118,   ,chunshu,   0, 217N,  647E,  20, 1007, DB
+IO, 04, 2014110100,   ,chunshu,   0, 217N,  642E,  20, 1007, DB,    NILOFAR
+IO, 04, 2014110106,   ,chunshu,   0, 217N,  638E,  20, 1007, DB,    NILOFAR
+IO, 04, 2014110112,   ,chunshu,   0, 217N,  633E,  15, 1010, DB

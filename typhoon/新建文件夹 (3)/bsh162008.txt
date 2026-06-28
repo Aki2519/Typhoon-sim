@@ -1,0 +1,94 @@
+SH, 16, 2008020206,   ,chunshu,   0, 106S,  833E,  15, 1010, DB
+SH, 16, 2008020212,   ,chunshu,   0, 109S,  832E,  15, 1010, DB
+SH, 16, 2008020218,   ,chunshu,   0, 112S,  830E,  15, 1010, DB
+SH, 16, 2008020300,   ,chunshu,   0, 115S,  826E,  15, 1010, DB
+SH, 16, 2008020306,   ,chunshu,   0, 118S,  821E,  20, 1007, DB
+SH, 16, 2008020312,   ,chunshu,   0, 121S,  814E,  25, 1004, TD,     INVEST
+SH, 16, 2008020318,   ,chunshu,   0, 123S,  809E,  25, 1003, TD,     INVEST
+SH, 16, 2008020400,   ,chunshu,   0, 124S,  804E,  25, 1004, TD,     INVEST
+SH, 16, 2008020406,   ,chunshu,   0, 126S,  802E,  30, 1000, TD,     INVEST
+SH, 16, 2008020412,   ,chunshu,   0, 129S,  801E,  30, 1000, TD,     INVEST
+SH, 16, 2008020418,   ,chunshu,   0, 132S,  802E,  35,  996, TS,     NONAME
+SH, 16, 2008020500,   ,chunshu,   0, 134S,  804E,  45,  989, TS,     NONAME
+SH, 16, 2008020506,   ,chunshu,   0, 135S,  806E,  55,  982, TS,     NONAME
+SH, 16, 2008020512,   ,chunshu,   0, 136S,  808E,  65,  974, TY,      HONDO
+SH, 16, 2008020518,   ,chunshu,   0, 138S,  810E,  75,  967, TY,      HONDO
+SH, 16, 2008020600,   ,chunshu,   0, 139S,  811E,  80,  963, TY,      HONDO
+SH, 16, 2008020606,   ,chunshu,   0, 140S,  813E,  85,  959, TY,      HONDO
+SH, 16, 2008020612,   ,chunshu,   0, 142S,  817E, 105,  944, TY,      HONDO
+SH, 16, 2008020618,   ,chunshu,   0, 144S,  821E, 120,  933, TY,      HONDO
+SH, 16, 2008020700,   ,chunshu,   0, 145S,  823E, 120,  933, TY,      HONDO
+SH, 16, 2008020706,   ,chunshu,   0, 147S,  825E, 125,  929, TY,      HONDO
+SH, 16, 2008020712,   ,chunshu,   0, 149S,  827E, 130,  926, ST,      HONDO
+SH, 16, 2008020718,   ,chunshu,   0, 150S,  829E, 130,  926, ST,      HONDO
+SH, 16, 2008020800,   ,chunshu,   0, 151S,  833E, 125,  929, TY,      HONDO
+SH, 16, 2008020806,   ,chunshu,   0, 151S,  836E, 120,  933, TY,      HONDO
+SH, 16, 2008020812,   ,chunshu,   0, 153S,  841E, 115,  937, TY,      HONDO
+SH, 16, 2008020818,   ,chunshu,   0, 156S,  844E, 115,  937, TY,      HONDO
+SH, 16, 2008020900,   ,chunshu,   0, 160S,  848E, 120,  933, TY,      HONDO
+SH, 16, 2008020906,   ,chunshu,   0, 165S,  853E, 120,  933, TY,      HONDO
+SH, 16, 2008020912,   ,chunshu,   0, 174S,  859E, 120,  933, TY,      HONDO
+SH, 16, 2008020918,   ,chunshu,   0, 183S,  863E, 110,  941, TY,      HONDO
+SH, 16, 2008021000,   ,chunshu,   0, 193S,  864E, 100,  948, TY,      HONDO
+SH, 16, 2008021006,   ,chunshu,   0, 203S,  866E,  95,  952, TY,      HONDO
+SH, 16, 2008021012,   ,chunshu,   0, 210S,  866E,  90,  956, TY,      HONDO
+SH, 16, 2008021018,   ,chunshu,   0, 217S,  864E,  75,  967, TY,      HONDO
+SH, 16, 2008021100,   ,chunshu,   0, 223S,  862E,  60,  978, TS,      HONDO
+SH, 16, 2008021106,   ,chunshu,   0, 230S,  860E,  50,  985, TS,      HONDO
+SH, 16, 2008021112,   ,chunshu,   0, 238S,  857E,  40,  993, TS,      HONDO
+SH, 16, 2008021118,   ,chunshu,   0, 243S,  855E,  35,  996, TS,      HONDO
+SH, 16, 2008021200,   ,chunshu,   0, 246S,  852E,  35,  996, TS,      HONDO
+SH, 16, 2008021206,   ,chunshu,   0, 247S,  849E,  35,  996, TS,      HONDO
+SH, 16, 2008021212,   ,chunshu,   0, 245S,  846E,  35,  996, TS
+SH, 16, 2008021218,   ,chunshu,   0, 239S,  841E,  30, 1000, TD,      HONDO
+SH, 16, 2008021300,   ,chunshu,   0, 231S,  836E,  30, 1000, TD
+SH, 16, 2008021306,   ,chunshu,   0, 225S,  833E,  30, 1000, TD
+SH, 16, 2008021312,   ,chunshu,   0, 220S,  830E,  30, 1000, TD
+SH, 16, 2008021318,   ,chunshu,   0, 215S,  824E,  30, 1000, TD
+SH, 16, 2008021400,   ,chunshu,   0, 214S,  821E,  30, 1000, TD
+SH, 16, 2008021406,   ,chunshu,   0, 214S,  819E,  30, 1000, TD
+SH, 16, 2008021412,   ,chunshu,   0, 218S,  813E,  30, 1000, TD
+SH, 16, 2008021418,   ,chunshu,   0, 220S,  804E,  35,  996, TS
+SH, 16, 2008021500,   ,chunshu,   0, 218S,  794E,  35,  996, TS
+SH, 16, 2008021506,   ,chunshu,   0, 214S,  786E,  30, 1000, TD
+SH, 16, 2008021512,   ,chunshu,   0, 209S,  780E,  30, 1000, TD
+SH, 16, 2008021518,   ,chunshu,   0, 204S,  776E,  30, 1000, TD
+SH, 16, 2008021600,   ,chunshu,   0, 199S,  773E,  30, 1000, TD
+SH, 16, 2008021606,   ,chunshu,   0, 194S,  768E,  30, 1000, TD
+SH, 16, 2008021612,   ,chunshu,   0, 191S,  756E,  30, 1000, TD
+SH, 16, 2008021618,   ,chunshu,   0, 186S,  743E,  25, 1004, TD
+SH, 16, 2008021700,   ,chunshu,   0, 182S,  731E,  25, 1004, TD
+SH, 16, 2008021706,   ,chunshu,   0, 179S,  724E,  25, 1004, TD
+SH, 16, 2008021712,   ,chunshu,   0, 178S,  717E,  25, 1004, TD
+SH, 16, 2008021718,   ,chunshu,   0, 178S,  710E,  25, 1004, TD
+SH, 16, 2008021800,   ,chunshu,   0, 178S,  703E,  25, 1004, TD
+SH, 16, 2008021806,   ,chunshu,   0, 181S,  694E,  25, 1004, TD
+SH, 16, 2008021812,   ,chunshu,   0, 183S,  686E,  25, 1004, TD
+SH, 16, 2008021818,   ,chunshu,   0, 185S,  677E,  25, 1004, TD
+SH, 16, 2008021900,   ,chunshu,   0, 187S,  668E,  25, 1004, TD
+SH, 16, 2008021906,   ,chunshu,   0, 190S,  658E,  25, 1004, TD
+SH, 16, 2008021912,   ,chunshu,   0, 194S,  646E,  25, 1004, TD
+SH, 16, 2008021918,   ,chunshu,   0, 192S,  633E,  25, 1004, TD
+SH, 16, 2008022000,   ,chunshu,   0, 187S,  623E,  25, 1004, TD
+SH, 16, 2008022006,   ,chunshu,   0, 183S,  618E,  25, 1004, TD
+SH, 16, 2008022012,   ,chunshu,   0, 179S,  612E,  25, 1004, TD
+SH, 16, 2008022018,   ,chunshu,   0, 179S,  609E,  25, 1004, TD
+SH, 16, 2008022100,   ,chunshu,   0, 180S,  606E,  25, 1000, TD,      HONDO
+SH, 16, 2008022106,   ,chunshu,   0, 180S,  603E,  30, 1000, TD,      HONDO
+SH, 16, 2008022112,   ,chunshu,   0, 181S,  601E,  30, 1000, TD,      HONDO
+SH, 16, 2008022118,   ,chunshu,   0, 183S,  599E,  30, 1000, TD,      HONDO
+SH, 16, 2008022200,   ,chunshu,   0, 185S,  598E,  30, 1000, TD,      HONDO
+SH, 16, 2008022206,   ,chunshu,   0, 187S,  596E,  30, 1000, TD,      HONDO
+SH, 16, 2008022212,   ,chunshu,   0, 189S,  593E,  30, 1000, TD,      HONDO
+SH, 16, 2008022218,   ,chunshu,   0, 192S,  588E,  35,  996, TS,      HONDO
+SH, 16, 2008022300,   ,chunshu,   0, 198S,  580E,  40,  993, TS,      HONDO
+SH, 16, 2008022306,   ,chunshu,   0, 202S,  568E,  50,  985, TS,      HONDO
+SH, 16, 2008022312,   ,chunshu,   0, 207S,  559E,  45,  989, TS,      HONDO
+SH, 16, 2008022318,   ,chunshu,   0, 216S,  551E,  35,  996, TS,      HONDO
+SH, 16, 2008022400,   ,chunshu,   0, 226S,  544E,  30, 1000, TD,      HONDO
+SH, 16, 2008022406,   ,chunshu,   0, 237S,  535E,  25, 1004, TD,      HONDO
+SH, 16, 2008022412,   ,chunshu,   0, 249S,  526E,  25, 1004, TD,      HONDO
+SH, 16, 2008022418,   ,chunshu,   0, 263S,  519E,  25, 1004, TD
+SH, 16, 2008022500,   ,chunshu,   0, 276S,  517E,  25, 1004, TD
+SH, 16, 2008022506,   ,chunshu,   0, 289S,  518E,  25, 1004, TD
+SH, 16, 2008022512,   ,chunshu,   0, 299S,  526E,  25, 1004, TD

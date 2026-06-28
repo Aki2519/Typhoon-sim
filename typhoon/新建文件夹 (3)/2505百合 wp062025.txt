@@ -1,0 +1,28 @@
+WP, 06, 2025070912,   ,chunshu,   0, 187N, 1423E,  15, 1008, DB,INVEST
+WP, 06, 2025070918,   ,chunshu,   0, 194N, 1421E,  20, 1008, DB,INVEST
+WP, 06, 2025071000,   ,chunshu,   0, 205N, 1417E,  20, 1008, DB,INVEST
+WP, 06, 2025071006,   ,chunshu,   0, 221N, 1413E,  25, 1008, DB,INVEST
+WP, 06, 2025071012,   ,chunshu,   0, 232N, 1409E,  30, 1005, DB,INVEST
+WP, 06, 2025071018,   ,chunshu,   0, 243N, 1405E,  30, 1002, TD,INVEST
+WP, 06, 2025071100,   ,chunshu,   0, 251N, 1401E,  30, 1002, TD,   SIX
+WP, 06, 2025071106,   ,chunshu,   0, 250N, 1397E,  30, 1002, TD,   SIX
+WP, 06, 2025071112,   ,chunshu,   0, 249N, 1399E,  30, 1005, TD,   SIX
+WP, 06, 2025071118,   ,chunshu,   0, 248N, 1402E,  35, 1002, TS,   SIX
+WP, 06, 2025071200,   ,chunshu,   0, 247N, 1406E,  40, 1000, TS,   SIX
+WP, 06, 2025071206,   ,chunshu,   0, 249N, 1411E,  40,  998, TS,   SIX
+WP, 06, 2025071212,   ,chunshu,   0, 251N, 1417E,  45,  998, TS,   SIX
+WP, 06, 2025071218,   ,chunshu,   0, 255N, 1424E,  50,  998, TS,   SIX
+WP, 06, 2025071300,   ,chunshu,   0, 263N, 1429E,  60,  995, TS,  NARI
+WP, 06, 2025071306,   ,chunshu,   0, 275N, 1427E,  75,  990, TS,  NARI
+WP, 06, 2025071312,   ,chunshu,   0, 301N, 1424E,  80,  988, TS,  NARI
+WP, 06, 2025071318,   ,chunshu,   0, 324N, 1426E,  85,  985, TY,  NARI
+WP, 06, 2025071400,   ,chunshu,   0, 341N, 1429E,  70,  985, TS,  NARI
+WP, 06, 2025071406,   ,chunshu,   0, 368N, 1433E,  60,  985, TS,  NARI
+WP, 06, 2025071412,   ,chunshu,   0, 397N, 1437E,  55,  985, SS,  NARI
+WP, 06, 2025071418,   ,chunshu,   0, 425N, 1443E,  45,  990, SS,  NARI
+WP, 06, 2025071500,   ,chunshu,   0, 453N, 1455E,  40,  995, EX,  NARI
+WP, 06, 2025071506,   ,chunshu,   0, 472N, 1471E,  40,  995, EX,  NARI
+WP, 06, 2025071512,   ,chunshu,   0, 482N, 1495E,  45,  992, EX,  NARI
+WP, 06, 2025071518,   ,chunshu,   0, 490N, 1531E,  45,  990, EX,  NARI
+WP, 06, 2025071600,   ,chunshu,   0, 497N, 1577E,  45,  990, EX,  NARI
+WP, 06, 2025071606,   ,chunshu,   0, 503N, 1644E,  45,  990, EX,  NARI

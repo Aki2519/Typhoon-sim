@@ -1,0 +1,33 @@
+SH, 16, 2006030106,   ,chunshu,   0, 130S,  575E,  15, 1006, DB
+SH, 16, 2006030112,   ,chunshu,   0, 133S,  581E,  15, 1006, DB
+SH, 16, 2006030118,   ,chunshu,   0, 139S,  583E,  15, 1006, DB
+SH, 16, 2006030200,   ,chunshu,   0, 145S,  582E,  15, 1006, DB
+SH, 16, 2006030206,   ,chunshu,   0, 145S,  575E,  15, 1006, DB
+SH, 16, 2006030212,   ,chunshu,   0, 136S,  571E,  15, 1006, DB
+SH, 16, 2006030218,   ,chunshu,   0, 142S,  576E,  25, 1001, TD,     INVEST
+SH, 16, 2006030300,   ,chunshu,   0, 150S,  577E,  25, 1002, TD,     INVEST
+SH, 16, 2006030306,   ,chunshu,   0, 155S,  578E,  25, 1002, TD,     INVEST
+SH, 16, 2006030312,   ,chunshu,   0, 159S,  579E,  25, 1002, TD
+SH, 16, 2006030318,   ,chunshu,   0, 166S,  574E,  30, 1000, TD,     INVEST
+SH, 16, 2006030400,   ,chunshu,   0, 177S,  569E,  35,  997, TS,     NONAME
+SH, 16, 2006030406,   ,chunshu,   0, 183S,  554E,  35,  997, TS,       DIWA
+SH, 16, 2006030412,   ,chunshu,   0, 186S,  545E,  35,  997, TS,       DIWA
+SH, 16, 2006030418,   ,chunshu,   0, 188S,  541E,  35,  997, TS,       DIWA
+SH, 16, 2006030500,   ,chunshu,   0, 192S,  541E,  35,  997, TS,       DIWA
+SH, 16, 2006030506,   ,chunshu,   0, 201S,  540E,  35,  997, TS,       DIWA
+SH, 16, 2006030512,   ,chunshu,   0, 208S,  539E,  40,  994, TS,       DIWA
+SH, 16, 2006030518,   ,chunshu,   0, 213S,  532E,  45,  991, TS,       DIWA
+SH, 16, 2006030600,   ,chunshu,   0, 218S,  524E,  45,  991, TS,       DIWA
+SH, 16, 2006030606,   ,chunshu,   0, 224S,  522E,  45,  991, TS,       DIWA
+SH, 16, 2006030612,   ,chunshu,   0, 233S,  525E,  45,  991, TS,       DIWA
+SH, 16, 2006030618,   ,chunshu,   0, 233S,  531E,  45,  991, TS,       DIWA
+SH, 16, 2006030700,   ,chunshu,   0, 239S,  529E,  45,  991, TS,       DIWA
+SH, 16, 2006030706,   ,chunshu,   0, 243S,  534E,  45,  991, TS,       DIWA
+SH, 16, 2006030712,   ,chunshu,   0, 248S,  538E,  45,  991, TS,       DIWA
+SH, 16, 2006030718,   ,chunshu,   0, 255S,  546E,  45,  991, TS,       DIWA
+SH, 16, 2006030800,   ,chunshu,   0, 266S,  556E,  45,  991, TS,       DIWA
+SH, 16, 2006030806,   ,chunshu,   0, 277S,  568E,  55,  984, TS,       DIWA
+SH, 16, 2006030812,   ,chunshu,   0, 290S,  578E,  45,  991, TS,       DIWA
+SH, 16, 2006030818,   ,chunshu,   0, 307S,  594E,  35,  997, EX,       DIWA
+SH, 16, 2006030900,   ,chunshu,   0, 331S,  603E,  35,  997, EX
+SH, 16, 2006030906,   ,chunshu,   0, 343S,  612E,  30, 1000, EX

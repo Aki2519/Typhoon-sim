@@ -1,0 +1,15 @@
+SH, 10, 2009012418,   ,chunshu,   0, 181S, 1201E,  20, 1007, DB
+SH, 10, 2009012500,   ,chunshu,   0, 184S, 1189E,  30, 1000, TD,     INVEST
+SH, 10, 2009012506,   ,chunshu,   0, 188S, 1177E,  25, 1004, TD,     INVEST
+SH, 10, 2009012512,   ,chunshu,   0, 187S, 1167E,  25, 1002, TD,     INVEST
+SH, 10, 2009012518,   ,chunshu,   0, 191S, 1163E,  35,  996, TS,        TEN
+SH, 10, 2009012600,   ,chunshu,   0, 195S, 1159E,  40,  993, TS,        TEN
+SH, 10, 2009012606,   ,chunshu,   0, 203S, 1155E,  50,  985, TS,    DOMINIC
+SH, 10, 2009012612,   ,chunshu,   0, 208S, 1152E,  50,  985, TS,    DOMINIC
+SH, 10, 2009012618,   ,chunshu,   0, 214S, 1152E,  50,  985, TS,    DOMINIC
+SH, 10, 2009012700,   ,chunshu,   0, 221S, 1153E,  40,  993, TS,    DOMINIC
+SH, 10, 2009012706,   ,chunshu,   0, 232S, 1155E,  30, 1000, TD
+SH, 10, 2009012712,   ,chunshu,   0, 244S, 1162E,  25, 1004, TD
+SH, 10, 2009012718,   ,chunshu,   0, 258S, 1169E,  25, 1004, TD
+SH, 10, 2009012800,   ,chunshu,   0, 272S, 1178E,  20, 1007, DB
+SH, 10, 2009012806,   ,chunshu,   0, 294S, 1196E,  20, 1007, DB

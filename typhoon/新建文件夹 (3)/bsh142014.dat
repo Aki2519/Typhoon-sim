@@ -1,0 +1,49 @@
+SH, 14, 2014020506,   ,chunshu,   0, 120S,  718E,  20, 1007, DB
+SH, 14, 2014020512,   ,chunshu,   0, 121S,  716E,  20, 1007, DB,     INVEST
+SH, 14, 2014020518,   ,chunshu,   0, 124S,  714E,  25, 1002, TD,     INVEST
+SH, 14, 2014020600,   ,chunshu,   0, 127S,  715E,  25, 1004, TD,     INVEST
+SH, 14, 2014020603,   ,chunshu,   0, 125S,  715E,  25, 1004, TD
+SH, 14, 2014020606,   ,chunshu,   0, 127S,  714E,  25, 1004, TD,     INVEST
+SH, 14, 2014020612,   ,chunshu,   0, 130S,  711E,  30, 1000, TD,     INVEST
+SH, 14, 2014020618,   ,chunshu,   0, 135S,  708E,  30, 1000, TD,   FOURTEEN
+SH, 14, 2014020700,   ,chunshu,   0, 140S,  705E,  30, 1000, TD,   FOURTEEN
+SH, 14, 2014020706,   ,chunshu,   0, 148S,  704E,  35,  996, TS,   FOURTEEN
+SH, 14, 2014020712,   ,chunshu,   0, 155S,  697E,  35,  996, TS
+SH, 14, 2014020718,   ,chunshu,   0, 155S,  694E,  35,  996, TS,   FOURTEEN
+SH, 14, 2014020800,   ,chunshu,   0, 149S,  694E,  40,  993, TS,   FOURTEEN
+SH, 14, 2014020806,   ,chunshu,   0, 150S,  702E,  40,  993, TS,     FOBANE
+SH, 14, 2014020812,   ,chunshu,   0, 148S,  710E,  45,  989, TS,     FOBANE
+SH, 14, 2014020818,   ,chunshu,   0, 151S,  718E,  50,  985, TS,     FOBANE
+SH, 14, 2014020900,   ,chunshu,   0, 155S,  728E,  55,  982, TS,     FOBANE
+SH, 14, 2014020906,   ,chunshu,   0, 158S,  740E,  55,  982, TS,     FOBANE
+SH, 14, 2014020912,   ,chunshu,   0, 168S,  752E,  55,  982, TS,     FOBANE
+SH, 14, 2014020918,   ,chunshu,   0, 187S,  757E,  60,  978, TS,     FOBANE
+SH, 14, 2014020921,   ,chunshu,   0, 201S,  755E,  60,  978, TS
+SH, 14, 2014021000,   ,chunshu,   0, 211S,  747E,  60,  978, TS,     FOBANE
+SH, 14, 2014021006,   ,chunshu,   0, 225S,  725E,  55,  982, TS,     FOBANE
+SH, 14, 2014021012,   ,chunshu,   0, 231S,  700E,  50,  985, TS,     FOBANE
+SH, 14, 2014021018,   ,chunshu,   0, 232S,  688E,  45,  989, TS,     FOBANE
+SH, 14, 2014021100,   ,chunshu,   0, 233S,  677E,  45,  989, TS,     FOBANE
+SH, 14, 2014021106,   ,chunshu,   0, 239S,  670E,  40,  993, TS,     FOBANE
+SH, 14, 2014021112,   ,chunshu,   0, 245S,  663E,  35,  996, TS,     FOBANE
+SH, 14, 2014021118,   ,chunshu,   0, 253S,  658E,  35,  996, TS,     FOBANE
+SH, 14, 2014021200,   ,chunshu,   0, 261S,  654E,  40,  993, TS,     FOBANE
+SH, 14, 2014021206,   ,chunshu,   0, 271S,  649E,  40,  993, TS,     FOBANE
+SH, 14, 2014021212,   ,chunshu,   0, 281S,  645E,  45,  989, TS,     FOBANE
+SH, 14, 2014021218,   ,chunshu,   0, 288S,  642E,  45,  989, TS,     FOBANE
+SH, 14, 2014021300,   ,chunshu,   0, 294S,  638E,  45,  989, TS,     FOBANE
+SH, 14, 2014021306,   ,chunshu,   0, 296S,  633E,  40,  993, TS,     FOBANE
+SH, 14, 2014021312,   ,chunshu,   0, 298S,  629E,  40,  993, TS,     FOBANE
+SH, 14, 2014021318,   ,chunshu,   0, 298S,  624E,  40,  993, TS,     FOBANE
+SH, 14, 2014021400,   ,chunshu,   0, 298S,  619E,  35,  996, TS,     FOBANE
+SH, 14, 2014021406,   ,chunshu,   0, 300S,  615E,  30, 1000, TD,     FOBANE
+SH, 14, 2014021412,   ,chunshu,   0, 306S,  608E,  30, 1000, TD,     FOBANE
+SH, 14, 2014021418,   ,chunshu,   0, 312S,  599E,  25, 1004, TD,     FOBANE
+SH, 14, 2014021500,   ,chunshu,   0, 316S,  598E,  25, 1004, TD,     FOBANE
+SH, 14, 2014021506,   ,chunshu,   0, 319S,  597E,  25, 1004, EX
+SH, 14, 2014021512,   ,chunshu,   0, 321S,  592E,  35,  996, EX
+SH, 14, 2014021518,   ,chunshu,   0, 319S,  594E,  35,  996, EX
+SH, 14, 2014021600,   ,chunshu,   0, 318S,  598E,  35,  996, EX
+SH, 14, 2014021606,   ,chunshu,   0, 318S,  609E,  30, 1000, EX
+SH, 14, 2014021612,   ,chunshu,   0, 322S,  621E,  30, 1000, EX
+SH, 14, 2014021618,   ,chunshu,   0, 328S,  642E,  30, 1000, EX

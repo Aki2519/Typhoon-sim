@@ -1,0 +1,28 @@
+IO, 03, 2007062018,   ,chunshu,   0, 145N,  884E,  25, 1004, DB,     INVEST
+IO, 03, 2007062100,   ,chunshu,   0, 154N,  871E,  30,  995, TD,     INVEST
+IO, 03, 2007062106,   ,chunshu,   0, 157N,  853E,  30,  994, TD,     INVEST
+IO, 03, 2007062112,   ,chunshu,   0, 159N,  841E,  30, 1000, TD,     NONAME
+IO, 03, 2007062118,   ,chunshu,   0, 158N,  829E,  30, 1000, TD,     NONAME
+IO, 03, 2007062200,   ,chunshu,   0, 157N,  817E,  30, 1000, TD,     NONAME
+IO, 03, 2007062206,   ,chunshu,   0, 153N,  802E,  30, 1000, TD
+IO, 03, 2007062212,   ,chunshu,   0, 163N,  790E,  25, 1004, TD
+IO, 03, 2007062218,   ,chunshu,   0, 170N,  781E,  15, 1010, DB
+IO, 03, 2007062300,   ,chunshu,   0, 180N,  775E,  20, 1007, DB
+IO, 03, 2007062306,   ,chunshu,   0, 193N,  766E,  20, 1007, DB,     NONAME
+IO, 03, 2007062312,   ,chunshu,   0, 201N,  754E,  20, 1007, DB
+IO, 03, 2007062318,   ,chunshu,   0, 208N,  742E,  20, 1007, DB
+IO, 03, 2007062400,   ,chunshu,   0, 213N,  729E,  20, 1007, DB
+IO, 03, 2007062406,   ,chunshu,   0, 215N,  716E,  25, 1004, TD
+IO, 03, 2007062412,   ,chunshu,   0, 219N,  704E,  20, 1007, DB
+IO, 03, 2007062418,   ,chunshu,   0, 221N,  692E,  20, 1007, TD,     NONAME
+IO, 03, 2007062500,   ,chunshu,   0, 223N,  680E,  30, 1000, TD,     NONAME
+IO, 03, 2007062506,   ,chunshu,   0, 229N,  673E,  35,  992, TS,     NONAME
+IO, 03, 2007062512,   ,chunshu,   0, 236N,  666E,  35,  996, TS,     NONAME
+IO, 03, 2007062518,   ,chunshu,   0, 244N,  660E,  45,  989, TS,     NONAME
+IO, 03, 2007062600,   ,chunshu,   0, 250N,  654E,  50,  985, TS,     NONAME
+IO, 03, 2007062606,   ,chunshu,   0, 257N,  642E,  50,  985, TS,     NONAME
+IO, 03, 2007062612,   ,chunshu,   0, 262N,  631E,  40,  993, TS,     NONAME
+IO, 03, 2007062618,   ,chunshu,   0, 263N,  626E,  30, 1000, TD,     NONAME
+IO, 03, 2007062700,   ,chunshu,   0, 272N,  629E,  25, 1005, TD,     NONAME
+IO, 03, 2007062706,   ,chunshu,   0, 278N,  636E,  20, 1007, DB
+IO, 03, 2007062712,   ,chunshu,   0, 285N,  636E,  20, 1007, DB

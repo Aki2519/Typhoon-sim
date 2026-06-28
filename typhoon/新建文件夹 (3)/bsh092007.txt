@@ -1,0 +1,25 @@
+SH, 09, 2007012106,   ,chunshu,   0, 119S, 1769W,  20, 1004, DB
+SH, 09, 2007012112,   ,chunshu,   0, 120S, 1766W,  20, 1004, DB
+SH, 09, 2007012118,   ,chunshu,   0, 121S, 1763W,  30, 1000, TD,     INVEST
+SH, 09, 2007012200,   ,chunshu,   0, 122S, 1761W,  30, 1000, TD,     INVEST
+SH, 09, 2007012206,   ,chunshu,   0, 123S, 1759W,  30, 1000, TD,     INVEST
+SH, 09, 2007012212,   ,chunshu,   0, 123S, 1756W,  30, 1000, TD,     INVEST
+SH, 09, 2007012218,   ,chunshu,   0, 123S, 1753W,  30, 1000, TD,     INVEST
+SH, 09, 2007012300,   ,chunshu,   0, 123S, 1749W,  25, 1002, TD,     INVEST
+SH, 09, 2007012306,   ,chunshu,   0, 124S, 1741W,  25, 1002, TD,     INVEST
+SH, 09, 2007012312,   ,chunshu,   0, 128S, 1731W,  25, 1002, TD,     INVEST
+SH, 09, 2007012318,   ,chunshu,   0, 137S, 1719W,  25, 1002, TD,     INVEST
+SH, 09, 2007012400,   ,chunshu,   0, 144S, 1700W,  25, 1002, TD,     INVEST
+SH, 09, 2007012406,   ,chunshu,   0, 145S, 1675W,  30, 1000, TD,     INVEST
+SH, 09, 2007012412,   ,chunshu,   0, 147S, 1650W,  55,  984, TS,     NONAME
+SH, 09, 2007012418,   ,chunshu,   0, 151S, 1628W,  65,  976, TY,     ARTHUR
+SH, 09, 2007012500,   ,chunshu,   0, 156S, 1607W,  65,  974, TY,     ARTHUR
+SH, 09, 2007012506,   ,chunshu,   0, 164S, 1588W,  60,  980, TS,     ARTHUR
+SH, 09, 2007012512,   ,chunshu,   0, 170S, 1568W,  55,  984, TS,     ARTHUR
+SH, 09, 2007012518,   ,chunshu,   0, 181S, 1550W,  45,  991, TS,     ARTHUR
+SH, 09, 2007012600,   ,chunshu,   0, 196S, 1538W,  45,  991, TS,     ARTHUR
+SH, 09, 2007012606,   ,chunshu,   0, 210S, 1524W,  55,  984, TS
+SH, 09, 2007012612,   ,chunshu,   0, 227S, 1510W,  45,  989, TS
+SH, 09, 2007012618,   ,chunshu,   0, 244S, 1494W,  45,  991, TS
+SH, 09, 2007012700,   ,chunshu,   0, 264S, 1485W,  40,  993, TS
+SH, 09, 2007012706,   ,chunshu,   0, 288S, 1466W,  45,  991, EX

@@ -1,0 +1,16 @@
+IO, 03, 2008102000,   ,chunshu,   0,  96N,  571E,  20, 1007, DB
+IO, 03, 2008102006,   ,chunshu,   0,  99N,  565E,  25, 1004, TD,     INVEST
+IO, 03, 2008102012,   ,chunshu,   0, 102N,  559E,  25, 1004, TD,     INVEST
+IO, 03, 2008102018,   ,chunshu,   0, 105N,  553E,  30, 1000, TD,     INVEST
+IO, 03, 2008102100,   ,chunshu,   0, 107N,  547E,  30, 1000, TD,      THREE
+IO, 03, 2008102106,   ,chunshu,   0, 109N,  543E,  30, 1000, TD,      THREE
+IO, 03, 2008102112,   ,chunshu,   0, 117N,  544E,  30, 1000, TD,      THREE
+IO, 03, 2008102118,   ,chunshu,   0, 128N,  542E,  30, 1000, TD,      THREE
+IO, 03, 2008102200,   ,chunshu,   0, 133N,  535E,  30, 1000, TD,      THREE
+IO, 03, 2008102206,   ,chunshu,   0, 135N,  530E,  30, 1000, TD,      THREE
+IO, 03, 2008102212,   ,chunshu,   0, 137N,  526E,  30, 1000, TD,      THREE
+IO, 03, 2008102218,   ,chunshu,   0, 137N,  520E,  30, 1000, TD,      THREE
+IO, 03, 2008102300,   ,chunshu,   0, 137N,  514E,  25, 1003, TD,      THREE
+IO, 03, 2008102306,   ,chunshu,   0, 138N,  508E,  25, 1004, TD,      THREE
+IO, 03, 2008102312,   ,chunshu,   0, 141N,  502E,  25, 1004, TD
+IO, 03, 2008102318,   ,chunshu,   0, 150N,  495E,  25, 1004, TD

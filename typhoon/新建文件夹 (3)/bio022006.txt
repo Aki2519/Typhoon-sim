@@ -1,0 +1,22 @@
+IO, 02, 2006042406,   ,chunshu,   0,  84N,  901E,  20, 1004, DB
+IO, 02, 2006042412,   ,chunshu,   0,  86N,  897E,  25, 1002, DB
+IO, 02, 2006042418,   ,chunshu,   0,  90N,  895E,  30, 1000, TD,     INVEST
+IO, 02, 2006042500,   ,chunshu,   0,  93N,  897E,  35,  997, TC,     NONAME
+IO, 02, 2006042506,   ,chunshu,   0,  97N,  896E,  35,  997, TC,     NONAME
+IO, 02, 2006042512,   ,chunshu,   0, 100N,  896E,  45,  991, TC,     NONAME
+IO, 02, 2006042518,   ,chunshu,   0, 103N,  898E,  45,  991, TC,     NONAME
+IO, 02, 2006042600,   ,chunshu,   0, 103N,  903E,  45,  991, TC,     NONAME
+IO, 02, 2006042606,   ,chunshu,   0, 111N,  906E,  45,  991, TC,       MALA
+IO, 02, 2006042612,   ,chunshu,   0, 119N,  906E,  45,  991, TC,       MALA
+IO, 02, 2006042618,   ,chunshu,   0, 122N,  903E,  45,  991, TC,       MALA
+IO, 02, 2006042700,   ,chunshu,   0, 121N,  898E,  55,  984, TC,       MALA
+IO, 02, 2006042706,   ,chunshu,   0, 126N,  899E,  65,  976, TY,       MALA
+IO, 02, 2006042712,   ,chunshu,   0, 129N,  905E,  70,  972, TC,       MALA
+IO, 02, 2006042718,   ,chunshu,   0, 135N,  910E,  80,  963, TC,       MALA
+IO, 02, 2006042800,   ,chunshu,   0, 142N,  917E,  90,  954, TC,       MALA
+IO, 02, 2006042806,   ,chunshu,   0, 149N,  922E, 115,  927, TC,       MALA
+IO, 02, 2006042812,   ,chunshu,   0, 156N,  928E, 120,  922, TY,       MALA
+IO, 02, 2006042818,   ,chunshu,   0, 163N,  934E, 120,  922, TY,       MALA
+IO, 02, 2006042900,   ,chunshu,   0, 169N,  939E, 105,  938, TC,       MALA
+IO, 02, 2006042906,   ,chunshu,   0, 176N,  944E,  90,  954, TY,       MALA
+IO, 02, 2006042912,   ,chunshu,   0, 184N,  954E,  65,  976, TC

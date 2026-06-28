@@ -1,0 +1,17 @@
+SH, 15, 2009021500,   ,chunshu,   0, 165S, 1730E,  20, 1007, DB
+SH, 15, 2009021506,   ,chunshu,   0, 169S, 1725E,  20, 1007, DB
+SH, 15, 2009021512,   ,chunshu,   0, 170S, 1719E,  20, 1007, DB
+SH, 15, 2009021518,   ,chunshu,   0, 173S, 1712E,  30, 1000, TD,     INVEST
+SH, 15, 2009021600,   ,chunshu,   0, 179S, 1702E,  30, 1000, TD,     INVEST
+SH, 15, 2009021606,   ,chunshu,   0, 185S, 1688E,  30, 1000, TD,     INVEST
+SH, 15, 2009021612,   ,chunshu,   0, 193S, 1675E,  30, 1000, TD,     INVEST
+SH, 15, 2009021618,   ,chunshu,   0, 198S, 1660E,  30, 1000, TD,     INVEST
+SH, 15, 2009021700,   ,chunshu,   0, 207S, 1650E,  35,  996, TS,     INVEST
+SH, 15, 2009021706,   ,chunshu,   0, 221S, 1644E,  35,  996, TS,    FIFTEEN
+SH, 15, 2009021712,   ,chunshu,   0, 228S, 1627E,  35,  996, TS,      INNIS
+SH, 15, 2009021718,   ,chunshu,   0, 247S, 1615E,  40,  993, TS,      INNIS
+SH, 15, 2009021800,   ,chunshu,   0, 271S, 1605E,  35,  996, TS,      INNIS
+SH, 15, 2009021806,   ,chunshu,   0, 293S, 1601E,  30, 1000, TD
+SH, 15, 2009021812,   ,chunshu,   0, 313S, 1598E,  25, 1004, TD
+SH, 15, 2009021818,   ,chunshu,   0, 335S, 1606E,  25, 1004, EX
+SH, 15, 2009021900,   ,chunshu,   0, 364S, 1622E,  25, 1004, EX

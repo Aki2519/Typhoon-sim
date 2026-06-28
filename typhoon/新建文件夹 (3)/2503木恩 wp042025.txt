@@ -1,0 +1,41 @@
+WP, 04, 2025062912,   ,chunshu,   0, 148N, 1486E,  15, 1005, DB,INVEST
+WP, 04, 2025062918,   ,chunshu,   0, 154N, 1491E,  15, 1005, DB,INVEST
+WP, 04, 2025063000,   ,chunshu,   0, 162N, 1497E,  15, 1008, DB,INVEST
+WP, 04, 2025063006,   ,chunshu,   0, 173N, 1501E,  15, 1008, DB,INVEST
+WP, 04, 2025063012,   ,chunshu,   0, 186N, 1497E,  25, 1008, DB,INVEST
+WP, 04, 2025063018,   ,chunshu,   0, 201N, 1491E,  25, 1008, DB,INVEST
+WP, 04, 2025070100,   ,chunshu,   0, 212N, 1486E,  30, 1008, TD,INVEST
+WP, 04, 2025070106,   ,chunshu,   0, 225N, 1482E,  35, 1005, TS,INVEST
+WP, 04, 2025070112,   ,chunshu,   0, 234N, 1479E,  35, 1002, TS,INVEST
+WP, 04, 2025070118,   ,chunshu,   0, 243N, 1476E,  40, 1000, TS,  FOUR
+WP, 04, 2025070200,   ,chunshu,   0, 251N, 1472E,  40,  998, TS,  FOUR
+WP, 04, 2025070206,   ,chunshu,   0, 257N, 1468E,  45,  995, TS,  FOUR
+WP, 04, 2025070212,   ,chunshu,   0, 262N, 1463E,  45,  995, TS,  FOUR
+WP, 04, 2025070218,   ,chunshu,   0, 267N, 1458E,  50,  992, TS,  FOUR
+WP, 04, 2025070300,   ,chunshu,   0, 271N, 1454E,  50,  992, TS,   MUN
+WP, 04, 2025070306,   ,chunshu,   0, 277N, 1451E,  55,  988, TS,   MUN
+WP, 04, 2025070312,   ,chunshu,   0, 284N, 1449E,  60,  980, TS,   MUN
+WP, 04, 2025070318,   ,chunshu,   0, 290N, 1448E,  60,  982, TS,   MUN
+WP, 04, 2025070400,   ,chunshu,   0, 295N, 1449E,  55,  982, TS,   MUN
+WP, 04, 2025070406,   ,chunshu,   0, 299N, 1451E,  50,  985, TS,   MUN
+WP, 04, 2025070412,   ,chunshu,   0, 302N, 1453E,  50,  988, TS,   MUN
+WP, 04, 2025070418,   ,chunshu,   0, 305N, 1459E,  50,  988, TS,   MUN
+WP, 04, 2025070500,   ,chunshu,   0, 309N, 1463E,  55,  985, TS,   MUN
+WP, 04, 2025070506,   ,chunshu,   0, 312N, 1470E,  60,  982, TS,   MUN
+WP, 04, 2025070512,   ,chunshu,   0, 314N, 1479E,  60,  982, TS,   MUN
+WP, 04, 2025070518,   ,chunshu,   0, 318N, 1487E,  55,  985, TS,   MUN
+WP, 04, 2025070600,   ,chunshu,   0, 322N, 1493E,  65,  980, TY,   MUN
+WP, 04, 2025070606,   ,chunshu,   0, 327N, 1497E,  60,  980, TS,   MUN
+WP, 04, 2025070612,   ,chunshu,   0, 334N, 1495E,  60,  982, TS,   MUN
+WP, 04, 2025070618,   ,chunshu,   0, 341N, 1491E,  60,  985, TS,   MUN
+WP, 04, 2025070700,   ,chunshu,   0, 350N, 1489E,  55,  988, TS,   MUN
+WP, 04, 2025070706,   ,chunshu,   0, 358N, 1486E,  50,  988, TS,   MUN
+WP, 04, 2025070712,   ,chunshu,   0, 367N, 1481E,  45,  992, TS,   MUN
+WP, 04, 2025070718,   ,chunshu,   0, 379N, 1483E,  40,  998, TS,   MUN
+WP, 04, 2025070800,   ,chunshu,   0, 395N, 1489E,  35, 1000, TS,   MUN
+WP, 04, 2025070806,   ,chunshu,   0, 404N, 1501E,  25, 1000, SD,   MUN
+WP, 04, 2025070812,   ,chunshu,   0, 413N, 1518E,  25, 1000, SD,   MUN
+WP, 04, 2025070818,   ,chunshu,   0, 421N, 1543E,  25, 1002, SD,   MUN
+WP, 04, 2025070900,   ,chunshu,   0, 437N, 1575E,  30, 1002, EX,   MUN
+WP, 04, 2025070906,   ,chunshu,   0, 453N, 1612E,  30, 1000, EX,   MUN
+WP, 04, 2025070912,   ,chunshu,   0, 468N, 1648E,  35, 1000, EX,   MUN

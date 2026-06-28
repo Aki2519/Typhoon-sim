@@ -1,0 +1,28 @@
+SH, 03, 2006112706,   ,chunshu,   0,  73S,  472E,  20, 1004, DB,     INVEST
+SH, 03, 2006112712,   ,chunshu,   0,  77S,  465E,  25, 1004, TD,     INVEST
+SH, 03, 2006112718,   ,chunshu,   0,  82S,  459E,  25, 1002, TD,     INVEST
+SH, 03, 2006112800,   ,chunshu,   0,  88S,  453E,  30, 1002, TD,     INVEST
+SH, 03, 2006112806,   ,chunshu,   0,  94S,  447E,  30, 1000, TD,     INVEST
+SH, 03, 2006112812,   ,chunshu,   0,  98S,  440E,  30, 1000, TD,     INVEST
+SH, 03, 2006112818,   ,chunshu,   0, 101S,  432E,  30, 1000, TD,     INVEST
+SH, 03, 2006112900,   ,chunshu,   0, 103S,  426E,  30, 1000, TD,     INVEST
+SH, 03, 2006112906,   ,chunshu,   0, 105S,  421E,  30, 1000, TD,     INVEST
+SH, 03, 2006112912,   ,chunshu,   0, 108S,  418E,  35,  996, TS,     NONAME
+SH, 03, 2006112918,   ,chunshu,   0, 112S,  417E,  40,  993, TS,     NONAME
+SH, 03, 2006113000,   ,chunshu,   0, 116S,  418E,  40,  993, TS,     NONAME
+SH, 03, 2006113006,   ,chunshu,   0, 121S,  420E,  45,  991, TS,     NONAME
+SH, 03, 2006113012,   ,chunshu,   0, 128S,  422E,  45,  991, TS,     NONAME
+SH, 03, 2006113018,   ,chunshu,   0, 135S,  424E,  45,  989, TS,     NONAME
+SH, 03, 2006120100,   ,chunshu,   0, 141S,  425E,  45,  991, TS,     NONAME
+SH, 03, 2006120106,   ,chunshu,   0, 147S,  426E,  45,  991, TS,      ANITA
+SH, 03, 2006120112,   ,chunshu,   0, 153S,  426E,  45,  991, TS,      ANITA
+SH, 03, 2006120118,   ,chunshu,   0, 159S,  426E,  40,  994, TS,      ANITA
+SH, 03, 2006120200,   ,chunshu,   0, 163S,  426E,  30, 1000, TD
+SH, 03, 2006120206,   ,chunshu,   0, 166S,  425E,  30, 1000, TD
+SH, 03, 2006120212,   ,chunshu,   0, 169S,  424E,  30, 1000, TD,      ANITA
+SH, 03, 2006120218,   ,chunshu,   0, 174S,  422E,  25, 1002, TD
+SH, 03, 2006120300,   ,chunshu,   0, 178S,  419E,  25, 1002, TD
+SH, 03, 2006120306,   ,chunshu,   0, 182S,  415E,  25, 1002, TD,      ANITA
+SH, 03, 2006120312,   ,chunshu,   0, 190S,  412E,  25, 1002, TD,      ANITA
+SH, 03, 2006120318,   ,chunshu,   0, 198S,  409E,  25, 1002, TD
+SH, 03, 2006120400,   ,chunshu,   0, 205S,  407E,  25, 1002, TD

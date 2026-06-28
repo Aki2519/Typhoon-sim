@@ -1,0 +1,32 @@
+IO, 06, 2013120500,   ,chunshu,   0,  90N,  843E,  15, 1010, DB
+IO, 06, 2013120506,   ,chunshu,   0,  91N,  841E,  20, 1007, DB,     INVEST
+IO, 06, 2013120512,   ,chunshu,   0,  92N,  839E,  25, 1004, TD,     INVEST
+IO, 06, 2013120518,   ,chunshu,   0,  94N,  838E,  25, 1004, TD,     INVEST
+IO, 06, 2013120600,   ,chunshu,   0,  96N,  837E,  30, 1000, TD,        SIX
+IO, 06, 2013120606,   ,chunshu,   0,  97N,  837E,  35,  996, TS,        SIX
+IO, 06, 2013120612,   ,chunshu,   0,  98N,  838E,  40,  993, TS,        SIX
+IO, 06, 2013120618,   ,chunshu,   0, 100N,  839E,  45,  989, TS,        SIX
+IO, 06, 2013120700,   ,chunshu,   0, 102N,  841E,  50,  985, TS,        SIX
+IO, 06, 2013120706,   ,chunshu,   0, 104N,  843E,  55,  982, TS,       MADI
+IO, 06, 2013120712,   ,chunshu,   0, 108N,  844E,  55,  982, TS,       MADI
+IO, 06, 2013120718,   ,chunshu,   0, 113N,  845E,  60,  978, TS,       MADI
+IO, 06, 2013120800,   ,chunshu,   0, 119N,  845E,  65,  974, TY,       MADI
+IO, 06, 2013120806,   ,chunshu,   0, 124N,  847E,  65,  974, TY,       MADI
+IO, 06, 2013120812,   ,chunshu,   0, 129N,  847E,  65,  974, TY,       MADI
+IO, 06, 2013120818,   ,chunshu,   0, 134N,  846E,  65,  974, TY,       MADI
+IO, 06, 2013120900,   ,chunshu,   0, 139N,  846E,  60,  978, TS,       MADI
+IO, 06, 2013120906,   ,chunshu,   0, 143N,  847E,  60,  978, TS,       MADI
+IO, 06, 2013120912,   ,chunshu,   0, 146N,  849E,  65,  974, TY,       MADI
+IO, 06, 2013120918,   ,chunshu,   0, 148N,  850E,  65,  974, TY,       MADI
+IO, 06, 2013121000,   ,chunshu,   0, 150N,  851E,  70,  970, TY,       MADI
+IO, 06, 2013121006,   ,chunshu,   0, 154N,  853E,  85,  959, TY,       MADI
+IO, 06, 2013121012,   ,chunshu,   0, 152N,  849E,  80,  963, TY,       MADI
+IO, 06, 2013121018,   ,chunshu,   0, 149N,  844E,  65,  974, TY,       MADI
+IO, 06, 2013121100,   ,chunshu,   0, 145N,  840E,  50,  985, TS,       MADI
+IO, 06, 2013121106,   ,chunshu,   0, 139N,  837E,  45,  989, TS,       MADI
+IO, 06, 2013121112,   ,chunshu,   0, 134N,  832E,  45,  989, TS,       MADI
+IO, 06, 2013121118,   ,chunshu,   0, 128N,  827E,  30, 1000, TD,       MADI
+IO, 06, 2013121200,   ,chunshu,   0, 121N,  819E,  30, 1000, TD,       MADI
+IO, 06, 2013121206,   ,chunshu,   0, 113N,  812E,  30, 1000, TD
+IO, 06, 2013121212,   ,chunshu,   0, 103N,  806E,  25, 1004, TD
+IO, 06, 2013121218,   ,chunshu,   0, 101N,  788E,  25, 1004, TD,       MADI

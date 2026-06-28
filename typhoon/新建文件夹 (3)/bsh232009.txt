@@ -1,0 +1,10 @@
+SH, 23, 2009032306,   ,chunshu,   0, 146S, 1562E,  15, 1010, DB
+SH, 23, 2009032312,   ,chunshu,   0, 159S, 1566E,  20, 1007, DB
+SH, 23, 2009032318,   ,chunshu,   0, 167S, 1579E,  25, 1004, TD,     INVEST
+SH, 23, 2009032400,   ,chunshu,   0, 175S, 1593E,  35,  996, TS,     JASPER
+SH, 23, 2009032406,   ,chunshu,   0, 190S, 1605E,  40,  993, TS,     JASPER
+SH, 23, 2009032412,   ,chunshu,   0, 201S, 1620E,  45,  989, TS,     JASPER
+SH, 23, 2009032418,   ,chunshu,   0, 211S, 1631E,  45,  989, TS,     JASPER
+SH, 23, 2009032500,   ,chunshu,   0, 213S, 1633E,  40,  993, TS,     JASPER
+SH, 23, 2009032506,   ,chunshu,   0, 214S, 1635E,  35,  996, TS,     JASPER
+SH, 23, 2009032512,   ,chunshu,   0, 214S, 1636E,  30, 1000, TD,     JASPER

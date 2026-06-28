@@ -1,0 +1,31 @@
+SH, 16, 2010021500,   ,chunshu,   0, 106S,  585E,  25, 1004, TD
+SH, 16, 2010021506,   ,chunshu,   0, 103S,  586E,  25, 1004, DB,     INVEST
+SH, 16, 2010021512,   ,chunshu,   0, 103S,  589E,  30, 1000, TD,     INVEST
+SH, 16, 2010021518,   ,chunshu,   0, 106S,  593E,  30, 1000, TD,     INVEST
+SH, 16, 2010021600,   ,chunshu,   0, 111S,  598E,  35,  996, TS,     INVEST
+SH, 16, 2010021606,   ,chunshu,   0, 119S,  603E,  40,  993, TS,    SIXTEEN
+SH, 16, 2010021612,   ,chunshu,   0, 125S,  604E,  45,  989, TS,    SIXTEEN
+SH, 16, 2010021618,   ,chunshu,   0, 129S,  606E,  55,  982, TS
+SH, 16, 2010021700,   ,chunshu,   0, 133S,  607E,  65,  974, TY,     GELANE
+SH, 16, 2010021706,   ,chunshu,   0, 135S,  612E,  85,  959, TY,     GELANE
+SH, 16, 2010021712,   ,chunshu,   0, 141S,  616E,  80,  963, TY,     GELANE
+SH, 16, 2010021718,   ,chunshu,   0, 145S,  618E,  80,  963, TY,     GELANE
+SH, 16, 2010021800,   ,chunshu,   0, 147S,  619E,  80,  963, TY,     GELANE
+SH, 16, 2010021806,   ,chunshu,   0, 149S,  621E,  90,  956, TY,     GELANE
+SH, 16, 2010021812,   ,chunshu,   0, 153S,  623E,  95,  952, TY,     GELANE
+SH, 16, 2010021818,   ,chunshu,   0, 158S,  623E, 100,  948, TY,     GELANE
+SH, 16, 2010021900,   ,chunshu,   0, 163S,  622E, 100,  948, TY,     GELANE
+SH, 16, 2010021906,   ,chunshu,   0, 167S,  622E, 115,  937, TY,     GELANE
+SH, 16, 2010021912,   ,chunshu,   0, 173S,  621E, 125,  929, TY,     GELANE
+SH, 16, 2010021918,   ,chunshu,   0, 180S,  620E, 120,  933, TY,     GELANE
+SH, 16, 2010022000,   ,chunshu,   0, 184S,  617E, 110,  941, TY,     GELANE
+SH, 16, 2010022006,   ,chunshu,   0, 189S,  616E,  90,  956, TY,     GELANE
+SH, 16, 2010022012,   ,chunshu,   0, 194S,  615E,  80,  963, TY,     GELANE
+SH, 16, 2010022018,   ,chunshu,   0, 200S,  616E,  65,  974, TY,     GELANE
+SH, 16, 2010022100,   ,chunshu,   0, 207S,  619E,  50,  985, TS,     GELANE
+SH, 16, 2010022106,   ,chunshu,   0, 212S,  620E,  40,  993, TS,     GELANE
+SH, 16, 2010022112,   ,chunshu,   0, 207S,  613E,  35,  996, TS,     GELANE
+SH, 16, 2010022118,   ,chunshu,   0, 202S,  605E,  30, 1000, TD,     GELANE
+SH, 16, 2010022200,   ,chunshu,   0, 200S,  602E,  25, 1004, TD
+SH, 16, 2010022206,   ,chunshu,   0, 203S,  601E,  20, 1007, TD
+SH, 16, 2010022212,   ,chunshu,   0, 211S,  601E,  20, 1007, TD

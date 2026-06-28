@@ -1,0 +1,35 @@
+IO, 01, 2008042512,   ,chunshu,   0, 105N,  903E,  20, 1007, DB
+IO, 01, 2008042518,   ,chunshu,   0, 108N,  895E,  20, 1007, DB
+IO, 01, 2008042600,   ,chunshu,   0, 107N,  887E,  20, 1007, DB
+IO, 01, 2008042606,   ,chunshu,   0, 112N,  885E,  20, 1007, DB
+IO, 01, 2008042612,   ,chunshu,   0, 115N,  879E,  20, 1007, DB
+IO, 01, 2008042618,   ,chunshu,   0, 115N,  872E,  25, 1004, TD
+IO, 01, 2008042700,   ,chunshu,   0, 116N,  867E,  25, 1002, TD,     INVEST
+IO, 01, 2008042706,   ,chunshu,   0, 117N,  863E,  30, 1000, TD,     INVEST
+IO, 01, 2008042712,   ,chunshu,   0, 122N,  859E,  35,  996, TS,     INVEST
+IO, 01, 2008042718,   ,chunshu,   0, 125N,  857E,  45,  989, TS,     NONAME
+IO, 01, 2008042800,   ,chunshu,   0, 128N,  856E,  55,  982, TS,     NONAME
+IO, 01, 2008042806,   ,chunshu,   0, 131N,  856E,  65,  974, TY,     NARGIS
+IO, 01, 2008042812,   ,chunshu,   0, 129N,  853E,  70,  970, TY,     NARGIS
+IO, 01, 2008042818,   ,chunshu,   0, 132N,  853E,  75,  967, TY,     NARGIS
+IO, 01, 2008042900,   ,chunshu,   0, 133N,  856E,  75,  967, TY,     NARGIS
+IO, 01, 2008042906,   ,chunshu,   0, 131N,  858E,  75,  967, TY,     NARGIS
+IO, 01, 2008042912,   ,chunshu,   0, 135N,  862E,  70,  970, TY,     NARGIS
+IO, 01, 2008042918,   ,chunshu,   0, 140N,  866E,  70,  970, TY,     NARGIS
+IO, 01, 2008043000,   ,chunshu,   0, 144N,  867E,  70,  970, TY,     NARGIS
+IO, 01, 2008043006,   ,chunshu,   0, 147N,  870E,  60,  978, TS,     NARGIS
+IO, 01, 2008043012,   ,chunshu,   0, 150N,  875E,  65,  974, TY,     NARGIS
+IO, 01, 2008043018,   ,chunshu,   0, 153N,  882E,  65,  974, TY,     NARGIS
+IO, 01, 2008050100,   ,chunshu,   0, 156N,  890E,  65,  974, TY,     NARGIS
+IO, 01, 2008050106,   ,chunshu,   0, 159N,  898E,  70,  970, TY,     NARGIS
+IO, 01, 2008050112,   ,chunshu,   0, 159N,  907E, 100,  948, TY,     NARGIS
+IO, 01, 2008050118,   ,chunshu,   0, 158N,  917E, 100,  948, TY,     NARGIS
+IO, 01, 2008050200,   ,chunshu,   0, 158N,  927E, 110,  941, TY,     NARGIS
+IO, 01, 2008050206,   ,chunshu,   0, 159N,  936E, 115,  937, TY,     NARGIS
+IO, 01, 2008050212,   ,chunshu,   0, 160N,  947E, 115,  937, TY,     NARGIS
+IO, 01, 2008050218,   ,chunshu,   0, 164N,  956E,  85,  963, TY,     NARGIS
+IO, 01, 2008050300,   ,chunshu,   0, 168N,  964E,  70,  970, TY,     NARGIS
+IO, 01, 2008050306,   ,chunshu,   0, 174N,  971E,  50,  985, TS,     NARGIS
+IO, 01, 2008050312,   ,chunshu,   0, 183N,  976E,  40,  993, TS
+IO, 01, 2008050318,   ,chunshu,   0, 194N,  978E,  30, 1000, TD
+IO, 01, 2008050400,   ,chunshu,   0, 208N,  985E,  25, 1004, TD

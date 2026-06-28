@@ -1,0 +1,27 @@
+SH, 24, 2009032306,   ,chunshu,   0, 184S,  410E,  20, 1007, DB
+SH, 24, 2009032312,   ,chunshu,   0, 191S,  409E,  25, 1004, DB,     INVEST
+SH, 24, 2009032318,   ,chunshu,   0, 197S,  412E,  25, 1004, TD,     INVEST
+SH, 24, 2009032400,   ,chunshu,   0, 203S,  415E,  25, 1004, TD,     INVEST
+SH, 24, 2009032406,   ,chunshu,   0, 210S,  417E,  30, 1000, TD, TWENTY-FOU
+SH, 24, 2009032412,   ,chunshu,   0, 217S,  418E,  35,  996, TS
+SH, 24, 2009032418,   ,chunshu,   0, 224S,  419E,  40,  993, TS,     IZILDA
+SH, 24, 2009032500,   ,chunshu,   0, 227S,  421E,  45,  989, TS,     IZILDA
+SH, 24, 2009032506,   ,chunshu,   0, 231S,  423E,  45,  989, TS,     IZILDA
+SH, 24, 2009032512,   ,chunshu,   0, 236S,  423E,  55,  982, TS,     IZILDA
+SH, 24, 2009032518,   ,chunshu,   0, 237S,  424E,  60,  978, TS,     IZILDA
+SH, 24, 2009032600,   ,chunshu,   0, 238S,  426E,  65,  974, TY,     IZILDA
+SH, 24, 2009032606,   ,chunshu,   0, 239S,  427E,  60,  978, TS,     IZILDA
+SH, 24, 2009032612,   ,chunshu,   0, 239S,  424E,  50,  985, TS,     IZILDA
+SH, 24, 2009032618,   ,chunshu,   0, 238S,  421E,  35,  996, TS,     IZILDA
+SH, 24, 2009032700,   ,chunshu,   0, 236S,  419E,  35,  996, TS,     IZILDA
+SH, 24, 2009032706,   ,chunshu,   0, 234S,  418E,  25, 1004, TD,     IZILDA
+SH, 24, 2009032712,   ,chunshu,   0, 231S,  411E,  20, 1007, DB,     IZILDA
+SH, 24, 2009032718,   ,chunshu,   0, 225S,  407E,  20, 1007, DB,     IZILDA
+SH, 24, 2009032800,   ,chunshu,   0, 221S,  401E,  20, 1007, DB,     IZILDA
+SH, 24, 2009032806,   ,chunshu,   0, 217S,  395E,  20, 1007, DB
+SH, 24, 2009032812,   ,chunshu,   0, 217S,  388E,  20, 1007, DB
+SH, 24, 2009032818,   ,chunshu,   0, 214S,  381E,  20, 1007, DB
+SH, 24, 2009032900,   ,chunshu,   0, 211S,  374E,  20, 1007, DB
+SH, 24, 2009032906,   ,chunshu,   0, 208S,  363E,  15, 1010, DB
+SH, 24, 2009032912,   ,chunshu,   0, 203S,  351E,  15, 1010, DB
+SH, 24, 2009032918,   ,chunshu,   0, 200S,  342E,  15, 1010, DB

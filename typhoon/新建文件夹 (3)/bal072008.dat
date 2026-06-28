@@ -1,0 +1,50 @@
+AL, 07, 2008082500,   ,chunshu,   0, 135N,  674W,  25, 1008, TD,     INVEST
+AL, 07, 2008082506,   ,chunshu,   0, 144N,  685W,  30, 1005, TD,     INVEST
+AL, 07, 2008082512,   ,chunshu,   0, 151N,  696W,  35, 1002, TS,      SEVEN
+AL, 07, 2008082518,   ,chunshu,   0, 158N,  705W,  50,  996, TS,     GUSTAV
+AL, 07, 2008082600,   ,chunshu,   0, 164N,  712W,  60,  991, TS,     GUSTAV
+AL, 07, 2008082606,   ,chunshu,   0, 169N,  717W,  75,  986, HU,     GUSTAV
+AL, 07, 2008082612,   ,chunshu,   0, 175N,  721W,  80,  981, HU,     GUSTAV
+AL, 07, 2008082618,   ,chunshu,   0, 181N,  728W,  70,  992, HU,     GUSTAV
+AL, 07, 2008082700,   ,chunshu,   0, 184N,  731W,  50,  995, TS,     GUSTAV
+AL, 07, 2008082706,   ,chunshu,   0, 186N,  734W,  45,  999, TS,     GUSTAV
+AL, 07, 2008082712,   ,chunshu,   0, 187N,  737W,  45,  998, TS,     GUSTAV
+AL, 07, 2008082718,   ,chunshu,   0, 189N,  740W,  45,  999, TS,     GUSTAV
+AL, 07, 2008082800,   ,chunshu,   0, 188N,  751W,  40,  999, TS,     GUSTAV
+AL, 07, 2008082806,   ,chunshu,   0, 181N,  754W,  45,  995, TS,     GUSTAV
+AL, 07, 2008082812,   ,chunshu,   0, 179N,  757W,  60,  984, TS,     GUSTAV
+AL, 07, 2008082818,   ,chunshu,   0, 180N,  762W,  60,  984, TS,     GUSTAV
+AL, 07, 2008082900,   ,chunshu,   0, 178N,  770W,  60,  987, TS,     GUSTAV
+AL, 07, 2008082902,   ,chunshu,   0, 179N,  772W,  60,  987, TS
+AL, 07, 2008082906,   ,chunshu,   0, 180N,  777W,  55,  990, TS,     GUSTAV
+AL, 07, 2008082912,   ,chunshu,   0, 183N,  784W,  50,  989, TS,     GUSTAV
+AL, 07, 2008082918,   ,chunshu,   0, 188N,  792W,  65,  984, HU,     GUSTAV
+AL, 07, 2008083000,   ,chunshu,   0, 192N,  800W,  75,  975, HU,     GUSTAV
+AL, 07, 2008083006,   ,chunshu,   0, 197N,  808W,  85,  968, HU,     GUSTAV
+AL, 07, 2008083012,   ,chunshu,   0, 207N,  816W, 110,  955, HU,     GUSTAV
+AL, 07, 2008083018,   ,chunshu,   0, 216N,  825W, 125,  943, HU,     GUSTAV
+AL, 07, 2008083022,   ,chunshu,   0, 224N,  831W, 135,  941, HU
+AL, 07, 2008083100,   ,chunshu,   0, 227N,  835W, 120,  950, HU,     GUSTAV
+AL, 07, 2008083106,   ,chunshu,   0, 236N,  844W, 105,  960, HU,     GUSTAV
+AL, 07, 2008083112,   ,chunshu,   0, 248N,  855W, 100,  961, HU,     GUSTAV
+AL, 07, 2008083118,   ,chunshu,   0, 259N,  867W,  95,  960, HU,     GUSTAV
+AL, 07, 2008090100,   ,chunshu,   0, 269N,  877W,  95,  953, HU,     GUSTAV
+AL, 07, 2008090106,   ,chunshu,   0, 279N,  890W,  95,  954, HU,     GUSTAV
+AL, 07, 2008090112,   ,chunshu,   0, 288N,  903W,  95,  955, HU,     GUSTAV
+AL, 07, 2008090115,   ,chunshu,   0, 292N,  907W,  90,  954, HU
+AL, 07, 2008090118,   ,chunshu,   0, 298N,  914W,  85,  958, HU,     GUSTAV
+AL, 07, 2008090200,   ,chunshu,   0, 307N,  923W,  60,  971, TS,     GUSTAV
+AL, 07, 2008090206,   ,chunshu,   0, 314N,  931W,  40,  981, TS,     GUSTAV
+AL, 07, 2008090212,   ,chunshu,   0, 321N,  935W,  30,  989, TD
+AL, 07, 2008090218,   ,chunshu,   0, 327N,  939W,  20,  993, TD
+AL, 07, 2008090300,   ,chunshu,   0, 332N,  939W,  20,  995, TD
+AL, 07, 2008090306,   ,chunshu,   0, 337N,  943W,  20,  997, TD
+AL, 07, 2008090312,   ,chunshu,   0, 338N,  944W,  20,  997, TD
+AL, 07, 2008090318,   ,chunshu,   0, 340N,  944W,  20,  998, TD
+AL, 07, 2008090400,   ,chunshu,   0, 343N,  941W,  15,  998, TD
+AL, 07, 2008090406,   ,chunshu,   0, 348N,  934W,  15,  999, TD
+AL, 07, 2008090412,   ,chunshu,   0, 362N,  923W,  15, 1000, EX
+AL, 07, 2008090418,   ,chunshu,   0, 385N,  907W,  20, 1000, EX
+AL, 07, 2008090500,   ,chunshu,   0, 402N,  887W,  20, 1002, EX
+AL, 07, 2008090506,   ,chunshu,   0, 422N,  865W,  20, 1002, EX
+AL, 07, 2008090512,   ,chunshu,   0, 437N,  838W,  20, 1004, EX

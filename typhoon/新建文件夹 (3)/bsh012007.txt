@@ -1,0 +1,24 @@
+SH, 01, 2006102012,   ,chunshu,   0,  95S, 1679E,  20, 1004, DB
+SH, 01, 2006102018,   ,chunshu,   0,  96S, 1680E,  25, 1002, TD,     INVEST
+SH, 01, 2006102100,   ,chunshu,   0,  98S, 1681E,  25, 1002, TD,     INVEST
+SH, 01, 2006102106,   ,chunshu,   0, 100S, 1681E,  25, 1002, TD,     INVEST
+SH, 01, 2006102112,   ,chunshu,   0, 102S, 1680E,  30, 1000, TD,     INVEST
+SH, 01, 2006102118,   ,chunshu,   0, 105S, 1679E,  30, 1000, TD,     INVEST
+SH, 01, 2006102200,   ,chunshu,   0, 108S, 1677E,  45,  991, TS,     NONAME
+SH, 01, 2006102206,   ,chunshu,   0, 109S, 1674E,  45,  991, TS,     XAVIER
+SH, 01, 2006102212,   ,chunshu,   0, 111S, 1676E,  55,  984, TS,     XAVIER
+SH, 01, 2006102218,   ,chunshu,   0, 113S, 1678E,  65,  976, TY,     XAVIER
+SH, 01, 2006102300,   ,chunshu,   0, 116S, 1681E,  80,  963, TY,     XAVIER
+SH, 01, 2006102306,   ,chunshu,   0, 120S, 1683E,  80,  963, TY,     XAVIER
+SH, 01, 2006102312,   ,chunshu,   0, 125S, 1685E,  85,  958, TY,     XAVIER
+SH, 01, 2006102318,   ,chunshu,   0, 128S, 1687E,  90,  954, TY,     XAVIER
+SH, 01, 2006102400,   ,chunshu,   0, 132S, 1692E, 115,  927, TY,     XAVIER
+SH, 01, 2006102406,   ,chunshu,   0, 137S, 1697E, 115,  927, TY,     XAVIER
+SH, 01, 2006102412,   ,chunshu,   0, 144S, 1703E, 105,  938, TY,     XAVIER
+SH, 01, 2006102418,   ,chunshu,   0, 151S, 1711E,  85,  958, TY,     XAVIER
+SH, 01, 2006102500,   ,chunshu,   0, 155S, 1717E,  70,  972, TY,     XAVIER
+SH, 01, 2006102506,   ,chunshu,   0, 157S, 1717E,  60,  980, TS,     XAVIER
+SH, 01, 2006102512,   ,chunshu,   0, 153S, 1712E,  45,  991, TS,     XAVIER
+SH, 01, 2006102518,   ,chunshu,   0, 150S, 1708E,  40,  994, TS,     XAVIER
+SH, 01, 2006102600,   ,chunshu,   0, 147S, 1703E,  30, 1000, TD
+SH, 01, 2006102606,   ,chunshu,   0, 142S, 1699E,  25, 1002, TD

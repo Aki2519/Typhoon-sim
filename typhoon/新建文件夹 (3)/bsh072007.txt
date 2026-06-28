@@ -1,0 +1,14 @@
+SH, 07, 2006123100,   ,chunshu,   0, 119S, 1143E,  15, 1006, DB
+SH, 07, 2006123106,   ,chunshu,   0, 119S, 1145E,  15, 1006, DB
+SH, 07, 2006123112,   ,chunshu,   0, 119S, 1148E,  20, 1004, DB,     INVEST
+SH, 07, 2006123118,   ,chunshu,   0, 117S, 1153E,  20, 1004, DB,     INVEST
+SH, 07, 2007010100,   ,chunshu,   0, 114S, 1160E,  20, 1004, DB,     INVEST
+SH, 07, 2007010106,   ,chunshu,   0, 114S, 1168E,  25, 1002, TS,     INVEST
+SH, 07, 2007010112,   ,chunshu,   0, 119S, 1180E,  25, 1002, TS,     INVEST
+SH, 07, 2007010118,   ,chunshu,   0, 129S, 1192E,  25, 1002, TS,     INVEST
+SH, 07, 2007010200,   ,chunshu,   0, 142S, 1196E,  30, 1000, TS,     INVEST
+SH, 07, 2007010206,   ,chunshu,   0, 154S, 1197E,  35,  997, TS,     INVEST
+SH, 07, 2007010212,   ,chunshu,   0, 165S, 1198E,  35,  996, TS,     ISOBEL
+SH, 07, 2007010218,   ,chunshu,   0, 177S, 1200E,  40,  994, TS,     ISOBEL
+SH, 07, 2007010300,   ,chunshu,   0, 187S, 1208E,  35,  996, TS,     ISOBEL
+SH, 07, 2007010306,   ,chunshu,   0, 177S, 1200E,  35,  997, TS

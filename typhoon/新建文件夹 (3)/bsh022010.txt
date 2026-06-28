@@ -1,0 +1,18 @@
+SH, 02, 2009112112,   ,chunshu,   0, 117S,  607E,  15, 1010, DB
+SH, 02, 2009112118,   ,chunshu,   0, 107S,  591E,  15, 1010, DB
+SH, 02, 2009112200,   ,chunshu,   0,  97S,  575E,  20, 1007, DB
+SH, 02, 2009112206,   ,chunshu,   0,  91S,  562E,  25, 1004, TD
+SH, 02, 2009112212,   ,chunshu,   0,  86S,  552E,  30, 1000, DB,     INVEST
+SH, 02, 2009112218,   ,chunshu,   0,  85S,  547E,  30, 1000, DB,     INVEST
+SH, 02, 2009112300,   ,chunshu,   0,  85S,  542E,  35,  996, TS,     INVEST
+SH, 02, 2009112306,   ,chunshu,   0,  88S,  538E,  40,  993, TS,        TWO
+SH, 02, 2009112312,   ,chunshu,   0,  92S,  535E,  40,  993, TS,    BONGANI
+SH, 02, 2009112318,   ,chunshu,   0,  96S,  531E,  40,  993, TS,    BONGANI
+SH, 02, 2009112400,   ,chunshu,   0, 100S,  525E,  40,  993, TS,    BONGANI
+SH, 02, 2009112406,   ,chunshu,   0, 104S,  520E,  40,  993, TS,    BONGANI
+SH, 02, 2009112412,   ,chunshu,   0, 109S,  521E,  35,  996, TS,    BONGANI
+SH, 02, 2009112418,   ,chunshu,   0, 111S,  515E,  35,  996, TS,    BONGANI
+SH, 02, 2009112500,   ,chunshu,   0, 113S,  509E,  35,  996, TS
+SH, 02, 2009112506,   ,chunshu,   0, 115S,  502E,  30, 1000, TD,    BONGANI
+SH, 02, 2009112512,   ,chunshu,   0, 116S,  490E,  20, 1007, TD,    BONGANI
+SH, 02, 2009112518,   ,chunshu,   0, 120S,  478E,  15, 1010, DB,    BONGANI

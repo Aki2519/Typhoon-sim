@@ -1,0 +1,40 @@
+SH, 18, 2007030300,   ,chunshu,   0, 137S, 1178E,  20, 1004, DB
+SH, 18, 2007030306,   ,chunshu,   0, 140S, 1173E,  25, 1002, TD
+SH, 18, 2007030312,   ,chunshu,   0, 142S, 1169E,  25, 1004, TD,     INVEST
+SH, 18, 2007030318,   ,chunshu,   0, 144S, 1165E,  25, 1002, TD,     INVEST
+SH, 18, 2007030400,   ,chunshu,   0, 146S, 1161E,  25, 1002, TD,     INVEST
+SH, 18, 2007030406,   ,chunshu,   0, 147S, 1158E,  25, 1002, TD,     INVEST
+SH, 18, 2007030412,   ,chunshu,   0, 147S, 1156E,  25, 1002, TD,     INVEST
+SH, 18, 2007030418,   ,chunshu,   0, 147S, 1153E,  25, 1002, TD
+SH, 18, 2007030500,   ,chunshu,   0, 147S, 1149E,  25, 1002, TD
+SH, 18, 2007030506,   ,chunshu,   0, 146S, 1142E,  30, 1000, TD
+SH, 18, 2007030512,   ,chunshu,   0, 146S, 1132E,  30, 1000, TD
+SH, 18, 2007030518,   ,chunshu,   0, 147S, 1120E,  30, 1000, TD
+SH, 18, 2007030600,   ,chunshu,   0, 144S, 1108E,  30, 1000, TD
+SH, 18, 2007030606,   ,chunshu,   0, 138S, 1101E,  30, 1000, TD,     INVEST
+SH, 18, 2007030612,   ,chunshu,   0, 134S, 1096E,  30, 1000, TD,     INVEST
+SH, 18, 2007030618,   ,chunshu,   0, 131S, 1089E,  30, 1000, TD,     INVEST
+SH, 18, 2007030700,   ,chunshu,   0, 128S, 1083E,  35,  997, TS,     INVEST
+SH, 18, 2007030706,   ,chunshu,   0, 127S, 1078E,  45,  991, TS,      JACOB
+SH, 18, 2007030712,   ,chunshu,   0, 128S, 1072E,  45,  991, TS,      JACOB
+SH, 18, 2007030718,   ,chunshu,   0, 130S, 1064E,  55,  984, TS,      JACOB
+SH, 18, 2007030800,   ,chunshu,   0, 130S, 1057E,  55,  984, TS,      JACOB
+SH, 18, 2007030806,   ,chunshu,   0, 127S, 1058E,  45,  987, TS,      JACOB
+SH, 18, 2007030812,   ,chunshu,   0, 131S, 1062E,  50,  987, TS,      JACOB
+SH, 18, 2007030818,   ,chunshu,   0, 137S, 1067E,  50,  987, TS,      JACOB
+SH, 18, 2007030900,   ,chunshu,   0, 141S, 1076E,  55,  984, TS,      JACOB
+SH, 18, 2007030906,   ,chunshu,   0, 146S, 1084E,  55,  984, TS,      JACOB
+SH, 18, 2007030912,   ,chunshu,   0, 152S, 1091E,  65,  976, TY,      JACOB
+SH, 18, 2007030918,   ,chunshu,   0, 159S, 1097E,  70,  972, TY,      JACOB
+SH, 18, 2007031000,   ,chunshu,   0, 164S, 1104E,  75,  967, TY
+SH, 18, 2007031006,   ,chunshu,   0, 171S, 1113E,  65,  976, TY,      JACOB
+SH, 18, 2007031012,   ,chunshu,   0, 179S, 1123E,  55,  984, TS,      JACOB
+SH, 18, 2007031018,   ,chunshu,   0, 187S, 1132E,  55,  984, TS,      JACOB
+SH, 18, 2007031100,   ,chunshu,   0, 191S, 1139E,  50,  987, TS,      JACOB
+SH, 18, 2007031106,   ,chunshu,   0, 193S, 1145E,  45,  991, TS,      JACOB
+SH, 18, 2007031112,   ,chunshu,   0, 196S, 1155E,  40,  994, TS,      JACOB
+SH, 18, 2007031118,   ,chunshu,   0, 199S, 1167E,  40,  994, TS,      JACOB
+SH, 18, 2007031200,   ,chunshu,   0, 202S, 1180E,  35,  997, TS,      JACOB
+SH, 18, 2007031206,   ,chunshu,   0, 208S, 1194E,  30, 1000, TD
+SH, 18, 2007031212,   ,chunshu,   0, 221S, 1207E,  25, 1002, TD
+SH, 18, 2007031218,   ,chunshu,   0, 237S, 1223E,  25, 1002, TS

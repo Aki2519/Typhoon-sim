@@ -1,0 +1,27 @@
+SH, 05, 2007120312,   ,chunshu,   0, 125S, 1760W,  20, 1007, DB
+SH, 05, 2007120318,   ,chunshu,   0, 125S, 1767W,  20, 1007, DB
+SH, 05, 2007120400,   ,chunshu,   0, 124S, 1774W,  25, 1004, TD,     INVEST
+SH, 05, 2007120406,   ,chunshu,   0, 122S, 1783W,  25, 1004, TD,     INVEST
+SH, 05, 2007120412,   ,chunshu,   0, 120S, 1794W,  25, 1004, TD,     INVEST
+SH, 05, 2007120418,   ,chunshu,   0, 119S, 1795E,  30, 1000, TD,     INVEST
+SH, 05, 2007120500,   ,chunshu,   0, 121S, 1784E,  35,  996, TS,     NONAME
+SH, 05, 2007120506,   ,chunshu,   0, 124S, 1774E,  50,  985, TS,      DAMAN
+SH, 05, 2007120512,   ,chunshu,   0, 130S, 1765E,  55,  982, TS,      DAMAN
+SH, 05, 2007120518,   ,chunshu,   0, 140S, 1762E,  55,  982, TS,      DAMAN
+SH, 05, 2007120600,   ,chunshu,   0, 148S, 1758E,  55,  982, TS,      DAMAN
+SH, 05, 2007120606,   ,chunshu,   0, 153S, 1761E,  65,  974, TY,      DAMAN
+SH, 05, 2007120612,   ,chunshu,   0, 154S, 1764E,  80,  963, TY,      DAMAN
+SH, 05, 2007120618,   ,chunshu,   0, 155S, 1769E, 100,  948, TY,      DAMAN
+SH, 05, 2007120700,   ,chunshu,   0, 155S, 1777E, 110,  941, TY,      DAMAN
+SH, 05, 2007120706,   ,chunshu,   0, 155S, 1786E, 110,  941, TY,      DAMAN
+SH, 05, 2007120712,   ,chunshu,   0, 156S, 1797E, 110,  941, TY,      DAMAN
+SH, 05, 2007120718,   ,chunshu,   0, 159S, 1791W, 100,  948, TY,      DAMAN
+SH, 05, 2007120800,   ,chunshu,   0, 163S, 1785W,  90,  956, TY,      DAMAN
+SH, 05, 2007120806,   ,chunshu,   0, 169S, 1783W,  75,  967, TY,      DAMAN
+SH, 05, 2007120812,   ,chunshu,   0, 173S, 1779W,  65,  974, TY,      DAMAN
+SH, 05, 2007120818,   ,chunshu,   0, 177S, 1779W,  60,  978, TS,      DAMAN
+SH, 05, 2007120900,   ,chunshu,   0, 181S, 1780W,  50,  985, TS,      DAMAN
+SH, 05, 2007120906,   ,chunshu,   0, 185S, 1780W,  35,  996, TS,      DAMAN
+SH, 05, 2007120912,   ,chunshu,   0, 188S, 1780W,  25, 1004, TD
+SH, 05, 2007120918,   ,chunshu,   0, 191S, 1782W,  20, 1007, DB
+SH, 05, 2007121000,   ,chunshu,   0, 196S, 1785W,  20, 1007, DB

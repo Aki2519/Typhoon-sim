@@ -1,0 +1,733 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              100.0,
+              0.0
+            ],
+            [
+              180.0,
+              0.0
+            ],
+            [
+              180.0,
+              66.5
+            ],
+            [
+              100.0,
+              66.5
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "WP",
+        "name_cn": "西北太平洋",
+        "name_full": "WPAC",
+        "hemisphere": "N",
+        "avg_ace": 331.4068,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              0.0
+            ],
+            [
+              220.1,
+              0.0
+            ],
+            [
+              220.1,
+              66.5
+            ],
+            [
+              180.1,
+              66.5
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "CP",
+        "name_cn": "中太平洋",
+        "name_full": "CPAC",
+        "hemisphere": "N",
+        "avg_ace": 21.6017,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              220.0,
+              0.0
+            ],
+            [
+              290.0,
+              0.0
+            ],
+            [
+              290.0,
+              7.5
+            ],
+            [
+              283.0,
+              7.5
+            ],
+            [
+              281.0,
+              9.3
+            ],
+            [
+              279.0,
+              8.5
+            ],
+            [
+              277.0,
+              9.0
+            ],
+            [
+              276.0,
+              10.0
+            ],
+            [
+              274.0,
+              14.0
+            ],
+            [
+              270.0,
+              15.0
+            ],
+            [
+              266.0,
+              17.0
+            ],
+            [
+              260.0,
+              20.0
+            ],
+            [
+              260.0,
+              66.5
+            ],
+            [
+              220.0,
+              66.5
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "EP",
+        "name_cn": "东北太平洋",
+        "name_full": "EPAC",
+        "hemisphere": "N",
+        "avg_ace": 120.2618,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              0.0
+            ],
+            [
+              290.0,
+              0.0
+            ],
+            [
+              290.0,
+              7.5
+            ],
+            [
+              283.0,
+              7.5
+            ],
+            [
+              281.0,
+              9.3
+            ],
+            [
+              279.0,
+              8.5
+            ],
+            [
+              277.0,
+              9.0
+            ],
+            [
+              276.0,
+              10.0
+            ],
+            [
+              274.0,
+              14.0
+            ],
+            [
+              270.0,
+              15.0
+            ],
+            [
+              266.0,
+              17.0
+            ],
+            [
+              260.0,
+              20.0
+            ],
+            [
+              260.0,
+              66.5
+            ],
+            [
+              220.0,
+              66.5
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "MP",
+        "name_cn": "中东太平洋",
+        "name_full": "MEPA",
+        "hemisphere": "N",
+        "avg_ace": 141.8635,
+        "is_merged": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              290.1,
+              0.0
+            ],
+            [
+              20.0,
+              0.0
+            ],
+            [
+              20.0,
+              20.0
+            ],
+            [
+              354.5,
+              20.0
+            ],
+            [
+              354.5,
+              40.0
+            ],
+            [
+              10.0,
+              50.0
+            ],
+            [
+              44.0,
+              50.0
+            ],
+            [
+              40.0,
+              66.5
+            ],
+            [
+              260.1,
+              66.5
+            ],
+            [
+              260.1,
+              20.0
+            ],
+            [
+              266.1,
+              17.0
+            ],
+            [
+              270.1,
+              15.0
+            ],
+            [
+              274.1,
+              14.0
+            ],
+            [
+              276.1,
+              10.0
+            ],
+            [
+              277.1,
+              9.0
+            ],
+            [
+              279.1,
+              8.5
+            ],
+            [
+              281.1,
+              9.3
+            ],
+            [
+              283.1,
+              7.5
+            ],
+            [
+              290.1,
+              7.5
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "AL",
+        "name_cn": "北大西洋",
+        "name_full": "NATL",
+        "hemisphere": "N",
+        "avg_ace": 103.1301,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.1,
+              0.0
+            ],
+            [
+              99.9,
+              0.0
+            ],
+            [
+              99.9,
+              66.5
+            ],
+            [
+              40.1,
+              66.5
+            ],
+            [
+              44.1,
+              50.0
+            ],
+            [
+              44.1,
+              30.5
+            ],
+            [
+              32.0,
+              30.5
+            ],
+            [
+              20.1,
+              20.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "IO",
+        "name_cn": "北印度洋",
+        "name_full": "NIO",
+        "hemisphere": "N",
+        "avg_ace": 29.2208,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              354.6,
+              20.0
+            ],
+            [
+              20.0,
+              20.0
+            ],
+            [
+              31.9,
+              30.5
+            ],
+            [
+              44.0,
+              30.5
+            ],
+            [
+              44.0,
+              50.0
+            ],
+            [
+              10.1,
+              50.0
+            ],
+            [
+              354.6,
+              40.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "ME",
+        "name_cn": "地中海",
+        "name_full": "MEDS",
+        "hemisphere": "N",
+        "avg_ace": 0.164,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              66.6
+            ],
+            [
+              300.0,
+              66.6
+            ],
+            [
+              120.0,
+              66.6
+            ],
+            [
+              180.0,
+              66.6
+            ],
+            [
+              180.0,
+              90.0
+            ],
+            [
+              120.0,
+              90.0
+            ],
+            [
+              300.0,
+              90.0
+            ],
+            [
+              180.1,
+              90.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "AR",
+        "name_cn": "北冰洋",
+        "name_full": "ARCO",
+        "hemisphere": "N",
+        "avg_ace": 0.0,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              89.1,
+              -40.0
+            ],
+            [
+              160.0,
+              -40.0
+            ],
+            [
+              160.0,
+              -0.1
+            ],
+            [
+              89.1,
+              -0.1
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "AU",
+        "name_cn": "澳洲区",
+        "name_full": "AUS",
+        "hemisphere": "S",
+        "avg_ace": 86.6243,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              30.0,
+              -40.0
+            ],
+            [
+              89.0,
+              -40.0
+            ],
+            [
+              89.0,
+              -0.1
+            ],
+            [
+              30.0,
+              -0.1
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SO",
+        "name_cn": "西南印度洋",
+        "name_full": "SWIO",
+        "hemisphere": "S",
+        "avg_ace": 126.0779,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              160.1,
+              -40.0
+            ],
+            [
+              240.0,
+              -40.0
+            ],
+            [
+              240.0,
+              -0.1
+            ],
+            [
+              160.1,
+              -0.1
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SP",
+        "name_cn": "南太平洋",
+        "name_full": "SPAC",
+        "hemisphere": "S",
+        "avg_ace": 71.8198,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              240.1,
+              -40.0
+            ],
+            [
+              290.0,
+              -40.0
+            ],
+            [
+              290.0,
+              -0.1
+            ],
+            [
+              240.1,
+              -0.1
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SU",
+        "name_cn": "东南太平洋",
+        "name_full": "SEPAC",
+        "hemisphere": "S",
+        "avg_ace": 0.0,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              290.1,
+              -40.0
+            ],
+            [
+              29.9,
+              -40.0
+            ],
+            [
+              29.9,
+              -0.1
+            ],
+            [
+              290.1,
+              -0.1
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SA",
+        "name_cn": "南大西洋",
+        "name_full": "SATL",
+        "hemisphere": "S",
+        "avg_ace": 0.4267,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              -40.1
+            ],
+            [
+              300.0,
+              -40.1
+            ],
+            [
+              120.0,
+              -40.1
+            ],
+            [
+              180.0,
+              -40.1
+            ],
+            [
+              180.0,
+              -90.0
+            ],
+            [
+              120.0,
+              -90.0
+            ],
+            [
+              300.0,
+              -90.0
+            ],
+            [
+              180.1,
+              -90.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SR",
+        "name_cn": "南冰洋",
+        "name_full": "ANTO",
+        "hemisphere": "S",
+        "avg_ace": 0.0,
+        "is_merged": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              0.0
+            ],
+            [
+              180.1,
+              90.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "NE",
+        "name_cn": "北半球",
+        "name_full": "NOEA",
+        "hemisphere": "N",
+        "avg_ace": 605.7852,
+        "is_merged": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              180.1,
+              -0.1
+            ],
+            [
+              180.1,
+              -90.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "code": "SE",
+        "name_cn": "南半球",
+        "name_full": "SOEA",
+        "hemisphere": "S",
+        "avg_ace": 284.9487,
+        "is_merged": true
+      }
+    }
+  ]
+}

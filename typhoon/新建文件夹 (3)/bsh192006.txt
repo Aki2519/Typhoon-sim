@@ -1,0 +1,33 @@
+SH, 19, 2006031900,   ,chunshu,   0, 112S, 1185E,  15, 1006, DB
+SH, 19, 2006031906,   ,chunshu,   0, 112S, 1183E,  20, 1007, TD
+SH, 19, 2006031912,   ,chunshu,   0, 113S, 1180E,  20, 1007, TD
+SH, 19, 2006031918,   ,chunshu,   0, 115S, 1177E,  20, 1007, DB
+SH, 19, 2006032000,   ,chunshu,   0, 116S, 1173E,  15, 1006, DB
+SH, 19, 2006032006,   ,chunshu,   0, 118S, 1171E,  15, 1006, DB
+SH, 19, 2006032012,   ,chunshu,   0, 120S, 1169E,  20, 1007, TD
+SH, 19, 2006032018,   ,chunshu,   0, 121S, 1166E,  25, 1003, TD,     INVEST
+SH, 19, 2006032100,   ,chunshu,   0, 123S, 1161E,  30, 1000, TD,     INVEST
+SH, 19, 2006032106,   ,chunshu,   0, 126S, 1155E,  40,  994, TS,     INVEST
+SH, 19, 2006032112,   ,chunshu,   0, 129S, 1149E,  40,  994, TS,      FLOYD
+SH, 19, 2006032118,   ,chunshu,   0, 132S, 1140E,  55,  984, TS,      FLOYD
+SH, 19, 2006032200,   ,chunshu,   0, 133S, 1132E,  60,  980, TS,      FLOYD
+SH, 19, 2006032206,   ,chunshu,   0, 132S, 1125E,  60,  978, TS,      FLOYD
+SH, 19, 2006032212,   ,chunshu,   0, 132S, 1118E,  70,  970, TY,      FLOYD
+SH, 19, 2006032218,   ,chunshu,   0, 132S, 1110E,  75,  967, TY,      FLOYD
+SH, 19, 2006032300,   ,chunshu,   0, 133S, 1103E,  75,  967, TY,      FLOYD
+SH, 19, 2006032306,   ,chunshu,   0, 135S, 1095E,  75,  967, TY,      FLOYD
+SH, 19, 2006032312,   ,chunshu,   0, 141S, 1090E,  90,  956, TY,      FLOYD
+SH, 19, 2006032318,   ,chunshu,   0, 147S, 1084E, 105,  938, TY,      FLOYD
+SH, 19, 2006032400,   ,chunshu,   0, 151S, 1082E, 115,  927, TY,      FLOYD
+SH, 19, 2006032406,   ,chunshu,   0, 158S, 1082E, 115,  927, TY,      FLOYD
+SH, 19, 2006032412,   ,chunshu,   0, 165S, 1084E, 115,  927, TY,      FLOYD
+SH, 19, 2006032418,   ,chunshu,   0, 172S, 1086E,  95,  952, TY,      FLOYD
+SH, 19, 2006032500,   ,chunshu,   0, 176S, 1092E,  90,  954, TY,      FLOYD
+SH, 19, 2006032506,   ,chunshu,   0, 182S, 1101E,  90,  954, TY,      FLOYD
+SH, 19, 2006032512,   ,chunshu,   0, 188S, 1111E,  80,  963, TY,      FLOYD
+SH, 19, 2006032518,   ,chunshu,   0, 192S, 1119E,  75,  967, TY,      FLOYD
+SH, 19, 2006032600,   ,chunshu,   0, 191S, 1121E,  60,  980, TS,      FLOYD
+SH, 19, 2006032606,   ,chunshu,   0, 194S, 1122E,  50,  987, TS,      FLOYD
+SH, 19, 2006032612,   ,chunshu,   0, 197S, 1123E,  35,  996, TS,      FLOYD
+SH, 19, 2006032618,   ,chunshu,   0, 203S, 1123E,  35,  997, TS
+SH, 19, 2006032700,   ,chunshu,   0, 209S, 1118E,  30, 1000, EX

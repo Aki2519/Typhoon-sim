@@ -1,0 +1,53 @@
+IO, 05, 2016120606,   ,chunshu,   0,  78N,  917E,  30, 1000, TD,     INVEST
+IO, 05, 2016120612,   ,chunshu,   0,  83N,  914E,  30, 1000, TD,     INVEST
+IO, 05, 2016120618,   ,chunshu,   0,  87N,  915E,  30, 1004, DB,     INVEST
+IO, 05, 2016120700,   ,chunshu,   0,  94N,  915E,  30, 1004, DB,     INVEST
+IO, 05, 2016120706,   ,chunshu,   0, 100N,  918E,  30, 1001, DB,     INVEST
+IO, 05, 2016120712,   ,chunshu,   0, 105N,  920E,  30, 1000, TD,       FIVE
+IO, 05, 2016120718,   ,chunshu,   0, 108N,  920E,  40,  993, TS,       FIVE
+IO, 05, 2016120800,   ,chunshu,   0, 110N,  920E,  45,  997, TS,     VARDAH
+IO, 05, 2016120806,   ,chunshu,   0, 112N,  920E,  45,  995, TS,     VARDAH
+IO, 05, 2016120812,   ,chunshu,   0, 112N,  918E,  45,  995, TS,     VARDAH
+IO, 05, 2016120818,   ,chunshu,   0, 113N,  915E,  45,  989, TS,     VARDAH
+IO, 05, 2016120900,   ,chunshu,   0, 115N,  910E,  45,  989, TS,     VARDAH
+IO, 05, 2016120906,   ,chunshu,   0, 118N,  906E,  45,  989, TS,     VARDAH
+IO, 05, 2016120912,   ,chunshu,   0, 121N,  900E,  50,  985, TS,     VARDAH
+IO, 05, 2016120918,   ,chunshu,   0, 124N,  891E,  55,  982, TS,     VARDAH
+IO, 05, 2016121000,   ,chunshu,   0, 126N,  881E,  55,  985, TS,     VARDAH
+IO, 05, 2016121006,   ,chunshu,   0, 128N,  871E,  60,  989, TS,     VARDAH
+IO, 05, 2016121012,   ,chunshu,   0, 128N,  863E,  65,  985, TY,     VARDAH
+IO, 05, 2016121018,   ,chunshu,   0, 128N,  854E,  70,  970, TY,     VARDAH
+IO, 05, 2016121100,   ,chunshu,   0, 128N,  849E,  75,  967, TY,     VARDAH
+IO, 05, 2016121106,   ,chunshu,   0, 130N,  839E,  75,  980, TY,     VARDAH
+IO, 05, 2016121112,   ,chunshu,   0, 131N,  833E,  75,  979, TY,     VARDAH
+IO, 05, 2016121118,   ,chunshu,   0, 131N,  824E,  80,  963, TY,     VARDAH
+IO, 05, 2016121121,   ,chunshu,   0, 131N,  821E,  85,  959, TY,     VARDAH
+IO, 05, 2016121200,   ,chunshu,   0, 132N,  818E,  80,  963, TY,     VARDAH
+IO, 05, 2016121206,   ,chunshu,   0, 132N,  809E,  80,  963, TY,     VARDAH
+IO, 05, 2016121212,   ,chunshu,   0, 132N,  798E,  65,  974, TY,     VARDAH
+IO, 05, 2016121218,   ,chunshu,   0, 132N,  788E,  50,  985, TS,     VARDAH
+IO, 05, 2016121300,   ,chunshu,   0, 131N,  778E,  30, 1005, TD,     VARDAH
+IO, 05, 2016121306,   ,chunshu,   0, 130N,  770E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121312,   ,chunshu,   0, 131N,  760E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121318,   ,chunshu,   0, 132N,  751E,  20, 1007, DB,     VARDAH
+IO, 05, 2016121400,   ,chunshu,   0, 132N,  740E,  20, 1007, DB,     VARDAH
+IO, 05, 2016121406,   ,chunshu,   0, 131N,  732E,  20, 1007, DB,     VARDAH
+IO, 05, 2016121412,   ,chunshu,   0, 129N,  726E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121418,   ,chunshu,   0, 126N,  718E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121500,   ,chunshu,   0, 122N,  710E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121506,   ,chunshu,   0, 118N,  702E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121512,   ,chunshu,   0, 114N,  695E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121518,   ,chunshu,   0, 111N,  685E,  25, 1004, TD,     VARDAH
+IO, 05, 2016121600,   ,chunshu,   0, 112N,  675E,  30, 1000, TD
+IO, 05, 2016121606,   ,chunshu,   0, 112N,  664E,  30, 1000, TD
+IO, 05, 2016121612,   ,chunshu,   0, 112N,  654E,  30, 1000, TD
+IO, 05, 2016121618,   ,chunshu,   0, 111N,  642E,  30, 1000, TD
+IO, 05, 2016121700,   ,chunshu,   0, 108N,  623E,  30, 1000, TD
+IO, 05, 2016121706,   ,chunshu,   0, 106N,  610E,  30, 1000, TD
+IO, 05, 2016121712,   ,chunshu,   0, 104N,  598E,  30, 1000, TD
+IO, 05, 2016121718,   ,chunshu,   0,  98N,  584E,  35,  996, TS
+IO, 05, 2016121800,   ,chunshu,   0,  94N,  568E,  35,  996, TS
+IO, 05, 2016121806,   ,chunshu,   0,  93N,  554E,  35,  996, TS
+IO, 05, 2016121812,   ,chunshu,   0,  93N,  537E,  35,  996, TS
+IO, 05, 2016121818,   ,chunshu,   0,  92N,  521E,  35,  996, TS
+IO, 05, 2016121900,   ,chunshu,   0,  89N,  510E,  25, 1004, TD

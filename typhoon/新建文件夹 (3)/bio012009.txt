@@ -1,0 +1,17 @@
+IO, 01, 2009041400,   ,chunshu,   0, 126N,  877E,  25, 1004, DB
+IO, 01, 2009041406,   ,chunshu,   0, 127N,  881E,  30, 1000, TD
+IO, 01, 2009041412,   ,chunshu,   0, 123N,  879E,  30, 1000, TD,     INVEST
+IO, 01, 2009041418,   ,chunshu,   0, 125N,  873E,  30, 1000, TD,     INVEST
+IO, 01, 2009041500,   ,chunshu,   0, 135N,  874E,  30, 1000, TD,     INVEST
+IO, 01, 2009041506,   ,chunshu,   0, 149N,  867E,  35,  996, TS,        ONE
+IO, 01, 2009041512,   ,chunshu,   0, 158N,  861E,  40,  993, TS,      BIJLI
+IO, 01, 2009041518,   ,chunshu,   0, 163N,  859E,  40,  993, TS,      BIJLI
+IO, 01, 2009041600,   ,chunshu,   0, 168N,  859E,  45,  989, TS,      BIJLI
+IO, 01, 2009041606,   ,chunshu,   0, 176N,  862E,  45,  989, TS,      BIJLI
+IO, 01, 2009041612,   ,chunshu,   0, 184N,  866E,  50,  985, TS,      BIJLI
+IO, 01, 2009041618,   ,chunshu,   0, 191N,  872E,  50,  985, TS,      BIJLI
+IO, 01, 2009041700,   ,chunshu,   0, 200N,  881E,  50,  985, TS,      BIJLI
+IO, 01, 2009041706,   ,chunshu,   0, 208N,  893E,  50,  985, TS,      BIJLI
+IO, 01, 2009041712,   ,chunshu,   0, 214N,  906E,  45,  989, TS,      BIJLI
+IO, 01, 2009041718,   ,chunshu,   0, 219N,  918E,  45,  989, TS,      BIJLI
+IO, 01, 2009041800,   ,chunshu,   0, 224N,  931E,  40,  993, TS

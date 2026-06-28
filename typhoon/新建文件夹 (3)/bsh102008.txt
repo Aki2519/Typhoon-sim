@@ -1,0 +1,31 @@
+SH, 10, 2007123018,   ,chunshu,   0, 146S, 1344E,  25, 1004, DB,     INVEST
+SH, 10, 2007123100,   ,chunshu,   0, 149S, 1348E,  25, 1004, DB,     INVEST
+SH, 10, 2007123106,   ,chunshu,   0, 152S, 1350E,  25, 1004, DB,     INVEST
+SH, 10, 2007123112,   ,chunshu,   0, 156S, 1350E,  25, 1004, DB,     INVEST
+SH, 10, 2007123118,   ,chunshu,   0, 159S, 1347E,  25, 1004, DB,     INVEST
+SH, 10, 2008010100,   ,chunshu,   0, 160S, 1343E,  20, 1007, DB,     INVEST
+SH, 10, 2008010106,   ,chunshu,   0, 160S, 1338E,  20, 1007, DB
+SH, 10, 2008010112,   ,chunshu,   0, 157S, 1329E,  20, 1007, DB
+SH, 10, 2008010118,   ,chunshu,   0, 153S, 1319E,  20, 1007, DB
+SH, 10, 2008010200,   ,chunshu,   0, 149S, 1309E,  20,  996, DB
+SH, 10, 2008010206,   ,chunshu,   0, 144S, 1300E,  20,  996, DB,     INVEST
+SH, 10, 2008010212,   ,chunshu,   0, 141S, 1292E,  25,  996, DB,     INVEST
+SH, 10, 2008010218,   ,chunshu,   0, 141S, 1286E,  25, 1004, TD,     INVEST
+SH, 10, 2008010300,   ,chunshu,   0, 142S, 1280E,  25, 1004, TD,     INVEST
+SH, 10, 2008010306,   ,chunshu,   0, 142S, 1279E,  30, 1000, TD
+SH, 10, 2008010312,   ,chunshu,   0, 142S, 1278E,  35,  996, TS,     INVEST
+SH, 10, 2008010318,   ,chunshu,   0, 140S, 1277E,  35,  994, TS,     NONAME
+SH, 10, 2008010400,   ,chunshu,   0, 134S, 1281E,  35,  996, TS,     NONAME
+SH, 10, 2008010406,   ,chunshu,   0, 132S, 1289E,  45,  985, TS,      HELEN
+SH, 10, 2008010412,   ,chunshu,   0, 132S, 1298E,  50,  985, TS,      HELEN
+SH, 10, 2008010418,   ,chunshu,   0, 132S, 1309E,  45,  989, TS,      HELEN
+SH, 10, 2008010500,   ,chunshu,   0, 133S, 1321E,  40,  993, TS,      HELEN
+SH, 10, 2008010506,   ,chunshu,   0, 134S, 1334E,  30, 1000, TD,      HELEN
+SH, 10, 2008010512,   ,chunshu,   0, 136S, 1350E,  30, 1000, TD,      HELEN
+SH, 10, 2008010518,   ,chunshu,   0, 138S, 1366E,  30, 1000, TC,      HELEN
+SH, 10, 2008010600,   ,chunshu,   0, 140S, 1384E,  30, 1000, TD,      HELEN
+SH, 10, 2008010606,   ,chunshu,   0, 142S, 1403E,  30, 1000, TD,      HELEN
+SH, 10, 2008010612,   ,chunshu,   0, 143S, 1414E,  25, 1004, TD,      HELEN
+SH, 10, 2008010618,   ,chunshu,   0, 144S, 1420E,  25, 1004, TD
+SH, 10, 2008010700,   ,chunshu,   0, 146S, 1426E,  20, 1007, TD
+SH, 10, 2008010706,   ,chunshu,   0, 149S, 1434E,  20, 1007, TD,      HELEN

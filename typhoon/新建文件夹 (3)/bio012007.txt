@@ -1,0 +1,9 @@
+IO, 01, 2007051300,   ,chunshu,   0, 144N,  912E,  25, 1000, DB,     INVEST
+IO, 01, 2007051306,   ,chunshu,   0, 149N,  913E,  25, 1002, DB,     INVEST
+IO, 01, 2007051312,   ,chunshu,   0, 156N,  912E,  30, 1000, DB,     INVEST
+IO, 01, 2007051318,   ,chunshu,   0, 163N,  913E,  35,  997, TS,     NONAME
+IO, 01, 2007051400,   ,chunshu,   0, 173N,  917E,  50,  985, TS,     NONAME
+IO, 01, 2007051406,   ,chunshu,   0, 185N,  917E,  55,  984, TS,     NONAME
+IO, 01, 2007051412,   ,chunshu,   0, 198N,  919E,  60,  978, TS,      AKASH
+IO, 01, 2007051418,   ,chunshu,   0, 212N,  921E,  65,  976, TY,      AKASH
+IO, 01, 2007051500,   ,chunshu,   0, 230N,  924E,  45,  989, TS,      AKASH

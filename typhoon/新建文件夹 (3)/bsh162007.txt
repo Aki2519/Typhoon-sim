@@ -1,0 +1,35 @@
+SH, 16, 2007022018,   ,chunshu,   0,  99S,  915E,  25, 1004, DB
+SH, 16, 2007022100,   ,chunshu,   0, 103S,  903E,  25, 1004, TD,     INVEST
+SH, 16, 2007022106,   ,chunshu,   0, 105S,  891E,  25, 1004, DB,     INVEST
+SH, 16, 2007022112,   ,chunshu,   0, 108S,  879E,  30, 1000, TD,     INVEST
+SH, 16, 2007022118,   ,chunshu,   0, 109S,  867E,  30, 1000, TD,     NONAME
+SH, 16, 2007022200,   ,chunshu,   0, 111S,  856E,  30, 1000, TD,     NONAME
+SH, 16, 2007022206,   ,chunshu,   0, 113S,  846E,  30, 1000, TD,     NONAME
+SH, 16, 2007022212,   ,chunshu,   0, 116S,  839E,  35,  997, TS,     NONAME
+SH, 16, 2007022218,   ,chunshu,   0, 118S,  833E,  40,  993, TS,     NONAME
+SH, 16, 2007022300,   ,chunshu,   0, 123S,  826E,  50,  985, TS,     NONAME
+SH, 16, 2007022306,   ,chunshu,   0, 130S,  818E,  50,  985, TS,      HUMBA
+SH, 16, 2007022312,   ,chunshu,   0, 137S,  811E,  55,  984, TS,      HUMBA
+SH, 16, 2007022318,   ,chunshu,   0, 144S,  804E,  60,  978, TS,      HUMBA
+SH, 16, 2007022400,   ,chunshu,   0, 151S,  798E,  65,  976, TY
+SH, 16, 2007022406,   ,chunshu,   0, 158S,  796E,  65,  976, TY,      HUMBA
+SH, 16, 2007022412,   ,chunshu,   0, 166S,  795E,  65,  976, TY,      HUMBA
+SH, 16, 2007022418,   ,chunshu,   0, 175S,  795E,  70,  970, TY,      HUMBA
+SH, 16, 2007022500,   ,chunshu,   0, 184S,  792E,  75,  967, TY,      HUMBA
+SH, 16, 2007022506,   ,chunshu,   0, 193S,  788E,  80,  963, TY,      HUMBA
+SH, 16, 2007022512,   ,chunshu,   0, 201S,  782E,  80,  963, TY,      HUMBA
+SH, 16, 2007022518,   ,chunshu,   0, 209S,  775E,  70,  970, TY,      HUMBA
+SH, 16, 2007022600,   ,chunshu,   0, 218S,  774E,  60,  978, TS,      HUMBA
+SH, 16, 2007022606,   ,chunshu,   0, 227S,  775E,  55,  982, TS,      HUMBA
+SH, 16, 2007022612,   ,chunshu,   0, 236S,  777E,  55,  982, TS,      HUMBA
+SH, 16, 2007022618,   ,chunshu,   0, 245S,  780E,  50,  987, TS,      HUMBA
+SH, 16, 2007022700,   ,chunshu,   0, 252S,  786E,  40,  994, TS
+SH, 16, 2007022706,   ,chunshu,   0, 263S,  789E,  40,  994, EX
+SH, 16, 2007022712,   ,chunshu,   0, 279S,  791E,  40,  994, EX
+SH, 16, 2007022718,   ,chunshu,   0, 292S,  790E,  40,  994, EX
+SH, 16, 2007022800,   ,chunshu,   0, 298S,  785E,  25, 1002, EX
+SH, 16, 2007022806,   ,chunshu,   0, 297S,  780E,  25, 1002, EX
+SH, 16, 2007022812,   ,chunshu,   0, 295S,  785E,  25, 1002, EX
+SH, 16, 2007022818,   ,chunshu,   0, 296S,  790E,  25, 1002, EX
+SH, 16, 2007030100,   ,chunshu,   0, 292S,  793E,  25, 1002, EX
+SH, 16, 2007030106,   ,chunshu,   0, 289S,  797E,  20, 1007, EX

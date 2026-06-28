@@ -1,0 +1,8 @@
+SH, 07, 2009011018,   ,chunshu,   0, 164S, 1395E,  15, 1010, DB
+SH, 07, 2009011100,   ,chunshu,   0, 163S, 1397E,  20, 1007, DB,     INVEST
+SH, 07, 2009011106,   ,chunshu,   0, 162S, 1400E,  35,  996, TS,     INVEST
+SH, 07, 2009011112,   ,chunshu,   0, 162S, 1406E,  40,  993, TS,  CHARLOTTE
+SH, 07, 2009011118,   ,chunshu,   0, 166S, 1411E,  35,  996, TS,  CHARLOTTE
+SH, 07, 2009011200,   ,chunshu,   0, 171S, 1416E,  30, 1000, TD,  CHARLOTTE
+SH, 07, 2009011206,   ,chunshu,   0, 173S, 1422E,  25, 1004, TD
+SH, 07, 2009011212,   ,chunshu,   0, 179S, 1430E,  20, 1007, DB

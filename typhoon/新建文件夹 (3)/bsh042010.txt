@@ -1,0 +1,18 @@
+SH, 04, 2009121112,   ,chunshu,   0, 103S, 1721E,  15, 1010, DB
+SH, 04, 2009121118,   ,chunshu,   0, 108S, 1735E,  25, 1004, TD,     INVEST
+SH, 04, 2009121200,   ,chunshu,   0, 115S, 1745E,  30, 1000, TD,     INVEST
+SH, 04, 2009121206,   ,chunshu,   0, 124S, 1749E,  30, 1000, TD,     INVEST
+SH, 04, 2009121212,   ,chunshu,   0, 131S, 1749E,  35,  996, TS,       FOUR
+SH, 04, 2009121218,   ,chunshu,   0, 137S, 1751E,  40,  993, TS,       FOUR
+SH, 04, 2009121300,   ,chunshu,   0, 143S, 1753E,  50,  985, TS
+SH, 04, 2009121306,   ,chunshu,   0, 148S, 1757E,  55,  982, TS,       MICK
+SH, 04, 2009121312,   ,chunshu,   0, 155S, 1761E,  60,  978, TS,       MICK
+SH, 04, 2009121318,   ,chunshu,   0, 164S, 1768E,  65,  974, TY,       MICK
+SH, 04, 2009121400,   ,chunshu,   0, 174S, 1776E,  65,  974, TY,       MICK
+SH, 04, 2009121406,   ,chunshu,   0, 182S, 1783E,  65,  974, TY
+SH, 04, 2009121412,   ,chunshu,   0, 187S, 1787E,  55,  982, TS,       MICK
+SH, 04, 2009121418,   ,chunshu,   0, 191S, 1791E,  45,  989, TS,       MICK
+SH, 04, 2009121500,   ,chunshu,   0, 194S, 1800W,  40,  993, TS,       MICK
+SH, 04, 2009121506,   ,chunshu,   0, 198S, 1789W,  35,  996, TS,       MICK
+SH, 04, 2009121512,   ,chunshu,   0, 200S, 1778W,  30, 1000, TD,       MICK
+SH, 04, 2009121518,   ,chunshu,   0, 202S, 1766W,  20, 1007, EX

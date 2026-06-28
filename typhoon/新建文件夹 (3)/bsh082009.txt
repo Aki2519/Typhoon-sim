@@ -1,0 +1,23 @@
+SH, 08, 2009011612,   ,chunshu,   0, 149S,  584E,  15, 1010, DB
+SH, 08, 2009011618,   ,chunshu,   0, 150S,  576E,  15, 1010, DB
+SH, 08, 2009011700,   ,chunshu,   0, 151S,  568E,  15, 1010, DB
+SH, 08, 2009011706,   ,chunshu,   0, 152S,  559E,  20, 1007, DB
+SH, 08, 2009011712,   ,chunshu,   0, 154S,  549E,  25, 1004, DB,     INVEST
+SH, 08, 2009011718,   ,chunshu,   0, 156S,  538E,  30, 1000, TD,     INVEST
+SH, 08, 2009011800,   ,chunshu,   0, 158S,  529E,  30, 1000, TD,     INVEST
+SH, 08, 2009011806,   ,chunshu,   0, 161S,  521E,  30, 1000, TD,     INVEST
+SH, 08, 2009011812,   ,chunshu,   0, 164S,  513E,  35,  996, TS,     INVEST
+SH, 08, 2009011818,   ,chunshu,   0, 168S,  506E,  35,  996, TS,      EIGHT
+SH, 08, 2009011900,   ,chunshu,   0, 173S,  500E,  40,  993, TS,      EIGHT
+SH, 08, 2009011906,   ,chunshu,   0, 179S,  495E,  40,  993, TS,       ERIC
+SH, 08, 2009011912,   ,chunshu,   0, 190S,  493E,  35,  996, TS,       ERIC
+SH, 08, 2009011918,   ,chunshu,   0, 201S,  492E,  35,  996, TS,       ERIC
+SH, 08, 2009012000,   ,chunshu,   0, 212S,  494E,  35,  996, TS,       ERIC
+SH, 08, 2009012006,   ,chunshu,   0, 227S,  492E,  35,  996, TS,       ERIC
+SH, 08, 2009012012,   ,chunshu,   0, 242S,  493E,  35,  996, TS,       ERIC
+SH, 08, 2009012018,   ,chunshu,   0, 249S,  493E,  40,  993, TS,       ERIC
+SH, 08, 2009012100,   ,chunshu,   0, 256S,  495E,  40,  993, TS,       ERIC
+SH, 08, 2009012106,   ,chunshu,   0, 273S,  502E,  40,  993, TS
+SH, 08, 2009012112,   ,chunshu,   0, 293S,  522E,  40,  993, TS
+SH, 08, 2009012118,   ,chunshu,   0, 312S,  550E,  35,  996, TS
+SH, 08, 2009012200,   ,chunshu,   0, 336S,  588E,  40,  993, EX

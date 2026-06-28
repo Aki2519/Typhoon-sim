@@ -1,0 +1,48 @@
+EP, 12, 2014081700,   ,chunshu,   0, 160N, 1137W,  20, 1008, LO,     INVEST
+EP, 12, 2014081706,   ,chunshu,   0, 160N, 1143W,  20, 1008, LO,     INVEST
+EP, 12, 2014081712,   ,chunshu,   0, 160N, 1149W,  25, 1007, TD,     INVEST
+EP, 12, 2014081718,   ,chunshu,   0, 160N, 1155W,  30, 1006, TD,     INVEST
+EP, 12, 2014081800,   ,chunshu,   0, 161N, 1162W,  30, 1005, TD,     TWELVE
+EP, 12, 2014081806,   ,chunshu,   0, 162N, 1168W,  30, 1005, TD,     TWELVE
+EP, 12, 2014081812,   ,chunshu,   0, 163N, 1173W,  30, 1005, TD,     TWELVE
+EP, 12, 2014081818,   ,chunshu,   0, 165N, 1178W,  35, 1002, TS,     TWELVE
+EP, 12, 2014081900,   ,chunshu,   0, 167N, 1183W,  40,  999, TS,     TWELVE
+EP, 12, 2014081906,   ,chunshu,   0, 171N, 1188W,  45,  998, TS,     LOWELL
+EP, 12, 2014081912,   ,chunshu,   0, 176N, 1194W,  45,  997, TS,     LOWELL
+EP, 12, 2014081918,   ,chunshu,   0, 180N, 1200W,  45,  995, TS,     LOWELL
+EP, 12, 2014082000,   ,chunshu,   0, 184N, 1206W,  45,  995, TS,     LOWELL
+EP, 12, 2014082006,   ,chunshu,   0, 186N, 1210W,  45,  994, TS,     LOWELL
+EP, 12, 2014082012,   ,chunshu,   0, 187N, 1212W,  50,  990, TS,     LOWELL
+EP, 12, 2014082018,   ,chunshu,   0, 189N, 1214W,  55,  987, TS,     LOWELL
+EP, 12, 2014082100,   ,chunshu,   0, 191N, 1215W,  55,  986, TS,     LOWELL
+EP, 12, 2014082106,   ,chunshu,   0, 194N, 1216W,  60,  984, TS,     LOWELL
+EP, 12, 2014082112,   ,chunshu,   0, 198N, 1218W,  65,  981, HU,     LOWELL
+EP, 12, 2014082118,   ,chunshu,   0, 202N, 1221W,  65,  980, HU,     LOWELL
+EP, 12, 2014082200,   ,chunshu,   0, 207N, 1226W,  60,  984, TS,     LOWELL
+EP, 12, 2014082206,   ,chunshu,   0, 212N, 1232W,  55,  987, TS,     LOWELL
+EP, 12, 2014082212,   ,chunshu,   0, 217N, 1238W,  55,  989, TS,     LOWELL
+EP, 12, 2014082218,   ,chunshu,   0, 221N, 1244W,  50,  993, TS,     LOWELL
+EP, 12, 2014082300,   ,chunshu,   0, 226N, 1250W,  45,  996, TS,     LOWELL
+EP, 12, 2014082306,   ,chunshu,   0, 231N, 1256W,  40,  998, TS,     LOWELL
+EP, 12, 2014082312,   ,chunshu,   0, 235N, 1262W,  35,  999, TS,     LOWELL
+EP, 12, 2014082318,   ,chunshu,   0, 239N, 1267W,  35, 1000, TS,     LOWELL
+EP, 12, 2014082400,   ,chunshu,   0, 244N, 1271W,  30, 1001, TD,     LOWELL
+EP, 12, 2014082406,   ,chunshu,   0, 248N, 1275W,  30, 1002, TD
+EP, 12, 2014082412,   ,chunshu,   0, 252N, 1279W,  30, 1002, LO
+EP, 12, 2014082418,   ,chunshu,   0, 255N, 1284W,  30, 1002, LO
+EP, 12, 2014082500,   ,chunshu,   0, 256N, 1290W,  30, 1002, LO
+EP, 12, 2014082506,   ,chunshu,   0, 257N, 1296W,  30, 1002, LO
+EP, 12, 2014082512,   ,chunshu,   0, 258N, 1303W,  30, 1002, LO
+EP, 12, 2014082518,   ,chunshu,   0, 259N, 1310W,  30, 1002, LO
+EP, 12, 2014082600,   ,chunshu,   0, 260N, 1317W,  30, 1002, LO
+EP, 12, 2014082606,   ,chunshu,   0, 263N, 1326W,  25, 1003, LO
+EP, 12, 2014082612,   ,chunshu,   0, 267N, 1335W,  25, 1004, LO
+EP, 12, 2014082618,   ,chunshu,   0, 273N, 1345W,  25, 1005, LO
+EP, 12, 2014082700,   ,chunshu,   0, 280N, 1356W,  25, 1006, LO
+EP, 12, 2014082706,   ,chunshu,   0, 286N, 1366W,  25, 1007, LO
+EP, 12, 2014082712,   ,chunshu,   0, 292N, 1376W,  25, 1008, LO
+EP, 12, 2014082718,   ,chunshu,   0, 298N, 1387W,  25, 1009, LO
+EP, 12, 2014082800,   ,chunshu,   0, 303N, 1399W,  25, 1010, LO
+EP, 12, 2014082806,   ,chunshu,   0, 306N, 1411W,  25, 1010, LO
+EP, 12, 2014082812,   ,chunshu,   0, 308N, 1422W,  25, 1010, LO
+EP, 12, 2014082818,   ,chunshu,   0, 310N, 1433W,  25, 1010, LO

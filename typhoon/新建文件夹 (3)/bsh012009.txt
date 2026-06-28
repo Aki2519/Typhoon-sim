@@ -1,0 +1,36 @@
+SH, 01, 2008101518,   ,chunshu,   0,  54S,  704E,  20, 1007, DB
+SH, 01, 2008101600,   ,chunshu,   0,  56S,  702E,  25, 1004, TD,     INVEST
+SH, 01, 2008101606,   ,chunshu,   0,  56S,  698E,  25, 1004, TD,     INVEST
+SH, 01, 2008101612,   ,chunshu,   0,  55S,  694E,  30, 1000, TD,     INVEST
+SH, 01, 2008101618,   ,chunshu,   0,  56S,  690E,  35,  996, TS,     INVEST
+SH, 01, 2008101700,   ,chunshu,   0,  59S,  688E,  35,  994, TS,        ONE
+SH, 01, 2008101706,   ,chunshu,   0,  63S,  687E,  35,  996, TS,        ONE
+SH, 01, 2008101712,   ,chunshu,   0,  67S,  686E,  35,  996, TS,        ONE
+SH, 01, 2008101718,   ,chunshu,   0,  71S,  686E,  30, 1000, TD,        ONE
+SH, 01, 2008101800,   ,chunshu,   0,  77S,  684E,  30, 1000, TD,        ONE
+SH, 01, 2008101806,   ,chunshu,   0,  82S,  681E,  30, 1000, TD,        ONE
+SH, 01, 2008101812,   ,chunshu,   0,  88S,  675E,  30, 1000, TD,        ONE
+SH, 01, 2008101818,   ,chunshu,   0,  93S,  668E,  30, 1000, TD,        ONE
+SH, 01, 2008101900,   ,chunshu,   0,  99S,  659E,  35,  996, TS,        ONE
+SH, 01, 2008101906,   ,chunshu,   0, 105S,  650E,  35,  996, TS,        ONE
+SH, 01, 2008101912,   ,chunshu,   0, 111S,  641E,  35,  996, TS,        ONE
+SH, 01, 2008101918,   ,chunshu,   0, 117S,  632E,  40,  993, TS,        ONE
+SH, 01, 2008102000,   ,chunshu,   0, 122S,  626E,  45,  989, TS,        ONE
+SH, 01, 2008102006,   ,chunshu,   0, 124S,  620E,  50,  985, TS,       ASMA
+SH, 01, 2008102012,   ,chunshu,   0, 120S,  616E,  50,  985, TS,       ASMA
+SH, 01, 2008102018,   ,chunshu,   0, 122S,  610E,  45,  989, TS,       ASMA
+SH, 01, 2008102100,   ,chunshu,   0, 121S,  602E,  35,  996, TS,       ASMA
+SH, 01, 2008102106,   ,chunshu,   0, 120S,  594E,  35,  996, TS,       ASMA
+SH, 01, 2008102112,   ,chunshu,   0, 117S,  584E,  30, 1000, TD,       ASMA
+SH, 01, 2008102118,   ,chunshu,   0, 114S,  573E,  25, 1004, TD
+SH, 01, 2008102200,   ,chunshu,   0, 110S,  561E,  25, 1004, TD
+SH, 01, 2008102206,   ,chunshu,   0, 111S,  545E,  25, 1004, TD
+SH, 01, 2008102212,   ,chunshu,   0, 111S,  526E,  25, 1004, TD,       ASMA
+SH, 01, 2008102218,   ,chunshu,   0, 107S,  515E,  25, 1004, TD,       ASMA
+SH, 01, 2008102300,   ,chunshu,   0, 107S,  508E,  25, 1004, TD
+SH, 01, 2008102306,   ,chunshu,   0, 107S,  501E,  25, 1004, TD
+SH, 01, 2008102312,   ,chunshu,   0, 113S,  490E,  25, 1004, TD
+SH, 01, 2008102318,   ,chunshu,   0, 118S,  481E,  25, 1004, TD
+SH, 01, 2008102400,   ,chunshu,   0, 122S,  465E,  25, 1004, TD,       ASMA
+SH, 01, 2008102406,   ,chunshu,   0, 118S,  445E,  25, 1004, TD
+SH, 01, 2008102412,   ,chunshu,   0, 119S,  435E,  20, 1007, DB

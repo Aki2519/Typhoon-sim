@@ -1,0 +1,25 @@
+SH, 27, 2009042306,   ,chunshu,   0,  76S, 1328E,  15, 1010, DB
+SH, 27, 2009042312,   ,chunshu,   0,  82S, 1328E,  15, 1010, DB
+SH, 27, 2009042318,   ,chunshu,   0,  87S, 1329E,  15, 1010, DB
+SH, 27, 2009042400,   ,chunshu,   0,  90S, 1331E,  15, 1010, DB
+SH, 27, 2009042406,   ,chunshu,   0,  93S, 1334E,  15, 1010, DB
+SH, 27, 2009042412,   ,chunshu,   0,  93S, 1340E,  15, 1010, DB
+SH, 27, 2009042418,   ,chunshu,   0,  91S, 1348E,  20, 1007, DB
+SH, 27, 2009042500,   ,chunshu,   0,  84S, 1352E,  25, 1004, DB
+SH, 27, 2009042506,   ,chunshu,   0,  81S, 1357E,  25, 1004, TD
+SH, 27, 2009042512,   ,chunshu,   0,  79S, 1359E,  25, 1004, TD
+SH, 27, 2009042518,   ,chunshu,   0,  79S, 1361E,  25, 1004, TD,     INVEST
+SH, 27, 2009042521,   ,chunshu,   0,  81S, 1361E,  25, 1004, TD
+SH, 27, 2009042600,   ,chunshu,   0,  80S, 1359E,  30, 1000, TD,     INVEST
+SH, 27, 2009042606,   ,chunshu,   0,  76S, 1353E,  30, 1000, TD,     INVEST
+SH, 27, 2009042612,   ,chunshu,   0,  74S, 1349E,  30, 1000, TD,     INVEST
+SH, 27, 2009042618,   ,chunshu,   0,  72S, 1345E,  35,  996, TS,     INVEST
+SH, 27, 2009042700,   ,chunshu,   0,  68S, 1344E,  35,  996, TS, TWENTYSEVE
+SH, 27, 2009042706,   ,chunshu,   0,  63S, 1341E,  45,  989, TS, TWENTYSEVE
+SH, 27, 2009042712,   ,chunshu,   0,  61S, 1339E,  45,  989, TS,    KIRRILY
+SH, 27, 2009042718,   ,chunshu,   0,  62S, 1336E,  35,  996, TS,    KIRRILY
+SH, 27, 2009042800,   ,chunshu,   0,  61S, 1334E,  35,  996, TS,    KIRRILY
+SH, 27, 2009042806,   ,chunshu,   0,  60S, 1331E,  35,  996, TS,    KIRRILY
+SH, 27, 2009042812,   ,chunshu,   0,  56S, 1330E,  30, 1000, TD,    KIRRILY
+SH, 27, 2009042818,   ,chunshu,   0,  53S, 1328E,  30, 1000, TD,    KIRRILY
+SH, 27, 2009042900,   ,chunshu,   0,  56S, 1327E,  20, 1007, DB

@@ -1,0 +1,51 @@
+SH, 15, 2011021406,   ,chunshu,   0, 128S, 1312E,  15, 1010, DB
+SH, 15, 2011021412,   ,chunshu,   0, 128S, 1310E,  15, 1010, DB
+SH, 15, 2011021418,   ,chunshu,   0, 129S, 1309E,  20, 1007, DB
+SH, 15, 2011021500,   ,chunshu,   0, 128S, 1308E,  25, 1004, TD
+SH, 15, 2011021506,   ,chunshu,   0, 129S, 1307E,  30, 1000, TD,     INVEST
+SH, 15, 2011021512,   ,chunshu,   0, 127S, 1306E,  30, 1000, TD,     INVEST
+SH, 15, 2011021518,   ,chunshu,   0, 125S, 1307E,  35,  996, TS,    FIFTEEN
+SH, 15, 2011021600,   ,chunshu,   0, 124S, 1309E,  35,  996, TS,    FIFTEEN
+SH, 15, 2011021606,   ,chunshu,   0, 125S, 1310E,  35,  996, TS,     CARLOS
+SH, 15, 2011021612,   ,chunshu,   0, 126S, 1312E,  40,  993, TS,     CARLOS
+SH, 15, 2011021618,   ,chunshu,   0, 129S, 1313E,  35,  996, TS,     CARLOS
+SH, 15, 2011021700,   ,chunshu,   0, 133S, 1311E,  35,  996, TS,     CARLOS
+SH, 15, 2011021706,   ,chunshu,   0, 136S, 1309E,  35,  996, TS,     CARLOS
+SH, 15, 2011021712,   ,chunshu,   0, 138S, 1307E,  30, 1000, TD,     CARLOS
+SH, 15, 2011021718,   ,chunshu,   0, 140S, 1306E,  30, 1000, TD
+SH, 15, 2011021800,   ,chunshu,   0, 143S, 1305E,  30, 1000, TD
+SH, 15, 2011021806,   ,chunshu,   0, 146S, 1304E,  30, 1000, TD,     CARLOS
+SH, 15, 2011021812,   ,chunshu,   0, 150S, 1303E,  30, 1000, TD,     CARLOS
+SH, 15, 2011021818,   ,chunshu,   0, 155S, 1301E,  25, 1001, TD,     CARLOS
+SH, 15, 2011021900,   ,chunshu,   0, 156S, 1292E,  25, 1004, TD,     CARLOS
+SH, 15, 2011021906,   ,chunshu,   0, 153S, 1285E,  25, 1004, TD,     CARLOS
+SH, 15, 2011021912,   ,chunshu,   0, 154S, 1279E,  25, 1004, TD,     CARLOS
+SH, 15, 2011021918,   ,chunshu,   0, 156S, 1273E,  30, 1000, TD,     CARLOS
+SH, 15, 2011022000,   ,chunshu,   0, 159S, 1267E,  30, 1000, TD,     CARLOS
+SH, 15, 2011022006,   ,chunshu,   0, 162S, 1254E,  30, 1000, TD,     CARLOS
+SH, 15, 2011022012,   ,chunshu,   0, 167S, 1238E,  30, 1000, TD,     CARLOS
+SH, 15, 2011022018,   ,chunshu,   0, 173S, 1224E,  35,  996, TS,     CARLOS
+SH, 15, 2011022100,   ,chunshu,   0, 178S, 1216E,  35,  996, TS,     CARLOS
+SH, 15, 2011022106,   ,chunshu,   0, 183S, 1204E,  40,  993, TS,     CARLOS
+SH, 15, 2011022112,   ,chunshu,   0, 190S, 1192E,  45,  989, TS,     CARLOS
+SH, 15, 2011022118,   ,chunshu,   0, 197S, 1182E,  50,  985, TS,     CARLOS
+SH, 15, 2011022200,   ,chunshu,   0, 202S, 1173E,  55,  982, TS,     CARLOS
+SH, 15, 2011022206,   ,chunshu,   0, 208S, 1164E,  55,  982, TS,     CARLOS
+SH, 15, 2011022212,   ,chunshu,   0, 213S, 1156E,  55,  982, TS,     CARLOS
+SH, 15, 2011022218,   ,chunshu,   0, 217S, 1148E,  60,  978, TS,     CARLOS
+SH, 15, 2011022300,   ,chunshu,   0, 221S, 1141E,  60,  978, TS,     CARLOS
+SH, 15, 2011022306,   ,chunshu,   0, 226S, 1134E,  60,  978, TS,     CARLOS
+SH, 15, 2011022312,   ,chunshu,   0, 230S, 1127E,  65,  974, TY,     CARLOS
+SH, 15, 2011022318,   ,chunshu,   0, 234S, 1117E,  65,  974, TY,     CARLOS
+SH, 15, 2011022400,   ,chunshu,   0, 238S, 1107E,  65,  974, TY,     CARLOS
+SH, 15, 2011022406,   ,chunshu,   0, 243S, 1096E,  65,  974, TY,     CARLOS
+SH, 15, 2011022412,   ,chunshu,   0, 248S, 1085E,  65,  974, TY,     CARLOS
+SH, 15, 2011022418,   ,chunshu,   0, 254S, 1075E,  60,  978, TS,     CARLOS
+SH, 15, 2011022500,   ,chunshu,   0, 262S, 1066E,  55,  982, TS,     CARLOS
+SH, 15, 2011022506,   ,chunshu,   0, 269S, 1060E,  55,  982, TS,     CARLOS
+SH, 15, 2011022512,   ,chunshu,   0, 278S, 1055E,  50,  985, TS,     CARLOS
+SH, 15, 2011022518,   ,chunshu,   0, 286S, 1049E,  45,  989, TS,     CARLOS
+SH, 15, 2011022600,   ,chunshu,   0, 294S, 1044E,  35,  996, TS,     CARLOS
+SH, 15, 2011022606,   ,chunshu,   0, 303S, 1042E,  30, 1000, TD
+SH, 15, 2011022612,   ,chunshu,   0, 312S, 1040E,  30, 1000, TD
+SH, 15, 2011022618,   ,chunshu,   0, 315S, 1039E,  30, 1000, TD

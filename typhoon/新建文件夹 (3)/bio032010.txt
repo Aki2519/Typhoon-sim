@@ -1,0 +1,32 @@
+IO, 03, 2010053012,   ,chunshu,   0, 144N,  650E,  15, 1010, DB
+IO, 03, 2010053018,   ,chunshu,   0, 145N,  647E,  20, 1005, DB,     INVEST
+IO, 03, 2010053100,   ,chunshu,   0, 145N,  644E,  25, 1004, TD,     INVEST
+IO, 03, 2010053106,   ,chunshu,   0, 147N,  642E,  30, 1001, TD,     INVEST
+IO, 03, 2010053112,   ,chunshu,   0, 150N,  640E,  30, 1000, TD,     INVEST
+IO, 03, 2010053118,   ,chunshu,   0, 154N,  637E,  35,  996, TS,      THREE
+IO, 03, 2010060100,   ,chunshu,   0, 158N,  632E,  45,  989, TS,      THREE
+IO, 03, 2010060106,   ,chunshu,   0, 163N,  627E,  55,  982, TS,      THREE
+IO, 03, 2010060112,   ,chunshu,   0, 168N,  623E,  60,  978, TS,      THREE
+IO, 03, 2010060118,   ,chunshu,   0, 171N,  616E,  75,  967, TY,       PHET
+IO, 03, 2010060200,   ,chunshu,   0, 174N,  610E,  90,  956, TY,       PHET
+IO, 03, 2010060206,   ,chunshu,   0, 178N,  605E, 115,  937, TY,       PHET
+IO, 03, 2010060212,   ,chunshu,   0, 182N,  600E, 125,  929, TY,       PHET
+IO, 03, 2010060218,   ,chunshu,   0, 184N,  597E, 120,  933, TY,       PHET
+IO, 03, 2010060300,   ,chunshu,   0, 185N,  596E, 120,  933, TY,       PHET
+IO, 03, 2010060306,   ,chunshu,   0, 191N,  596E, 115,  937, TY,       PHET
+IO, 03, 2010060312,   ,chunshu,   0, 200N,  595E, 110,  941, TY,       PHET
+IO, 03, 2010060318,   ,chunshu,   0, 208N,  592E, 105,  944, TY,       PHET
+IO, 03, 2010060400,   ,chunshu,   0, 215N,  591E,  90,  956, TY,       PHET
+IO, 03, 2010060406,   ,chunshu,   0, 223N,  592E,  75,  967, TY,       PHET
+IO, 03, 2010060412,   ,chunshu,   0, 230N,  594E,  65,  974, TY,       PHET
+IO, 03, 2010060418,   ,chunshu,   0, 236N,  597E,  55,  982, TS,       PHET
+IO, 03, 2010060500,   ,chunshu,   0, 239N,  603E,  45,  989, TS,       PHET
+IO, 03, 2010060506,   ,chunshu,   0, 238N,  610E,  40,  993, TS,       PHET
+IO, 03, 2010060512,   ,chunshu,   0, 235N,  616E,  40,  993, TS,       PHET
+IO, 03, 2010060518,   ,chunshu,   0, 232N,  624E,  35,  996, TS,       PHET
+IO, 03, 2010060600,   ,chunshu,   0, 229N,  641E,  35,  996, TS,       PHET
+IO, 03, 2010060606,   ,chunshu,   0, 234N,  658E,  35,  996, TS,       PHET
+IO, 03, 2010060612,   ,chunshu,   0, 246N,  673E,  30, 1000, TD,       PHET
+IO, 03, 2010060618,   ,chunshu,   0, 252N,  683E,  30, 1000, TD
+IO, 03, 2010060700,   ,chunshu,   0, 262N,  701E,  25, 1004, TD
+IO, 03, 2010060706,   ,chunshu,   0, 276N,  733E,  30, 1000, EX

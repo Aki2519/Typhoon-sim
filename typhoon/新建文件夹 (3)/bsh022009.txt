@@ -1,0 +1,15 @@
+SH, 02, 2008111800,   ,chunshu,   0,  88S,  913E,  20, 1007, DB
+SH, 02, 2008111806,   ,chunshu,   0,  95S,  925E,  20, 1007, DB
+SH, 02, 2008111812,   ,chunshu,   0, 101S,  938E,  30, 1000, TD,     INVEST
+SH, 02, 2008111818,   ,chunshu,   0, 104S,  952E,  30, 1000, TD,        TWO
+SH, 02, 2008111900,   ,chunshu,   0, 108S,  965E,  35,  996, TS,        TWO
+SH, 02, 2008111906,   ,chunshu,   0, 113S,  977E,  40,  993, TS,      ANIKA
+SH, 02, 2008111912,   ,chunshu,   0, 119S,  990E,  45,  989, TS,      ANIKA
+SH, 02, 2008111918,   ,chunshu,   0, 127S, 1003E,  55,  982, TS,      ANIKA
+SH, 02, 2008112000,   ,chunshu,   0, 137S, 1015E,  60,  978, TS,      ANIKA
+SH, 02, 2008112006,   ,chunshu,   0, 146S, 1028E,  55,  982, TS,      ANIKA
+SH, 02, 2008112012,   ,chunshu,   0, 153S, 1041E,  50,  985, TS,      ANIKA
+SH, 02, 2008112018,   ,chunshu,   0, 154S, 1051E,  35,  996, TS,      ANIKA
+SH, 02, 2008112100,   ,chunshu,   0, 161S, 1065E,  30, 1000, TD,      ANIKA
+SH, 02, 2008112106,   ,chunshu,   0, 166S, 1076E,  25, 1004, TD
+SH, 02, 2008112112,   ,chunshu,   0, 172S, 1086E,  25, 1004, EX

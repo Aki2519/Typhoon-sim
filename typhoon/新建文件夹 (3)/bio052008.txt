@@ -1,0 +1,19 @@
+IO, 05, 2008111118,   ,chunshu,   0, 105N,  890E,  15, 1010, TD
+IO, 05, 2008111200,   ,chunshu,   0, 109N,  892E,  20, 1007, DB
+IO, 05, 2008111206,   ,chunshu,   0, 114N,  886E,  20, 1007, DB
+IO, 05, 2008111212,   ,chunshu,   0, 115N,  878E,  20, 1007, DB
+IO, 05, 2008111218,   ,chunshu,   0, 116N,  869E,  20, 1007, DB,     INVEST
+IO, 05, 2008111300,   ,chunshu,   0, 116N,  860E,  20, 1004, DB,     INVEST
+IO, 05, 2008111306,   ,chunshu,   0, 117N,  856E,  20, 1007, DB,     INVEST
+IO, 05, 2008111312,   ,chunshu,   0, 119N,  854E,  25, 1004, TD,     INVEST
+IO, 05, 2008111318,   ,chunshu,   0, 124N,  853E,  30, 1000, TD,     INVEST
+IO, 05, 2008111400,   ,chunshu,   0, 130N,  852E,  35, 1000, TS,     NONAME
+IO, 05, 2008111406,   ,chunshu,   0, 136N,  848E,  40,  996, TS,       FIVE
+IO, 05, 2008111412,   ,chunshu,   0, 140N,  841E,  45,  989, TS,       FIVE
+IO, 05, 2008111418,   ,chunshu,   0, 144N,  835E,  45,  989, TS,       FIVE
+IO, 05, 2008111500,   ,chunshu,   0, 143N,  829E,  45,  989, TS,   KHAI-MUK
+IO, 05, 2008111506,   ,chunshu,   0, 142N,  824E,  40,  993, TS,   KHAI-MUK
+IO, 05, 2008111512,   ,chunshu,   0, 144N,  816E,  40,  993, TS,   KHAI-MUK
+IO, 05, 2008111518,   ,chunshu,   0, 145N,  807E,  40,  993, TS,   KHAI-MUK
+IO, 05, 2008111600,   ,chunshu,   0, 148N,  798E,  35,  996, TS
+IO, 05, 2008111606,   ,chunshu,   0, 154N,  788E,  25, 1004, TD

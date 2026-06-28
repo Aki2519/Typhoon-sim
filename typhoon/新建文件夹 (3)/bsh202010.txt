@@ -1,0 +1,47 @@
+SH, 20, 2010031012,   ,chunshu,   0, 146S, 1680E,  20, 1007, DB
+SH, 20, 2010031018,   ,chunshu,   0, 145S, 1678E,  25, 1004, TD,     INVEST
+SH, 20, 2010031100,   ,chunshu,   0, 145S, 1676E,  25, 1004, TD,     INVEST
+SH, 20, 2010031106,   ,chunshu,   0, 146S, 1674E,  30, 1000, TD,     INVEST
+SH, 20, 2010031112,   ,chunshu,   0, 147S, 1672E,  30, 1000, TD,     INVEST
+SH, 20, 2010031118,   ,chunshu,   0, 148S, 1669E,  35,  996, TS,     TWENTY
+SH, 20, 2010031200,   ,chunshu,   0, 148S, 1665E,  40,  993, TS,     TWENTY
+SH, 20, 2010031206,   ,chunshu,   0, 145S, 1658E,  40,  993, TS,     TWENTY
+SH, 20, 2010031212,   ,chunshu,   0, 141S, 1653E,  45,  989, TS,     TWENTY
+SH, 20, 2010031218,   ,chunshu,   0, 140S, 1647E,  55,  982, TS,       ULUI
+SH, 20, 2010031300,   ,chunshu,   0, 136S, 1642E,  65,  974, TY,       ULUI
+SH, 20, 2010031306,   ,chunshu,   0, 132S, 1636E,  80,  963, TY,       ULUI
+SH, 20, 2010031312,   ,chunshu,   0, 130S, 1630E, 115,  937, TY,       ULUI
+SH, 20, 2010031318,   ,chunshu,   0, 128S, 1624E, 130,  926, ST,       ULUI
+SH, 20, 2010031400,   ,chunshu,   0, 127S, 1618E, 140,  918, ST,       ULUI
+SH, 20, 2010031406,   ,chunshu,   0, 128S, 1612E, 135,  922, ST,       ULUI
+SH, 20, 2010031412,   ,chunshu,   0, 128S, 1606E, 130,  926, ST,       ULUI
+SH, 20, 2010031418,   ,chunshu,   0, 128S, 1600E, 125,  929, TY,       ULUI
+SH, 20, 2010031500,   ,chunshu,   0, 129S, 1595E, 125,  929, TY,       ULUI
+SH, 20, 2010031506,   ,chunshu,   0, 130S, 1591E, 125,  929, TY,       ULUI
+SH, 20, 2010031512,   ,chunshu,   0, 131S, 1587E, 120,  933, TY,       ULUI
+SH, 20, 2010031518,   ,chunshu,   0, 132S, 1583E, 115,  937, TY,       ULUI
+SH, 20, 2010031600,   ,chunshu,   0, 133S, 1581E, 115,  937, TY,       ULUI
+SH, 20, 2010031606,   ,chunshu,   0, 134S, 1580E, 110,  941, TY,       ULUI
+SH, 20, 2010031612,   ,chunshu,   0, 135S, 1579E, 105,  944, TY,       ULUI
+SH, 20, 2010031618,   ,chunshu,   0, 137S, 1578E, 105,  944, TY,       ULUI
+SH, 20, 2010031700,   ,chunshu,   0, 138S, 1578E, 105,  944, TY,       ULUI
+SH, 20, 2010031706,   ,chunshu,   0, 140S, 1578E, 105,  944, TY,       ULUI
+SH, 20, 2010031712,   ,chunshu,   0, 143S, 1580E, 100,  948, TY,       ULUI
+SH, 20, 2010031718,   ,chunshu,   0, 147S, 1580E,  90,  956, TY,       ULUI
+SH, 20, 2010031800,   ,chunshu,   0, 149S, 1578E,  85,  959, TY,       ULUI
+SH, 20, 2010031806,   ,chunshu,   0, 153S, 1577E,  80,  963, TY,       ULUI
+SH, 20, 2010031812,   ,chunshu,   0, 158S, 1576E,  75,  967, TY,       ULUI
+SH, 20, 2010031818,   ,chunshu,   0, 163S, 1573E,  70,  970, TY,       ULUI
+SH, 20, 2010031900,   ,chunshu,   0, 166S, 1568E,  60,  978, TS,       ULUI
+SH, 20, 2010031906,   ,chunshu,   0, 171S, 1562E,  60,  978, TS,       ULUI
+SH, 20, 2010031912,   ,chunshu,   0, 180S, 1555E,  55,  982, TS,       ULUI
+SH, 20, 2010031918,   ,chunshu,   0, 190S, 1544E,  55,  982, TS,       ULUI
+SH, 20, 2010032000,   ,chunshu,   0, 196S, 1530E,  60,  978, TS,       ULUI
+SH, 20, 2010032006,   ,chunshu,   0, 199S, 1516E,  65,  974, TY,       ULUI
+SH, 20, 2010032012,   ,chunshu,   0, 201S, 1498E,  75,  967, TY,       ULUI
+SH, 20, 2010032018,   ,chunshu,   0, 205S, 1484E,  65,  974, TY,       ULUI
+SH, 20, 2010032100,   ,chunshu,   0, 210S, 1468E,  45,  989, TS,       ULUI
+SH, 20, 2010032106,   ,chunshu,   0, 214S, 1456E,  35,  996, TS
+SH, 20, 2010032112,   ,chunshu,   0, 218S, 1440E,  30, 1000, TD
+SH, 20, 2010032118,   ,chunshu,   0, 218S, 1427E,  25, 1004, TD
+SH, 20, 2010032200,   ,chunshu,   0, 219S, 1418E,  20, 1007, DB

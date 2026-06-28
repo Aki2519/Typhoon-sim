@@ -1,0 +1,30 @@
+IO, 04, 2006091906,   ,chunshu,   0, 194N,  687E,  20, 1004, DB
+IO, 04, 2006091912,   ,chunshu,   0, 194N,  684E,  20,  999, DB,     INVEST
+IO, 04, 2006091918,   ,chunshu,   0, 193N,  682E,  25, 1002, DB,     INVEST
+IO, 04, 2006092000,   ,chunshu,   0, 193N,  678E,  25, 1002, DB,     INVEST
+IO, 04, 2006092006,   ,chunshu,   0, 194N,  674E,  25, 1002, DB,     INVEST
+IO, 04, 2006092012,   ,chunshu,   0, 195N,  671E,  25, 1002, DB,     INVEST
+IO, 04, 2006092018,   ,chunshu,   0, 196N,  668E,  30, 1000, DB,     INVEST
+IO, 04, 2006092100,   ,chunshu,   0, 196N,  666E,  30, 1000, TD,     NONAME
+IO, 04, 2006092106,   ,chunshu,   0, 196N,  664E,  30, 1000, TD,     NONAME
+IO, 04, 2006092112,   ,chunshu,   0, 197N,  663E,  35,  997, TS,     NONAME
+IO, 04, 2006092118,   ,chunshu,   0, 199N,  663E,  40,  994, TS,     NONAME
+IO, 04, 2006092200,   ,chunshu,   0, 200N,  664E,  45,  991, TC,     NONAME
+IO, 04, 2006092206,   ,chunshu,   0, 202N,  665E,  45,  991, TS,      MUKDA
+IO, 04, 2006092212,   ,chunshu,   0, 203N,  666E,  50,  987, TS,      MUKDA
+IO, 04, 2006092218,   ,chunshu,   0, 204N,  668E,  50,  987, TS,      MUKDA
+IO, 04, 2006092300,   ,chunshu,   0, 204N,  669E,  50,  987, TS,      MUKDA
+IO, 04, 2006092306,   ,chunshu,   0, 205N,  671E,  55,  984, TC,      MUKDA
+IO, 04, 2006092312,   ,chunshu,   0, 203N,  672E,  45,  991, TC,      MUKDA
+IO, 04, 2006092318,   ,chunshu,   0, 202N,  671E,  35,  997, TS,      MUKDA
+IO, 04, 2006092400,   ,chunshu,   0, 200N,  670E,  30, 1000, TD,      MUKDA
+IO, 04, 2006092406,   ,chunshu,   0, 198N,  669E,  30, 1000, TD,      MUKDA
+IO, 04, 2006092412,   ,chunshu,   0, 196N,  669E,  30, 1000, TD,      MUKDA
+IO, 04, 2006092418,   ,chunshu,   0, 195N,  668E,  30, 1000, TD,      MUKDA
+IO, 04, 2006092500,   ,chunshu,   0, 195N,  666E,  30, 1000, TD
+IO, 04, 2006092506,   ,chunshu,   0, 197N,  665E,  30, 1000, TD
+IO, 04, 2006092512,   ,chunshu,   0, 198N,  663E,  30, 1000, TD
+IO, 04, 2006092518,   ,chunshu,   0, 199N,  662E,  25, 1002, DB
+IO, 04, 2006092600,   ,chunshu,   0, 200N,  661E,  25, 1002, DB
+IO, 04, 2006092606,   ,chunshu,   0, 202N,  658E,  25, 1002, DB
+IO, 04, 2006092612,   ,chunshu,   0, 203N,  654E,  25, 1002, DB

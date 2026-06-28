@@ -1,0 +1,21 @@
+SH, 20, 2007032406,   ,chunshu,   0, 162S, 1205E,  25, 1002, DB,     INVEST
+SH, 20, 2007032412,   ,chunshu,   0, 163S, 1193E,  25, 1002, TD,     INVEST
+SH, 20, 2007032418,   ,chunshu,   0, 164S, 1181E,  30, 1000, TD,     INVEST
+SH, 20, 2007032500,   ,chunshu,   0, 165S, 1173E,  30, 1000, TD,     INVEST
+SH, 20, 2007032506,   ,chunshu,   0, 166S, 1167E,  35,  997, TS,     NONAME
+SH, 20, 2007032512,   ,chunshu,   0, 168S, 1161E,  45,  989, TS,       KARA
+SH, 20, 2007032518,   ,chunshu,   0, 171S, 1156E,  55,  982, TS,       KARA
+SH, 20, 2007032600,   ,chunshu,   0, 175S, 1153E,  75,  967, TY,       KARA
+SH, 20, 2007032606,   ,chunshu,   0, 180S, 1152E,  90,  956, TY,       KARA
+SH, 20, 2007032612,   ,chunshu,   0, 183S, 1155E,  90,  956, TY,       KARA
+SH, 20, 2007032618,   ,chunshu,   0, 185S, 1161E,  90,  956, TY,       KARA
+SH, 20, 2007032700,   ,chunshu,   0, 186S, 1168E, 105,  944, TY,       KARA
+SH, 20, 2007032706,   ,chunshu,   0, 188S, 1178E,  80,  963, TY,       KARA
+SH, 20, 2007032712,   ,chunshu,   0, 190S, 1191E,  45,  989, TS,       KARA
+SH, 20, 2007032718,   ,chunshu,   0, 192S, 1204E,  35,  996, TS,       KARA
+SH, 20, 2007032800,   ,chunshu,   0, 191S, 1209E,  35,  996, TS
+SH, 20, 2007032806,   ,chunshu,   0, 189S, 1213E,  30, 1000, TD,       KARA
+SH, 20, 2007032812,   ,chunshu,   0, 185S, 1216E,  25, 1004, TD
+SH, 20, 2007032818,   ,chunshu,   0, 183S, 1216E,  20, 1004, DB
+SH, 20, 2007032900,   ,chunshu,   0, 181S, 1215E,  20, 1004, DB
+SH, 20, 2007032906,   ,chunshu,   0, 180S, 1214E,  15, 1006, DB

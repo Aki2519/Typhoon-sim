@@ -1,0 +1,54 @@
+AL, 21, 2010102906,   ,chunshu,   0,  90N,  537W,  30, 1006, TD,     INVEST
+AL, 21, 2010102912,   ,chunshu,   0,  98N,  553W,  35, 1003, TS,     INVEST
+AL, 21, 2010102918,   ,chunshu,   0, 108N,  568W,  45,  998, TS,      TOMAS
+AL, 21, 2010103000,   ,chunshu,   0, 119N,  578W,  55,  999, TS,      TOMAS
+AL, 21, 2010103006,   ,chunshu,   0, 127N,  589W,  60,  997, TS,      TOMAS
+AL, 21, 2010103009,   ,chunshu,   0, 130N,  595W,  60,  997, TS
+AL, 21, 2010103012,   ,chunshu,   0, 131N,  601W,  65,  993, HU,      TOMAS
+AL, 21, 2010103018,   ,chunshu,   0, 133N,  610W,  80,  990, HU,      TOMAS
+AL, 21, 2010103020,   ,chunshu,   0, 134N,  612W,  85,  987, HU
+AL, 21, 2010103100,   ,chunshu,   0, 135N,  617W,  85,  982, HU,      TOMAS
+AL, 21, 2010103106,   ,chunshu,   0, 138N,  624W,  85,  983, HU,      TOMAS
+AL, 21, 2010103112,   ,chunshu,   0, 140N,  633W,  80,  988, HU,      TOMAS
+AL, 21, 2010103118,   ,chunshu,   0, 142N,  644W,  65,  994, HU,      TOMAS
+AL, 21, 2010110100,   ,chunshu,   0, 141N,  658W,  55,  997, TS,      TOMAS
+AL, 21, 2010110106,   ,chunshu,   0, 139N,  671W,  45, 1003, TS,      TOMAS
+AL, 21, 2010110112,   ,chunshu,   0, 136N,  682W,  40, 1005, TS,      TOMAS
+AL, 21, 2010110118,   ,chunshu,   0, 135N,  692W,  40, 1005, TS,      TOMAS
+AL, 21, 2010110200,   ,chunshu,   0, 135N,  703W,  40, 1005, TS,      TOMAS
+AL, 21, 2010110206,   ,chunshu,   0, 135N,  714W,  45, 1003, TS,      TOMAS
+AL, 21, 2010110212,   ,chunshu,   0, 135N,  725W,  40, 1004, TS,      TOMAS
+AL, 21, 2010110218,   ,chunshu,   0, 136N,  734W,  35, 1006, TS,      TOMAS
+AL, 21, 2010110300,   ,chunshu,   0, 138N,  739W,  30, 1006, TD,      TOMAS
+AL, 21, 2010110306,   ,chunshu,   0, 140N,  743W,  30, 1006, TD,      TOMAS
+AL, 21, 2010110312,   ,chunshu,   0, 143N,  747W,  30, 1006, TD,      TOMAS
+AL, 21, 2010110318,   ,chunshu,   0, 147N,  751W,  35, 1004, TS,      TOMAS
+AL, 21, 2010110400,   ,chunshu,   0, 151N,  755W,  40, 1003, TS,      TOMAS
+AL, 21, 2010110406,   ,chunshu,   0, 155N,  759W,  40,  998, TS,      TOMAS
+AL, 21, 2010110412,   ,chunshu,   0, 159N,  762W,  45,  996, TS,      TOMAS
+AL, 21, 2010110418,   ,chunshu,   0, 164N,  762W,  50,  995, TS,      TOMAS
+AL, 21, 2010110500,   ,chunshu,   0, 170N,  757W,  60,  989, TS,      TOMAS
+AL, 21, 2010110506,   ,chunshu,   0, 177N,  752W,  70,  985, HU,      TOMAS
+AL, 21, 2010110512,   ,chunshu,   0, 187N,  747W,  75,  987, HU,      TOMAS
+AL, 21, 2010110518,   ,chunshu,   0, 197N,  740W,  70,  992, HU,      TOMAS
+AL, 21, 2010110600,   ,chunshu,   0, 204N,  731W,  60,  995, TS,      TOMAS
+AL, 21, 2010110606,   ,chunshu,   0, 214N,  718W,  60,  992, TS,      TOMAS
+AL, 21, 2010110607, 30,chunshu,   0, 217N,  716W,  60,  992, TS
+AL, 21, 2010110612,   ,chunshu,   0, 226N,  709W,  60,  990, TS,      TOMAS
+AL, 21, 2010110618,   ,chunshu,   0, 238N,  703W,  65,  988, HU,      TOMAS
+AL, 21, 2010110700,   ,chunshu,   0, 249N,  698W,  70,  987, HU,      TOMAS
+AL, 21, 2010110706,   ,chunshu,   0, 254N,  696W,  65,  990, HU,      TOMAS
+AL, 21, 2010110712,   ,chunshu,   0, 257N,  695W,  60,  992, TS,      TOMAS
+AL, 21, 2010110718,   ,chunshu,   0, 260N,  693W,  50,  992, TS,      TOMAS
+AL, 21, 2010110800,   ,chunshu,   0, 260N,  685W,  50,  992, EX
+AL, 21, 2010110806,   ,chunshu,   0, 258N,  675W,  50,  992, EX,      TOMAS
+AL, 21, 2010110812,   ,chunshu,   0, 256N,  662W,  50,  992, EX
+AL, 21, 2010110818,   ,chunshu,   0, 258N,  645W,  45,  993, EX
+AL, 21, 2010110900,   ,chunshu,   0, 265N,  623W,  45,  993, EX
+AL, 21, 2010110906,   ,chunshu,   0, 279N,  604W,  45,  994, EX
+AL, 21, 2010110912,   ,chunshu,   0, 294N,  586W,  45,  994, EX
+AL, 21, 2010110918,   ,chunshu,   0, 310N,  569W,  45,  994, EX
+AL, 21, 2010111000,   ,chunshu,   0, 333N,  554W,  45,  994, EX
+AL, 21, 2010111006,   ,chunshu,   0, 360N,  540W,  45,  994, EX
+AL, 21, 2010111012,   ,chunshu,   0, 390N,  535W,  35,  995, EX
+AL, 21, 2010111018,   ,chunshu,   0, 420N,  535W,  35,  995, EX

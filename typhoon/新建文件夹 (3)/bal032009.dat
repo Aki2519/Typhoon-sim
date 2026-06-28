@@ -1,0 +1,46 @@
+AL, 03, 2009081506,   ,chunshu,   0, 118N,  320W,  30, 1007, TD,     INVEST
+AL, 03, 2009081512,   ,chunshu,   0, 115N,  333W,  30, 1006, TD,     INVEST
+AL, 03, 2009081518,   ,chunshu,   0, 112N,  345W,  35, 1004, TS,       BILL
+AL, 03, 2009081600,   ,chunshu,   0, 112N,  355W,  35, 1004, TS,       BILL
+AL, 03, 2009081606,   ,chunshu,   0, 115N,  365W,  40, 1002, TS,       BILL
+AL, 03, 2009081612,   ,chunshu,   0, 120N,  378W,  50,  997, TS,       BILL
+AL, 03, 2009081618,   ,chunshu,   0, 126N,  394W,  55,  994, TS,       BILL
+AL, 03, 2009081700,   ,chunshu,   0, 131N,  413W,  60,  990, TS,       BILL
+AL, 03, 2009081706,   ,chunshu,   0, 135N,  432W,  65,  987, HU,       BILL
+AL, 03, 2009081712,   ,chunshu,   0, 139N,  446W,  75,  977, HU,       BILL
+AL, 03, 2009081718,   ,chunshu,   0, 144N,  460W,  80,  970, HU,       BILL
+AL, 03, 2009081800,   ,chunshu,   0, 148N,  475W,  85,  967, HU,       BILL
+AL, 03, 2009081806,   ,chunshu,   0, 153N,  490W,  90,  965, HU,       BILL
+AL, 03, 2009081812,   ,chunshu,   0, 157N,  503W,  95,  963, HU,       BILL
+AL, 03, 2009081818,   ,chunshu,   0, 162N,  517W, 100,  962, HU,       BILL
+AL, 03, 2009081900,   ,chunshu,   0, 169N,  529W, 105,  955, HU,       BILL
+AL, 03, 2009081906,   ,chunshu,   0, 176N,  542W, 115,  954, HU,       BILL
+AL, 03, 2009081912,   ,chunshu,   0, 183N,  556W, 115,  949, HU,       BILL
+AL, 03, 2009081918,   ,chunshu,   0, 193N,  569W, 115,  947, HU,       BILL
+AL, 03, 2009082000,   ,chunshu,   0, 202N,  582W, 115,  945, HU,       BILL
+AL, 03, 2009082006,   ,chunshu,   0, 211N,  596W, 115,  949, HU,       BILL
+AL, 03, 2009082012,   ,chunshu,   0, 221N,  610W, 105,  952, HU,       BILL
+AL, 03, 2009082018,   ,chunshu,   0, 231N,  624W, 110,  948, HU,       BILL
+AL, 03, 2009082100,   ,chunshu,   0, 241N,  637W, 110,  943, HU,       BILL
+AL, 03, 2009082106,   ,chunshu,   0, 255N,  649W, 105,  951, HU,       BILL
+AL, 03, 2009082112,   ,chunshu,   0, 271N,  660W, 100,  954, HU,       BILL
+AL, 03, 2009082118,   ,chunshu,   0, 286N,  669W,  95,  956, HU,       BILL
+AL, 03, 2009082200,   ,chunshu,   0, 304N,  676W,  90,  957, HU,       BILL
+AL, 03, 2009082206,   ,chunshu,   0, 323N,  684W,  90,  960, HU,       BILL
+AL, 03, 2009082212,   ,chunshu,   0, 341N,  688W,  85,  961, HU,       BILL
+AL, 03, 2009082218,   ,chunshu,   0, 360N,  689W,  80,  961, HU,       BILL
+AL, 03, 2009082300,   ,chunshu,   0, 381N,  684W,  80,  961, HU,       BILL
+AL, 03, 2009082306,   ,chunshu,   0, 401N,  673W,  75,  962, HU,       BILL
+AL, 03, 2009082312,   ,chunshu,   0, 424N,  654W,  70,  965, HU,       BILL
+AL, 03, 2009082318,   ,chunshu,   0, 444N,  625W,  65,  970, HU,       BILL
+AL, 03, 2009082400,   ,chunshu,   0, 463N,  579W,  65,  973, HU,       BILL
+AL, 03, 2009082402,   ,chunshu,   0, 468N,  564W,  60,  974, TS
+AL, 03, 2009082403,   ,chunshu,   0, 469N,  560W,  60,  976, TS
+AL, 03, 2009082406,   ,chunshu,   0, 480N,  530W,  60,  980, TS,       BILL
+AL, 03, 2009082412,   ,chunshu,   0, 492N,  472W,  60,  980, EX
+AL, 03, 2009082418,   ,chunshu,   0, 500N,  412W,  60,  980, EX
+AL, 03, 2009082500,   ,chunshu,   0, 503N,  354W,  60,  980, EX
+AL, 03, 2009082506,   ,chunshu,   0, 507N,  296W,  60,  980, EX
+AL, 03, 2009082512,   ,chunshu,   0, 512N,  238W,  60,  980, EX
+AL, 03, 2009082518,   ,chunshu,   0, 520N,  180W,  50,  982, EX
+AL, 03, 2009082600,   ,chunshu,   0, 530N,  130W,  40,  985, EX

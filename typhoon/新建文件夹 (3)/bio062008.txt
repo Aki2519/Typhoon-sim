@@ -1,0 +1,16 @@
+IO, 06, 2008112406,   ,chunshu,   0,  87N,  818E,  15, 1010, DB
+IO, 06, 2008112412,   ,chunshu,   0,  89N,  813E,  15, 1010, DB
+IO, 06, 2008112418,   ,chunshu,   0,  90N,  811E,  20, 1007, DB
+IO, 06, 2008112500,   ,chunshu,   0,  91N,  809E,  25, 1004, TD
+IO, 06, 2008112506,   ,chunshu,   0,  93N,  807E,  30, 1000, TD,     INVEST
+IO, 06, 2008112512,   ,chunshu,   0,  96N,  805E,  30, 1000, TD,     INVEST
+IO, 06, 2008112518,   ,chunshu,   0,  99N,  805E,  35,  996, TS,     INVEST
+IO, 06, 2008112600,   ,chunshu,   0, 102N,  807E,  45,  989, TS,        SIX
+IO, 06, 2008112606,   ,chunshu,   0, 106N,  807E,  50,  985, TS,        SIX
+IO, 06, 2008112612,   ,chunshu,   0, 109N,  806E,  50,  985, TS,      NISHA
+IO, 06, 2008112618,   ,chunshu,   0, 111N,  803E,  50,  985, TS,      NISHA
+IO, 06, 2008112700,   ,chunshu,   0, 113N,  800E,  50,  985, TS,      NISHA
+IO, 06, 2008112706,   ,chunshu,   0, 116N,  795E,  50,  985, TS,      NISHA
+IO, 06, 2008112712,   ,chunshu,   0, 117N,  786E,  40,  993, TS,      NISHA
+IO, 06, 2008112718,   ,chunshu,   0, 121N,  777E,  30, 1000, TD,      NISHA
+IO, 06, 2008112800,   ,chunshu,   0, 125N,  764E,  20, 1005, DB,      NISHA

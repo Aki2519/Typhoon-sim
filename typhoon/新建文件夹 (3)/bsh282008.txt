@@ -1,0 +1,21 @@
+SH, 28, 2008042000,   ,chunshu,   0,  84S,  963E,  20, 1007, DB,     INVEST
+SH, 28, 2008042006,   ,chunshu,   0,  87S,  968E,  20, 1007, DB,     INVEST
+SH, 28, 2008042012,   ,chunshu,   0,  89S,  977E,  20, 1007, DB,     INVEST
+SH, 28, 2008042018,   ,chunshu,   0,  92S,  987E,  20, 1006, DB,     INVEST
+SH, 28, 2008042100,   ,chunshu,   0,  89S,  999E,  25, 1004, TD,     INVEST
+SH, 28, 2008042106,   ,chunshu,   0,  90S, 1011E,  25, 1004, TD,     INVEST
+SH, 28, 2008042112,   ,chunshu,   0,  95S, 1026E,  30, 1000, TD,     INVEST
+SH, 28, 2008042118,   ,chunshu,   0, 103S, 1039E,  40,  993, TS,     NONAME
+SH, 28, 2008042200,   ,chunshu,   0, 108S, 1048E,  50,  985, TS,      ROSIE
+SH, 28, 2008042202,   ,chunshu,   0, 109S, 1050E,  50,  985, TS
+SH, 28, 2008042204,   ,chunshu,   0, 108S, 1052E,  50,  985, TS
+SH, 28, 2008042206,   ,chunshu,   0, 106S, 1053E,  50,  985, TS,      ROSIE
+SH, 28, 2008042210,   ,chunshu,   0, 105S, 1055E,  50,  985, TS
+SH, 28, 2008042212,   ,chunshu,   0, 105S, 1057E,  45,  989, TS,      ROSIE
+SH, 28, 2008042218,   ,chunshu,   0, 107S, 1060E,  45,  989, TS,      ROSIE
+SH, 28, 2008042300,   ,chunshu,   0, 111S, 1064E,  45,  989, TS,      ROSIE
+SH, 28, 2008042306,   ,chunshu,   0, 117S, 1067E,  45,  989, TS
+SH, 28, 2008042312,   ,chunshu,   0, 124S, 1068E,  40,  993, TS,      ROSIE
+SH, 28, 2008042318,   ,chunshu,   0, 131S, 1068E,  40,  993, TS,      ROSIE
+SH, 28, 2008042400,   ,chunshu,   0, 138S, 1067E,  35,  996, TS,      ROSIE
+SH, 28, 2008042406,   ,chunshu,   0, 148S, 1064E,  30, 1000, TD,      ROSIE

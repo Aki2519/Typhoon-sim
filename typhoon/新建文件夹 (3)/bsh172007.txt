@@ -1,0 +1,40 @@
+SH, 17, 2007022806,   ,chunshu,   0, 121S, 1345E,  25, 1002, DB
+SH, 17, 2007022812,   ,chunshu,   0, 124S, 1345E,  25, 1002, DB
+SH, 17, 2007022818,   ,chunshu,   0, 126S, 1346E,  25, 1002, DB,     INVEST
+SH, 17, 2007030100,   ,chunshu,   0, 129S, 1347E,  25, 1002, DB,     INVEST
+SH, 17, 2007030106,   ,chunshu,   0, 130S, 1344E,  25, 1002, DB,     INVEST
+SH, 17, 2007030112,   ,chunshu,   0, 130S, 1340E,  25, 1002, DB,     INVEST
+SH, 17, 2007030118,   ,chunshu,   0, 130S, 1336E,  25, 1002, DB,     INVEST
+SH, 17, 2007030200,   ,chunshu,   0, 130S, 1331E,  25, 1002, DB,     INVEST
+SH, 17, 2007030206,   ,chunshu,   0, 130S, 1324E,  25, 1002, DB,     INVEST
+SH, 17, 2007030212,   ,chunshu,   0, 131S, 1318E,  25, 1000, DB,     INVEST
+SH, 17, 2007030218,   ,chunshu,   0, 134S, 1312E,  25, 1000, DB,     INVEST
+SH, 17, 2007030300,   ,chunshu,   0, 137S, 1306E,  25,  999, TD,     INVEST
+SH, 17, 2007030306,   ,chunshu,   0, 140S, 1299E,  30, 1000, TD,     INVEST
+SH, 17, 2007030312,   ,chunshu,   0, 141S, 1294E,  45,  991, TS,     NONAME
+SH, 17, 2007030318,   ,chunshu,   0, 145S, 1291E,  50,  985, TS,     GEORGE
+SH, 17, 2007030400,   ,chunshu,   0, 145S, 1286E,  55,  982, TS,     GEORGE
+SH, 17, 2007030406,   ,chunshu,   0, 144S, 1279E,  55,  982, TS,     GEORGE
+SH, 17, 2007030412,   ,chunshu,   0, 144S, 1271E,  45,  989, TS,     GEORGE
+SH, 17, 2007030418,   ,chunshu,   0, 144S, 1263E,  40,  993, TS,     GEORGE
+SH, 17, 2007030500,   ,chunshu,   0, 144S, 1255E,  50,  985, TS,     GEORGE
+SH, 17, 2007030506,   ,chunshu,   0, 145S, 1247E,  50,  985, TS,     GEORGE
+SH, 17, 2007030512,   ,chunshu,   0, 145S, 1240E,  50,  985, TS,     GEORGE
+SH, 17, 2007030518,   ,chunshu,   0, 144S, 1231E,  55,  982, TS,     GEORGE
+SH, 17, 2007030600,   ,chunshu,   0, 147S, 1222E,  55,  982, TS,     GEORGE
+SH, 17, 2007030606,   ,chunshu,   0, 151S, 1215E,  50,  987, TS,     GEORGE
+SH, 17, 2007030612,   ,chunshu,   0, 151S, 1207E,  45,  989, TS,     GEORGE
+SH, 17, 2007030618,   ,chunshu,   0, 150S, 1200E,  45,  989, TS,     GEORGE
+SH, 17, 2007030700,   ,chunshu,   0, 150S, 1195E,  55,  982, TS,     GEORGE
+SH, 17, 2007030706,   ,chunshu,   0, 154S, 1193E,  60,  978, TS,     GEORGE
+SH, 17, 2007030712,   ,chunshu,   0, 160S, 1194E,  65,  974, TY,     GEORGE
+SH, 17, 2007030718,   ,chunshu,   0, 168S, 1191E,  70,  970, TY,     GEORGE
+SH, 17, 2007030800,   ,chunshu,   0, 178S, 1192E,  75,  967, TY,     GEORGE
+SH, 17, 2007030806,   ,chunshu,   0, 188S, 1190E,  95,  952, TY,     GEORGE
+SH, 17, 2007030812,   ,chunshu,   0, 199S, 1190E, 110,  941, TY,     GEORGE
+SH, 17, 2007030818,   ,chunshu,   0, 211S, 1186E, 100,  948, TY,     GEORGE
+SH, 17, 2007030900,   ,chunshu,   0, 217S, 1186E,  65,  974, TY
+SH, 17, 2007030906,   ,chunshu,   0, 222S, 1193E,  45,  989, TS
+SH, 17, 2007030912,   ,chunshu,   0, 226S, 1203E,  35,  996, TS
+SH, 17, 2007030918,   ,chunshu,   0, 232S, 1209E,  35,  996, TS
+SH, 17, 2007031000,   ,chunshu,   0, 237S, 1216E,  30, 1000, EX

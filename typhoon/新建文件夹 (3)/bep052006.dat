@@ -1,0 +1,48 @@
+EP, 05, 2006071618,   ,chunshu,   0, 123N, 1080W,  25, 1008, TD,     INVEST
+EP, 05, 2006071700,   ,chunshu,   0, 124N, 1092W,  30, 1007, TD,       FIVE
+EP, 05, 2006071706,   ,chunshu,   0, 124N, 1104W,  30, 1007, TD,       FIVE
+EP, 05, 2006071712,   ,chunshu,   0, 123N, 1116W,  35, 1005, TS,     DANIEL
+EP, 05, 2006071718,   ,chunshu,   0, 123N, 1126W,  40, 1002, TS,     DANIEL
+EP, 05, 2006071800,   ,chunshu,   0, 122N, 1136W,  45, 1000, TS,     DANIEL
+EP, 05, 2006071806,   ,chunshu,   0, 122N, 1148W,  55,  994, TS,     DANIEL
+EP, 05, 2006071812,   ,chunshu,   0, 122N, 1160W,  60,  990, TS,     DANIEL
+EP, 05, 2006071818,   ,chunshu,   0, 121N, 1171W,  65,  987, HU,     DANIEL
+EP, 05, 2006071900,   ,chunshu,   0, 119N, 1179W,  70,  984, HU,     DANIEL
+EP, 05, 2006071906,   ,chunshu,   0, 118N, 1186W,  75,  980, HU,     DANIEL
+EP, 05, 2006071912,   ,chunshu,   0, 118N, 1192W,  80,  976, HU,     DANIEL
+EP, 05, 2006071918,   ,chunshu,   0, 118N, 1199W,  85,  973, HU,     DANIEL
+EP, 05, 2006072000,   ,chunshu,   0, 119N, 1207W,  95,  966, HU,     DANIEL
+EP, 05, 2006072006,   ,chunshu,   0, 122N, 1214W,  95,  966, HU,     DANIEL
+EP, 05, 2006072012,   ,chunshu,   0, 124N, 1222W, 100,  960, HU,     DANIEL
+EP, 05, 2006072018,   ,chunshu,   0, 126N, 1230W, 115,  948, HU,     DANIEL
+EP, 05, 2006072100,   ,chunshu,   0, 130N, 1239W, 120,  942, HU,     DANIEL
+EP, 05, 2006072106,   ,chunshu,   0, 131N, 1249W, 115,  948, HU,     DANIEL
+EP, 05, 2006072112,   ,chunshu,   0, 133N, 1259W, 120,  942, HU,     DANIEL
+EP, 05, 2006072118,   ,chunshu,   0, 133N, 1269W, 125,  938, HU,     DANIEL
+EP, 05, 2006072200,   ,chunshu,   0, 135N, 1280W, 130,  933, HU,     DANIEL
+EP, 05, 2006072206,   ,chunshu,   0, 137N, 1291W, 130,  933, HU,     DANIEL
+EP, 05, 2006072212,   ,chunshu,   0, 138N, 1303W, 130,  933, HU,     DANIEL
+EP, 05, 2006072218,   ,chunshu,   0, 140N, 1314W, 125,  935, HU,     DANIEL
+EP, 05, 2006072300,   ,chunshu,   0, 142N, 1326W, 120,  941, HU,     DANIEL
+EP, 05, 2006072306,   ,chunshu,   0, 145N, 1339W, 115,  948, HU,     DANIEL
+EP, 05, 2006072312,   ,chunshu,   0, 147N, 1352W, 115,  948, HU,     DANIEL
+EP, 05, 2006072318,   ,chunshu,   0, 151N, 1365W, 105,  952, HU,     DANIEL
+EP, 05, 2006072400,   ,chunshu,   0, 155N, 1379W,  95,  965, HU,     DANIEL
+EP, 05, 2006072406,   ,chunshu,   0, 159N, 1391W,  85,  975, HU,     DANIEL
+EP, 05, 2006072412,   ,chunshu,   0, 162N, 1404W,  80,  980, HU,     DANIEL
+EP, 05, 2006072418,   ,chunshu,   0, 162N, 1413W,  75,  985, HU,     DANIEL
+EP, 05, 2006072500,   ,chunshu,   0, 162N, 1418W,  65,  994, HU,     DANIEL
+EP, 05, 2006072506,   ,chunshu,   0, 162N, 1423W,  55,  999, TS,     DANIEL
+EP, 05, 2006072512,   ,chunshu,   0, 162N, 1424W,  45, 1003, TS,     DANIEL
+EP, 05, 2006072518,   ,chunshu,   0, 162N, 1426W,  35, 1004, TS,     DANIEL
+EP, 05, 2006072600,   ,chunshu,   0, 162N, 1428W,  30, 1006, TD,     DANIEL
+EP, 05, 2006072606,   ,chunshu,   0, 162N, 1429W,  30, 1008, TD,     DANIEL
+EP, 05, 2006072612,   ,chunshu,   0, 162N, 1431W,  25, 1009, TD,     DANIEL
+EP, 05, 2006072618,   ,chunshu,   0, 161N, 1436W,  25, 1009, TD
+EP, 05, 2006072700,   ,chunshu,   0, 162N, 1444W,  25, 1009, LO
+EP, 05, 2006072706,   ,chunshu,   0, 163N, 1451W,  25, 1009, LO
+EP, 05, 2006072712,   ,chunshu,   0, 169N, 1466W,  25, 1009, LO
+EP, 05, 2006072718,   ,chunshu,   0, 172N, 1474W,  25, 1009, LO
+EP, 05, 2006072800,   ,chunshu,   0, 174N, 1488W,  25, 1010, LO
+EP, 05, 2006072806,   ,chunshu,   0, 176N, 1501W,  25, 1010, LO
+EP, 05, 2006072812,   ,chunshu,   0, 178N, 1518W,  25, 1010, LO,     DANIEL

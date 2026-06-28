@@ -1,0 +1,21 @@
+SH, 08, 2006011812,   ,chunshu,   0, 160S, 1231E,  25, 1002, TD
+SH, 08, 2006011818,   ,chunshu,   0, 160S, 1227E,  30, 1000, TD
+SH, 08, 2006011900,   ,chunshu,   0, 162S, 1224E,  35,  997, TS,      DARYL
+SH, 08, 2006011906,   ,chunshu,   0, 166S, 1216E,  35,  997, TS,      DARYL
+SH, 08, 2006011912,   ,chunshu,   0, 169S, 1213E,  40,  994, TS,      DARYL
+SH, 08, 2006011918,   ,chunshu,   0, 171S, 1209E,  45,  991, TS,      DARYL
+SH, 08, 2006012000,   ,chunshu,   0, 175S, 1206E,  50,  987, TS,      DARYL
+SH, 08, 2006012006,   ,chunshu,   0, 182S, 1203E,  50,  987, TS,      DARYL
+SH, 08, 2006012012,   ,chunshu,   0, 186S, 1192E,  50,  987, TS,      DARYL
+SH, 08, 2006012018,   ,chunshu,   0, 190S, 1179E,  50,  987, TS,      DARYL
+SH, 08, 2006012100,   ,chunshu,   0, 193S, 1170E,  50,  987, TS,      DARYL
+SH, 08, 2006012106,   ,chunshu,   0, 196S, 1163E,  45,  991, TS,      DARYL
+SH, 08, 2006012112,   ,chunshu,   0, 199S, 1158E,  40,  994, TS,      DARYL
+SH, 08, 2006012118,   ,chunshu,   0, 201S, 1153E,  40,  994, TS,      DARYL
+SH, 08, 2006012200,   ,chunshu,   0, 203S, 1148E,  40,  994, TS,      DARYL
+SH, 08, 2006012206,   ,chunshu,   0, 204S, 1141E,  35,  997, TS,      DARYL
+SH, 08, 2006012212,   ,chunshu,   0, 207S, 1133E,  30, 1000, TD
+SH, 08, 2006012218,   ,chunshu,   0, 212S, 1125E,  30, 1000, EX
+SH, 08, 2006012300,   ,chunshu,   0, 222S, 1112E,  25, 1004, EX
+SH, 08, 2006012306,   ,chunshu,   0, 230S, 1099E,  25, 1002, EX
+SH, 08, 2006012312,   ,chunshu,   0, 240S, 1089E,  20, 1004, EX

@@ -1,0 +1,22 @@
+SH, 01, 2009111312,   ,chunshu,   0, 103S,  714E,  25, 1004, TD
+SH, 01, 2009111318,   ,chunshu,   0, 111S,  714E,  30, 1000, TD,     INVEST
+SH, 01, 2009111400,   ,chunshu,   0, 119S,  712E,  30, 1000, TD,     INVEST
+SH, 01, 2009111406,   ,chunshu,   0, 126S,  709E,  40,  993, TS,     INVEST
+SH, 01, 2009111412,   ,chunshu,   0, 128S,  707E,  50,  985, TS,        ONE
+SH, 01, 2009111418,   ,chunshu,   0, 129S,  706E,  60,  978, TS,        ONE
+SH, 01, 2009111500,   ,chunshu,   0, 130S,  705E,  90,  956, TY,       ANJA
+SH, 01, 2009111506,   ,chunshu,   0, 131S,  703E, 100,  948, TY,       ANJA
+SH, 01, 2009111512,   ,chunshu,   0, 133S,  699E, 105,  944, TY,       ANJA
+SH, 01, 2009111518,   ,chunshu,   0, 133S,  695E, 105,  944, TY,       ANJA
+SH, 01, 2009111600,   ,chunshu,   0, 136S,  692E, 105,  944, TY,       ANJA
+SH, 01, 2009111606,   ,chunshu,   0, 140S,  688E, 105,  944, TY,       ANJA
+SH, 01, 2009111612,   ,chunshu,   0, 148S,  683E, 105,  944, TY,       ANJA
+SH, 01, 2009111618,   ,chunshu,   0, 156S,  677E, 105,  944, TY,       ANJA
+SH, 01, 2009111700,   ,chunshu,   0, 164S,  673E, 105,  944, TY,       ANJA
+SH, 01, 2009111706,   ,chunshu,   0, 173S,  670E,  90,  956, TY,       ANJA
+SH, 01, 2009111712,   ,chunshu,   0, 185S,  667E,  75,  966, TY,       ANJA
+SH, 01, 2009111718,   ,chunshu,   0, 197S,  669E,  65,  974, TY,       ANJA
+SH, 01, 2009111800,   ,chunshu,   0, 208S,  664E,  55,  982, TS,       ANJA
+SH, 01, 2009111806,   ,chunshu,   0, 217S,  664E,  40,  993, TS,       ANJA
+SH, 01, 2009111812,   ,chunshu,   0, 229S,  671E,  30, 1000, TD,       ANJA
+SH, 01, 2009111818,   ,chunshu,   0, 241S,  682E,  20, 1007, TD

@@ -1,0 +1,17 @@
+SH, 05, 2006010618,   ,chunshu,   0, 120S, 1244E,  20, 1004, DB
+SH, 05, 2006010700,   ,chunshu,   0, 125S, 1238E,  25, 1002, TD
+SH, 05, 2006010706,   ,chunshu,   0, 132S, 1233E,  25, 1002, TD
+SH, 05, 2006010712,   ,chunshu,   0, 144S, 1230E,  30, 1000, TD,     INVEST
+SH, 05, 2006010718,   ,chunshu,   0, 153S, 1218E,  35,  997, TS,     INVEST
+SH, 05, 2006010800,   ,chunshu,   0, 155S, 1208E,  35,  997, TS,     INVEST
+SH, 05, 2006010806,   ,chunshu,   0, 163S, 1197E,  40,  994, TS,      CLARE
+SH, 05, 2006010812,   ,chunshu,   0, 172S, 1189E,  45,  991, TS,      CLARE
+SH, 05, 2006010818,   ,chunshu,   0, 181S, 1181E,  55,  984, TS,      CLARE
+SH, 05, 2006010900,   ,chunshu,   0, 188S, 1175E,  60,  980, TS,      CLARE
+SH, 05, 2006010906,   ,chunshu,   0, 194S, 1170E,  55,  984, TS,      CLARE
+SH, 05, 2006010912,   ,chunshu,   0, 201S, 1164E,  55,  984, TS,      CLARE
+SH, 05, 2006010918,   ,chunshu,   0, 209S, 1163E,  55,  984, TS,      CLARE
+SH, 05, 2006011000,   ,chunshu,   0, 218S, 1163E,  55,  984, TS,      CLARE
+SH, 05, 2006011006,   ,chunshu,   0, 225S, 1162E,  55,  984, TS,      CLARE
+SH, 05, 2006011012,   ,chunshu,   0, 231S, 1162E,  45,  991, TS,      CLARE
+SH, 05, 2006011018,   ,chunshu,   0, 235S, 1164E,  35,  997, EX

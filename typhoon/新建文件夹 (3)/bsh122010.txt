@@ -1,0 +1,32 @@
+SH, 12, 2010013006,   ,chunshu,   0, 109S, 1769W,  20, 1007, TD
+SH, 12, 2010013012,   ,chunshu,   0, 107S, 1754W,  25, 1004, TD
+SH, 12, 2010013018,   ,chunshu,   0, 108S, 1740W,  30, 1000, TD,     INVEST
+SH, 12, 2010013100,   ,chunshu,   0, 108S, 1726W,  30, 1000, TD,     INVEST
+SH, 12, 2010013106,   ,chunshu,   0, 107S, 1712W,  30, 1000, TD,     INVEST
+SH, 12, 2010013112,   ,chunshu,   0, 108S, 1697W,  30, 1000, TD,     INVEST
+SH, 12, 2010013118,   ,chunshu,   0, 112S, 1680W,  30,  997, TD,     INVEST
+SH, 12, 2010020100,   ,chunshu,   0, 117S, 1662W,  35,  996, TS,     INVEST
+SH, 12, 2010020106,   ,chunshu,   0, 126S, 1645W,  45,  989, TS,     TWELVE
+SH, 12, 2010020112,   ,chunshu,   0, 134S, 1631W,  50,  985, TS,     TWELVE
+SH, 12, 2010020118,   ,chunshu,   0, 139S, 1621W,  50,  985, TS,        OLI
+SH, 12, 2010020200,   ,chunshu,   0, 142S, 1614W,  50,  985, TS,        OLI
+SH, 12, 2010020206,   ,chunshu,   0, 142S, 1606W,  50,  985, TS,        OLI
+SH, 12, 2010020212,   ,chunshu,   0, 146S, 1596W,  50,  985, TS,        OLI
+SH, 12, 2010020218,   ,chunshu,   0, 150S, 1585W,  50,  985, TS,        OLI
+SH, 12, 2010020300,   ,chunshu,   0, 153S, 1574W,  55,  982, TS,        OLI
+SH, 12, 2010020306,   ,chunshu,   0, 155S, 1563W,  60,  978, TS,        OLI
+SH, 12, 2010020312,   ,chunshu,   0, 158S, 1552W,  65,  974, TY,        OLI
+SH, 12, 2010020318,   ,chunshu,   0, 164S, 1542W,  75,  967, TY,        OLI
+SH, 12, 2010020400,   ,chunshu,   0, 171S, 1534W,  85,  959, TY,        OLI
+SH, 12, 2010020406,   ,chunshu,   0, 179S, 1527W,  95,  952, TY,        OLI
+SH, 12, 2010020412,   ,chunshu,   0, 188S, 1522W, 115,  937, TY,        OLI
+SH, 12, 2010020418,   ,chunshu,   0, 197S, 1517W, 115,  937, TY,        OLI
+SH, 12, 2010020500,   ,chunshu,   0, 206S, 1512W, 115,  937, TY,        OLI
+SH, 12, 2010020506,   ,chunshu,   0, 216S, 1505W, 110,  941, TY,        OLI
+SH, 12, 2010020512,   ,chunshu,   0, 228S, 1497W, 105,  944, TY,        OLI
+SH, 12, 2010020518,   ,chunshu,   0, 241S, 1489W,  90,  956, TY,        OLI
+SH, 12, 2010020600,   ,chunshu,   0, 256S, 1480W,  80,  963, TY,        OLI
+SH, 12, 2010020606,   ,chunshu,   0, 271S, 1468W,  65,  974, TY,        OLI
+SH, 12, 2010020612,   ,chunshu,   0, 285S, 1455W,  55,  982, TS,        OLI
+SH, 12, 2010020618,   ,chunshu,   0, 298S, 1441W,  50,  985, EX,        OLI
+SH, 12, 2010020700,   ,chunshu,   0, 313S, 1417W,  40,  993, EX

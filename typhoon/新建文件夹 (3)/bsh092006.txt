@@ -1,0 +1,60 @@
+SH, 09, 2006012212,   ,chunshu,   0, 146S,  565E,  20, 1004, DB
+SH, 09, 2006012218,   ,chunshu,   0, 152S,  561E,  20, 1004, DB
+SH, 09, 2006012300,   ,chunshu,   0, 157S,  556E,  20, 1004, DB
+SH, 09, 2006012306,   ,chunshu,   0, 162S,  551E,  20, 1004, DB
+SH, 09, 2006012312,   ,chunshu,   0, 166S,  545E,  20, 1004, DB
+SH, 09, 2006012318,   ,chunshu,   0, 170S,  539E,  25, 1002, TD
+SH, 09, 2006012400,   ,chunshu,   0, 174S,  533E,  25, 1002, TD
+SH, 09, 2006012406,   ,chunshu,   0, 178S,  527E,  25, 1002, TD
+SH, 09, 2006012412,   ,chunshu,   0, 182S,  521E,  25, 1002, TD
+SH, 09, 2006012418,   ,chunshu,   0, 185S,  516E,  30, 1000, TD,     INVEST
+SH, 09, 2006012500,   ,chunshu,   0, 189S,  512E,  35,  997, TS,     NONAME
+SH, 09, 2006012506,   ,chunshu,   0, 195S,  510E,  45,  991, TS,     NONAME
+SH, 09, 2006012512,   ,chunshu,   0, 203S,  509E,  45,  991, TS,   BOLOETSE
+SH, 09, 2006012518,   ,chunshu,   0, 211S,  508E,  45,  991, TS,   BOLOETSE
+SH, 09, 2006012600,   ,chunshu,   0, 219S,  507E,  45,  991, TS,   BOLOETSE
+SH, 09, 2006012606,   ,chunshu,   0, 225S,  505E,  40,  994, TS,   BOLOETSE
+SH, 09, 2006012612,   ,chunshu,   0, 230S,  506E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012618,   ,chunshu,   0, 231S,  507E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012700,   ,chunshu,   0, 229S,  508E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012706,   ,chunshu,   0, 226S,  508E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012712,   ,chunshu,   0, 224S,  507E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012718,   ,chunshu,   0, 221S,  504E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012800,   ,chunshu,   0, 219S,  500E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012806,   ,chunshu,   0, 216S,  495E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006012812,   ,chunshu,   0, 213S,  492E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006012818,   ,chunshu,   0, 210S,  488E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006012900,   ,chunshu,   0, 207S,  482E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006012906,   ,chunshu,   0, 208S,  473E,  25, 1002, TD
+SH, 09, 2006012912,   ,chunshu,   0, 208S,  462E,  20, 1004, DB
+SH, 09, 2006012918,   ,chunshu,   0, 203S,  451E,  20, 1004, DB
+SH, 09, 2006013000,   ,chunshu,   0, 195S,  442E,  25, 1002, TD,   BOLOETSE
+SH, 09, 2006013006,   ,chunshu,   0, 186S,  437E,  25, 1002, TD,   BOLOETSE
+SH, 09, 2006013012,   ,chunshu,   0, 181S,  430E,  25, 1002, TD,   BOLOETSE
+SH, 09, 2006013018,   ,chunshu,   0, 182S,  422E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006013100,   ,chunshu,   0, 186S,  414E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006013106,   ,chunshu,   0, 191S,  405E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006013112,   ,chunshu,   0, 195S,  397E,  30, 1000, TD,   BOLOETSE
+SH, 09, 2006013118,   ,chunshu,   0, 195S,  390E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006020100,   ,chunshu,   0, 195S,  386E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006020106,   ,chunshu,   0, 194S,  382E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006020112,   ,chunshu,   0, 192S,  383E,  35,  997, TS,   BOLOETSE
+SH, 09, 2006020118,   ,chunshu,   0, 194S,  384E,  45,  989, TS
+SH, 09, 2006020200,   ,chunshu,   0, 195S,  386E,  60,  978, TS,   BOLOETSE
+SH, 09, 2006020206,   ,chunshu,   0, 197S,  385E,  65,  976, TY,   BOLOETSE
+SH, 09, 2006020212,   ,chunshu,   0, 199S,  387E,  65,  974, TY,   BOLOETSE
+SH, 09, 2006020218,   ,chunshu,   0, 201S,  390E,  65,  974, TY,   BOLOETSE
+SH, 09, 2006020300,   ,chunshu,   0, 204S,  393E,  75,  967, TY,   BOLOETSE
+SH, 09, 2006020306,   ,chunshu,   0, 209S,  399E,  90,  954, TY,   BOLOETSE
+SH, 09, 2006020312,   ,chunshu,   0, 214S,  408E,  90,  954, TY,   BOLOETSE
+SH, 09, 2006020318,   ,chunshu,   0, 225S,  418E, 100,  944, TY,   BOLOETSE
+SH, 09, 2006020400,   ,chunshu,   0, 233S,  422E,  95,  952, TY,   BOLOETSE
+SH, 09, 2006020406,   ,chunshu,   0, 241S,  430E,  90,  954, TY,   BOLOETSE
+SH, 09, 2006020412,   ,chunshu,   0, 251S,  437E,  85,  958, TY,   BOLOETSE
+SH, 09, 2006020418,   ,chunshu,   0, 261S,  445E,  75,  967, TY,   BOLOETSE
+SH, 09, 2006020500,   ,chunshu,   0, 273S,  453E,  60,  978, TS,   BOLOETSE
+SH, 09, 2006020506,   ,chunshu,   0, 286S,  464E,  55,  982, TS,   BOLOETSE
+SH, 09, 2006020512,   ,chunshu,   0, 305S,  477E,  50,  985, TS,   BOLOETSE
+SH, 09, 2006020518,   ,chunshu,   0, 321S,  497E,  40,  994, TS,   BOLOETSE
+SH, 09, 2006020600,   ,chunshu,   0, 335S,  519E,  40,  994, EX
+SH, 09, 2006020606,   ,chunshu,   0, 354S,  542E,  35,  996, EX

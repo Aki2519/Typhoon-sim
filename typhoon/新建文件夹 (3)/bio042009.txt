@@ -1,0 +1,10 @@
+IO, 04, 2009110906,   ,chunshu,   0, 119N,  713E,  20, 1007, DB,     INVEST
+IO, 04, 2009110912,   ,chunshu,   0, 123N,  712E,  30, 1000, TD,     INVEST
+IO, 04, 2009110918,   ,chunshu,   0, 128N,  711E,  35,  996, TS,     INVEST
+IO, 04, 2009111000,   ,chunshu,   0, 134N,  711E,  35,  996, TS,       FOUR
+IO, 04, 2009111006,   ,chunshu,   0, 142N,  713E,  35,  996, TS,       FOUR
+IO, 04, 2009111012,   ,chunshu,   0, 149N,  716E,  45,  989, TS,       FOUR
+IO, 04, 2009111018,   ,chunshu,   0, 156N,  720E,  50,  985, TS,       FOUR
+IO, 04, 2009111100,   ,chunshu,   0, 165N,  727E,  50,  985, TS,      PHYAN
+IO, 04, 2009111106,   ,chunshu,   0, 180N,  731E,  45,  989, TS,      PHYAN
+IO, 04, 2009111112,   ,chunshu,   0, 194N,  738E,  35,  996, TS,      PHYAN

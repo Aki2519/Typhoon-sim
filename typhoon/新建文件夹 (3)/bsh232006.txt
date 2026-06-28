@@ -1,0 +1,41 @@
+SH, 23, 2006041618,   ,chunshu,   0, 111S, 1508E,  25, 1004, TD
+SH, 23, 2006041700,   ,chunshu,   0, 117S, 1501E,  30, 1000, TD,     MONICA
+SH, 23, 2006041706,   ,chunshu,   0, 125S, 1497E,  40,  994, TS,     MONICA
+SH, 23, 2006041712,   ,chunshu,   0, 129S, 1491E,  45,  991, TS,     MONICA
+SH, 23, 2006041718,   ,chunshu,   0, 130S, 1484E,  50,  987, TS,     MONICA
+SH, 23, 2006041800,   ,chunshu,   0, 130S, 1475E,  50,  987, TS,     MONICA
+SH, 23, 2006041806,   ,chunshu,   0, 130S, 1466E,  55,  984, TS,     MONICA
+SH, 23, 2006041812,   ,chunshu,   0, 130S, 1457E,  60,  980, TS,     MONICA
+SH, 23, 2006041818,   ,chunshu,   0, 128S, 1449E,  70,  972, TY,     MONICA
+SH, 23, 2006041900,   ,chunshu,   0, 129S, 1441E,  90,  956, TY,     MONICA
+SH, 23, 2006041906,   ,chunshu,   0, 133S, 1434E,  85,  959, TY,     MONICA
+SH, 23, 2006041912,   ,chunshu,   0, 137S, 1427E,  70,  972, TY,     MONICA
+SH, 23, 2006041918,   ,chunshu,   0, 138S, 1420E,  60,  980, TS,     MONICA
+SH, 23, 2006042000,   ,chunshu,   0, 139S, 1413E,  60,  980, TS,     MONICA
+SH, 23, 2006042006,   ,chunshu,   0, 142S, 1407E,  60,  978, TS,     MONICA
+SH, 23, 2006042012,   ,chunshu,   0, 140S, 1404E,  65,  976, TY,     MONICA
+SH, 23, 2006042018,   ,chunshu,   0, 137S, 1401E,  70,  972, TY
+SH, 23, 2006042100,   ,chunshu,   0, 135S, 1400E,  80,  963, TY,     MONICA
+SH, 23, 2006042106,   ,chunshu,   0, 134S, 1398E,  90,  954, TY,     MONICA
+SH, 23, 2006042112,   ,chunshu,   0, 131S, 1397E, 100,  944, TY,     MONICA
+SH, 23, 2006042118,   ,chunshu,   0, 129S, 1395E, 110,  933, TY,     MONICA
+SH, 23, 2006042200,   ,chunshu,   0, 127S, 1393E, 115,  927, TY,     MONICA
+SH, 23, 2006042206,   ,chunshu,   0, 125S, 1391E, 125,  916, TY,     MONICA
+SH, 23, 2006042212,   ,chunshu,   0, 121S, 1387E, 125,  916, TY,     MONICA
+SH, 23, 2006042218,   ,chunshu,   0, 117S, 1384E, 130,  926, ST,     MONICA
+SH, 23, 2006042300,   ,chunshu,   0, 114S, 1380E, 140,  898, ST,     MONICA
+SH, 23, 2006042306,   ,chunshu,   0, 114S, 1374E, 150,  911, ST,     MONICA
+SH, 23, 2006042312,   ,chunshu,   0, 113S, 1366E, 155,  907, ST,     MONICA
+SH, 23, 2006042318,   ,chunshu,   0, 113S, 1358E, 155,  879, ST,     MONICA
+SH, 23, 2006042400,   ,chunshu,   0, 115S, 1351E, 155,  879, ST,     MONICA
+SH, 23, 2006042406,   ,chunshu,   0, 117S, 1344E, 155,  907, ST,     MONICA
+SH, 23, 2006042412,   ,chunshu,   0, 121S, 1337E, 115,  937, TY,     MONICA
+SH, 23, 2006042418,   ,chunshu,   0, 126S, 1327E,  55,  982, TS
+SH, 23, 2006042500,   ,chunshu,   0, 125S, 1316E,  40,  994, TS
+SH, 23, 2006042506,   ,chunshu,   0, 122S, 1307E,  30, 1000, TD,     MONICA
+SH, 23, 2006042512,   ,chunshu,   0, 124S, 1302E,  30, 1000, TD
+SH, 23, 2006042518,   ,chunshu,   0, 129S, 1300E,  30, 1000, TD,     MONICA
+SH, 23, 2006042600,   ,chunshu,   0, 133S, 1299E,  25, 1002, TD,     MONICA
+SH, 23, 2006042606,   ,chunshu,   0, 136S, 1296E,  25, 1002, TD,     MONICA
+SH, 23, 2006042612,   ,chunshu,   0, 139S, 1297E,  25, 1002, TD,     MONICA
+SH, 23, 2006042618,   ,chunshu,   0, 141S, 1299E,  25, 1002, TD

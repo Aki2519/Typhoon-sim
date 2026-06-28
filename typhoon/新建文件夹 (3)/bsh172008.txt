@@ -1,0 +1,31 @@
+SH, 17, 2008020312,   ,chunshu,   0, 144S, 1005E,  15, 1010, DB
+SH, 17, 2008020318,   ,chunshu,   0, 147S, 1005E,  15, 1010, DB
+SH, 17, 2008020400,   ,chunshu,   0, 150S, 1006E,  15, 1010, DB
+SH, 17, 2008020406,   ,chunshu,   0, 155S, 1009E,  20, 1007, DB,     INVEST
+SH, 17, 2008020412,   ,chunshu,   0, 159S, 1010E,  20, 1007, DB,     INVEST
+SH, 17, 2008020418,   ,chunshu,   0, 162S, 1009E,  25, 1004, TD,     INVEST
+SH, 17, 2008020500,   ,chunshu,   0, 160S, 1009E,  25, 1004, TD,     INVEST
+SH, 17, 2008020506,   ,chunshu,   0, 162S, 1012E,  30, 1000, TD,     INVEST
+SH, 17, 2008020512,   ,chunshu,   0, 160S, 1017E,  30, 1000, TD,     INVEST
+SH, 17, 2008020518,   ,chunshu,   0, 159S, 1022E,  30, 1000, TD,     INVEST
+SH, 17, 2008020600,   ,chunshu,   0, 157S, 1028E,  30, 1000, TD
+SH, 17, 2008020606,   ,chunshu,   0, 157S, 1037E,  30, 1000, TD,     INVEST
+SH, 17, 2008020612,   ,chunshu,   0, 159S, 1042E,  30, 1000, TD,     INVEST
+SH, 17, 2008020618,   ,chunshu,   0, 160S, 1047E,  30, 1000, TD,     INVEST
+SH, 17, 2008020700,   ,chunshu,   0, 161S, 1051E,  35,  996, TS,     NONAME
+SH, 17, 2008020706,   ,chunshu,   0, 163S, 1054E,  35,  996, TS,     NONAME
+SH, 17, 2008020712,   ,chunshu,   0, 166S, 1060E,  35,  996, TS,     NONAME
+SH, 17, 2008020718,   ,chunshu,   0, 169S, 1065E,  35,  996, TS,     NONAME
+SH, 17, 2008020800,   ,chunshu,   0, 172S, 1069E,  35,  996, TS
+SH, 17, 2008020806,   ,chunshu,   0, 173S, 1073E,  35,  996, TS,     NONAME
+SH, 17, 2008020812,   ,chunshu,   0, 173S, 1076E,  40,  993, TS,     NONAME
+SH, 17, 2008020818,   ,chunshu,   0, 173S, 1079E,  40,  993, TS,     NONAME
+SH, 17, 2008020900,   ,chunshu,   0, 173S, 1080E,  35,  996, TS,     NONAME
+SH, 17, 2008020906,   ,chunshu,   0, 170S, 1080E,  35,  996, TS,     NONAME
+SH, 17, 2008020912,   ,chunshu,   0, 166S, 1082E,  35,  996, TS,     NONAME
+SH, 17, 2008020918,   ,chunshu,   0, 162S, 1085E,  30, 1000, TD,     NONAME
+SH, 17, 2008021000,   ,chunshu,   0, 157S, 1091E,  30, 1000, TD
+SH, 17, 2008021006,   ,chunshu,   0, 150S, 1098E,  30, 1000, TD
+SH, 17, 2008021012,   ,chunshu,   0, 146S, 1107E,  30, 1000, TD,     NONAME
+SH, 17, 2008021018,   ,chunshu,   0, 142S, 1119E,  25, 1004, TD
+SH, 17, 2008021100,   ,chunshu,   0, 139S, 1133E,  20, 1007, DB

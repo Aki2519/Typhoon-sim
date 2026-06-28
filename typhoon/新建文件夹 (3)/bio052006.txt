@@ -1,0 +1,9 @@
+IO, 05, 2006092800,   ,chunshu,   0, 177N,  894E,  20, 1004, DB
+IO, 05, 2006092806,   ,chunshu,   0, 180N,  885E,  30, 1000, DB,     INVEST
+IO, 05, 2006092812,   ,chunshu,   0, 183N,  876E,  30, 1000, TD,     INVEST
+IO, 05, 2006092818,   ,chunshu,   0, 185N,  868E,  35,  997, TS,     NONAME
+IO, 05, 2006092900,   ,chunshu,   0, 187N,  861E,  35,  997, TC,     NONAME
+IO, 05, 2006092906,   ,chunshu,   0, 189N,  854E,  30, 1000, TD,     NONAME
+IO, 05, 2006092912,   ,chunshu,   0, 192N,  845E,  30, 1000, TD
+IO, 05, 2006092918,   ,chunshu,   0, 194N,  834E,  25, 1002, DB
+IO, 05, 2006093000,   ,chunshu,   0, 192N,  821E,  25, 1002, DB

@@ -1,0 +1,26 @@
+SH, 06, 2006122912,   ,chunshu,   0, 122S,  578E,  25, 1002, TD,     INVEST
+SH, 06, 2006122918,   ,chunshu,   0, 124S,  573E,  25, 1002, TD,     INVEST
+SH, 06, 2006123000,   ,chunshu,   0, 125S,  568E,  30, 1000, TD,     INVEST
+SH, 06, 2006123006,   ,chunshu,   0, 126S,  564E,  30, 1000, TD,     INVEST
+SH, 06, 2006123012,   ,chunshu,   0, 128S,  560E,  30, 1000, TD,     INVEST
+SH, 06, 2006123018,   ,chunshu,   0, 131S,  557E,  30, 1000, TD,     INVEST
+SH, 06, 2006123100,   ,chunshu,   0, 135S,  553E,  30, 1000, TD,     INVEST
+SH, 06, 2006123106,   ,chunshu,   0, 140S,  549E,  35,  997, TS,     NONAME
+SH, 06, 2006123112,   ,chunshu,   0, 149S,  545E,  40,  994, TS,     NONAME
+SH, 06, 2006123118,   ,chunshu,   0, 158S,  541E,  55,  982, TS,     NONAME
+SH, 06, 2007010100,   ,chunshu,   0, 166S,  535E,  55,  982, TS,     CLOVIS
+SH, 06, 2007010106,   ,chunshu,   0, 174S,  528E,  60,  980, TS,     CLOVIS
+SH, 06, 2007010112,   ,chunshu,   0, 181S,  524E,  60,  980, TS,     CLOVIS
+SH, 06, 2007010118,   ,chunshu,   0, 187S,  519E,  60,  980, TS,     CLOVIS
+SH, 06, 2007010200,   ,chunshu,   0, 193S,  515E,  60,  980, TS,     CLOVIS
+SH, 06, 2007010206,   ,chunshu,   0, 197S,  509E,  60,  980, TS,     CLOVIS
+SH, 06, 2007010212,   ,chunshu,   0, 201S,  503E,  65,  976, TY,     CLOVIS
+SH, 06, 2007010218,   ,chunshu,   0, 203S,  497E,  65,  976, TY,     CLOVIS
+SH, 06, 2007010300,   ,chunshu,   0, 205S,  491E,  65,  976, TY,     CLOVIS
+SH, 06, 2007010306,   ,chunshu,   0, 206S,  487E,  65,  976, TY,     CLOVIS
+SH, 06, 2007010312,   ,chunshu,   0, 207S,  485E,  60,  978, TS,     CLOVIS
+SH, 06, 2007010318,   ,chunshu,   0, 208S,  484E,  45,  991, TS,     CLOVIS
+SH, 06, 2007010400,   ,chunshu,   0, 208S,  483E,  40,  994, TS,     CLOVIS
+SH, 06, 2007010406,   ,chunshu,   0, 208S,  482E,  35,  997, TS,     CLOVIS
+SH, 06, 2007010412,   ,chunshu,   0, 208S,  481E,  30, 1000, TD
+SH, 06, 2007010418,   ,chunshu,   0, 208S,  480E,  25, 1002, TD

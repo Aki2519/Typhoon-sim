@@ -1,0 +1,38 @@
+AL, 01, 2006061006,   ,chunshu,   0, 200N,  850W,  25, 1004, TD,     INVEST
+AL, 01, 2006061012,   ,chunshu,   0, 210N,  853W,  30, 1003, TD,        ONE
+AL, 01, 2006061018,   ,chunshu,   0, 219N,  857W,  30, 1003, TD,        ONE
+AL, 01, 2006061100,   ,chunshu,   0, 225N,  863W,  35, 1003, TS,        ONE
+AL, 01, 2006061106,   ,chunshu,   0, 231N,  871W,  35, 1003, TS,        ONE
+AL, 01, 2006061112,   ,chunshu,   0, 236N,  878W,  40, 1002, TS,    ALBERTO
+AL, 01, 2006061118,   ,chunshu,   0, 243N,  878W,  40, 1004, TS,    ALBERTO
+AL, 01, 2006061200,   ,chunshu,   0, 250N,  878W,  40, 1004, TS,    ALBERTO
+AL, 01, 2006061206,   ,chunshu,   0, 258N,  874W,  45, 1004, TS,    ALBERTO
+AL, 01, 2006061212,   ,chunshu,   0, 268N,  863W,  60, 1000, TS,    ALBERTO
+AL, 01, 2006061218,   ,chunshu,   0, 275N,  854W,  60,  997, TS,    ALBERTO
+AL, 01, 2006061300,   ,chunshu,   0, 280N,  850W,  60,  995, TS,    ALBERTO
+AL, 01, 2006061306,   ,chunshu,   0, 288N,  844W,  55,  995, TS,    ALBERTO
+AL, 01, 2006061312,   ,chunshu,   0, 295N,  841W,  45,  996, TS,    ALBERTO
+AL, 01, 2006061316, 30,chunshu,   0, 299N,  837W,  40,  998, TS
+AL, 01, 2006061318,   ,chunshu,   0, 303N,  835W,  35,  997, TS,    ALBERTO
+AL, 01, 2006061400,   ,chunshu,   0, 313N,  828W,  35, 1001, TS,    ALBERTO
+AL, 01, 2006061406,   ,chunshu,   0, 328N,  819W,  30, 1003, TD,    ALBERTO
+AL, 01, 2006061412,   ,chunshu,   0, 343N,  807W,  35, 1003, EX,    ALBERTO
+AL, 01, 2006061418,   ,chunshu,   0, 355N,  775W,  35, 1002, EX
+AL, 01, 2006061500,   ,chunshu,   0, 370N,  730W,  45,  999, EX
+AL, 01, 2006061506,   ,chunshu,   0, 388N,  699W,  45,  990, EX
+AL, 01, 2006061512,   ,chunshu,   0, 409N,  668W,  50,  979, EX
+AL, 01, 2006061518,   ,chunshu,   0, 426N,  642W,  55,  971, EX
+AL, 01, 2006061600,   ,chunshu,   0, 440N,  620W,  55,  969, EX
+AL, 01, 2006061606,   ,chunshu,   0, 460N,  585W,  50,  972, EX
+AL, 01, 2006061612,   ,chunshu,   0, 474N,  550W,  45,  985, EX
+AL, 01, 2006061618,   ,chunshu,   0, 493N,  515W,  40,  990, EX
+AL, 01, 2006061700,   ,chunshu,   0, 508N,  452W,  40,  995, EX
+AL, 01, 2006061706,   ,chunshu,   0, 515N,  390W,  40,  995, EX
+AL, 01, 2006061712,   ,chunshu,   0, 530N,  345W,  40,  995, EX
+AL, 01, 2006061718,   ,chunshu,   0, 540N,  290W,  35,  995, EX
+AL, 01, 2006061800,   ,chunshu,   0, 545N,  230W,  30,  995, EX
+AL, 01, 2006061806,   ,chunshu,   0, 545N,  160W,  30,  995, EX
+AL, 01, 2006061812,   ,chunshu,   0, 545N,  120W,  30,  995, EX
+AL, 01, 2006061818,   ,chunshu,   0, 550N,   90W,  30,  997, EX
+AL, 01, 2006061900,   ,chunshu,   0, 565N,   55W,  30,  999, EX
+AL, 01, 2006061906,   ,chunshu,   0, 570N,   30W,  30,  999, EX

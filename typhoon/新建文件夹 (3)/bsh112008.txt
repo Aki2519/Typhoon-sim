@@ -1,0 +1,16 @@
+SH, 11, 2008010800,   ,chunshu,   0, 182S, 1758W,  15, 1010, DB
+SH, 11, 2008010806,   ,chunshu,   0, 184S, 1757W,  15, 1010, DB
+SH, 11, 2008010812,   ,chunshu,   0, 187S, 1756W,  15, 1009, DB
+SH, 11, 2008010818,   ,chunshu,   0, 190S, 1756W,  25, 1003, DB,     INVEST
+SH, 11, 2008010900,   ,chunshu,   0, 194S, 1756W,  25, 1003, DB,     INVEST
+SH, 11, 2008010906,   ,chunshu,   0, 199S, 1756W,  25, 1004, DB,     INVEST
+SH, 11, 2008010912,   ,chunshu,   0, 204S, 1757W,  30, 1000, DB,     INVEST
+SH, 11, 2008010918,   ,chunshu,   0, 209S, 1758W,  30, 1000, DB,     INVEST
+SH, 11, 2008011000,   ,chunshu,   0, 215S, 1758W,  35,  996, TS,     NONAME
+SH, 11, 2008011006,   ,chunshu,   0, 222S, 1756W,  45,  989, TS,     NONAME
+SH, 11, 2008011012,   ,chunshu,   0, 229S, 1751W,  50,  985, TS,      ELISA
+SH, 11, 2008011018,   ,chunshu,   0, 235S, 1743W,  50,  985, TS,      ELISA
+SH, 11, 2008011100,   ,chunshu,   0, 240S, 1732W,  45,  989, TS,      ELISA
+SH, 11, 2008011106,   ,chunshu,   0, 244S, 1717W,  35,  996, TS,      ELISA
+SH, 11, 2008011112,   ,chunshu,   0, 246S, 1702W,  25, 1004, TD,      ELISA
+SH, 11, 2008011118,   ,chunshu,   0, 248S, 1687W,  25, 1004, TD,      ELISA

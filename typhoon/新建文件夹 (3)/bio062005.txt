@@ -1,0 +1,35 @@
+IO, 06, 2005120406,   ,chunshu,   0,  87N,  930E,  20, 1004, DB
+IO, 06, 2005120412,   ,chunshu,   0,  91N,  924E,  20, 1004, DB
+IO, 06, 2005120418,   ,chunshu,   0,  96N,  920E,  20, 1004, DB
+IO, 06, 2005120500,   ,chunshu,   0,  99N,  915E,  20, 1004, DB,     INVEST
+IO, 06, 2005120506,   ,chunshu,   0, 102N,  910E,  25, 1002, DB,     INVEST
+IO, 06, 2005120512,   ,chunshu,   0, 104N,  904E,  30, 1000, DB,     INVEST
+IO, 06, 2005120518,   ,chunshu,   0, 109N,  900E,  30, 1000, DB,     INVEST
+IO, 06, 2005120600,   ,chunshu,   0, 114N,  895E,  35,  997, DB,     INVEST
+IO, 06, 2005120606,   ,chunshu,   0, 117N,  889E,  35,  997, TS,     NONAME
+IO, 06, 2005120612,   ,chunshu,   0, 116N,  883E,  45,  991, TS,     NONAME
+IO, 06, 2005120618,   ,chunshu,   0, 114N,  877E,  50,  987, TS,     NONAME
+IO, 06, 2005120700,   ,chunshu,   0, 112N,  871E,  55,  984, TS,     NONAME
+IO, 06, 2005120706,   ,chunshu,   0, 108N,  868E,  55,  984, TS,     NONAME
+IO, 06, 2005120712,   ,chunshu,   0, 105N,  866E,  55,  984, TS
+IO, 06, 2005120718,   ,chunshu,   0, 103N,  863E,  55,  984, TS,     FANOOS
+IO, 06, 2005120800,   ,chunshu,   0, 104N,  859E,  55,  984, TS,     FANOOS
+IO, 06, 2005120806,   ,chunshu,   0, 106N,  854E,  55,  984, TS,     FANOOS
+IO, 06, 2005120812,   ,chunshu,   0, 106N,  847E,  55,  984, TS,     FANOOS
+IO, 06, 2005120818,   ,chunshu,   0, 103N,  841E,  55,  984, TS,     FANOOS
+IO, 06, 2005120900,   ,chunshu,   0, 103N,  833E,  60,  980, TS,     FANOOS
+IO, 06, 2005120906,   ,chunshu,   0, 103N,  825E,  60,  980, TS,     FANOOS
+IO, 06, 2005120912,   ,chunshu,   0, 103N,  817E,  60,  980, TS,     FANOOS
+IO, 06, 2005120918,   ,chunshu,   0, 103N,  809E,  60,  980, TS,     FANOOS
+IO, 06, 2005121000,   ,chunshu,   0, 106N,  804E,  55,  984, TS,     FANOOS
+IO, 06, 2005121006,   ,chunshu,   0, 103N,  800E,  45,  991, TS,     FANOOS
+IO, 06, 2005121012,   ,chunshu,   0, 101N,  795E,  45,  991, TS,     FANOOS
+IO, 06, 2005121018,   ,chunshu,   0, 102N,  787E,  30, 1000, TD
+IO, 06, 2005121100,   ,chunshu,   0, 100N,  778E,  30, 1000, TD
+IO, 06, 2005121106,   ,chunshu,   0,  94N,  772E,  25, 1002, TD
+IO, 06, 2005121112,   ,chunshu,   0,  87N,  766E,  25, 1002, TD
+IO, 06, 2005121118,   ,chunshu,   0,  80N,  762E,  25, 1002, TD
+IO, 06, 2005121200,   ,chunshu,   0,  78N,  757E,  25, 1002, TD
+IO, 06, 2005121206,   ,chunshu,   0,  74N,  751E,  25, 1002, TD
+IO, 06, 2005121212,   ,chunshu,   0,  71N,  745E,  25, 1002, TD
+IO, 06, 2005121218,   ,chunshu,   0,  68N,  742E,  15, 1006, DB

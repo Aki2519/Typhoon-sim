@@ -1,0 +1,17 @@
+SH, 11, 2007020118,   ,chunshu,   0, 118S, 1769E,  15, 1006, DB
+SH, 11, 2007020200,   ,chunshu,   0, 118S, 1765E,  20, 1004, DB
+SH, 11, 2007020206,   ,chunshu,   0, 121S, 1764E,  25, 1002, TD,     INVEST
+SH, 11, 2007020212,   ,chunshu,   0, 124S, 1763E,  25, 1002, TD,     INVEST
+SH, 11, 2007020218,   ,chunshu,   0, 126S, 1763E,  30, 1000, TD,     INVEST
+SH, 11, 2007020300,   ,chunshu,   0, 128S, 1763E,  30, 1000, TD,     INVEST
+SH, 11, 2007020306,   ,chunshu,   0, 132S, 1763E,  30, 1000, TD,     INVEST
+SH, 11, 2007020312,   ,chunshu,   0, 138S, 1765E,  30, 1000, TD,     INVEST
+SH, 11, 2007020318,   ,chunshu,   0, 146S, 1770E,  30, 1000, TS,     INVEST
+SH, 11, 2007020400,   ,chunshu,   0, 156S, 1781E,  35,  997, TS,     INVEST
+SH, 11, 2007020406,   ,chunshu,   0, 172S, 1799E,  35,  997, TS,     NONAME
+SH, 11, 2007020412,   ,chunshu,   0, 185S, 1782W,  35,  997, TS,     NONAME
+SH, 11, 2007020418,   ,chunshu,   0, 196S, 1762W,  30, 1000, TD,     NONAME
+SH, 11, 2007020500,   ,chunshu,   0, 207S, 1740W,  30, 1000, TD,     NONAME
+SH, 11, 2007020506,   ,chunshu,   0, 219S, 1719W,  30, 1000, TD
+SH, 11, 2007020512,   ,chunshu,   0, 215S, 1690W,  25, 1002, TD
+SH, 11, 2007020518,   ,chunshu,   0, 211S, 1663W,  25, 1002, TD

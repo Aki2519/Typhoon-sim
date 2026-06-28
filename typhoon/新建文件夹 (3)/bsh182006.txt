@@ -1,0 +1,30 @@
+SH, 18, 2006031800,   ,chunshu,   0, 139S, 1718E,  15, 1006, DB
+SH, 18, 2006031806,   ,chunshu,   0, 145S, 1705E,  15, 1006, DB
+SH, 18, 2006031812,   ,chunshu,   0, 147S, 1691E,  20, 1004, DB
+SH, 18, 2006031818,   ,chunshu,   0, 148S, 1677E,  30, 1000, TD
+SH, 18, 2006031900,   ,chunshu,   0, 153S, 1660E,  30, 1000, TD
+SH, 18, 2006031906,   ,chunshu,   0, 156S, 1644E,  30, 1000, TD,     INVEST
+SH, 18, 2006031912,   ,chunshu,   0, 161S, 1629E,  45,  991, TS,     INVEST
+SH, 18, 2006031918,   ,chunshu,   0, 169S, 1617E,  45,  991, TS,       WATI
+SH, 18, 2006032000,   ,chunshu,   0, 170S, 1602E,  55,  984, TS,       WATI
+SH, 18, 2006032006,   ,chunshu,   0, 173S, 1589E,  55,  984, TS,       WATI
+SH, 18, 2006032012,   ,chunshu,   0, 174S, 1577E,  55,  984, TS,       WATI
+SH, 18, 2006032018,   ,chunshu,   0, 175S, 1565E,  55,  984, TS,       WATI
+SH, 18, 2006032100,   ,chunshu,   0, 176S, 1556E,  55,  984, TS,       WATI
+SH, 18, 2006032106,   ,chunshu,   0, 177S, 1549E,  65,  976, TY,       WATI
+SH, 18, 2006032112,   ,chunshu,   0, 176S, 1542E,  65,  976, TY,       WATI
+SH, 18, 2006032118,   ,chunshu,   0, 176S, 1538E,  70,  972, TY,       WATI
+SH, 18, 2006032200,   ,chunshu,   0, 178S, 1538E,  75,  967, TY,       WATI
+SH, 18, 2006032206,   ,chunshu,   0, 180S, 1538E,  80,  963, TY,       WATI
+SH, 18, 2006032212,   ,chunshu,   0, 182S, 1539E,  75,  967, TY,       WATI
+SH, 18, 2006032218,   ,chunshu,   0, 184S, 1542E,  75,  967, TY,       WATI
+SH, 18, 2006032300,   ,chunshu,   0, 187S, 1548E,  70,  970, TY,       WATI
+SH, 18, 2006032306,   ,chunshu,   0, 189S, 1554E,  65,  976, TY,       WATI
+SH, 18, 2006032312,   ,chunshu,   0, 194S, 1563E,  65,  976, TY,       WATI
+SH, 18, 2006032318,   ,chunshu,   0, 201S, 1574E,  65,  976, TY,       WATI
+SH, 18, 2006032400,   ,chunshu,   0, 212S, 1588E,  65,  974, TY,       WATI
+SH, 18, 2006032406,   ,chunshu,   0, 226S, 1598E,  60,  978, TS,       WATI
+SH, 18, 2006032412,   ,chunshu,   0, 240S, 1608E,  45,  991, TS,       WATI
+SH, 18, 2006032418,   ,chunshu,   0, 254S, 1616E,  35,  997, EX,       WATI
+SH, 18, 2006032500,   ,chunshu,   0, 269S, 1623E,  30, 1000, EX
+SH, 18, 2006032506,   ,chunshu,   0, 283S, 1633E,  35,  997, EX

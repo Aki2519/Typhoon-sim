@@ -1,0 +1,48 @@
+SH, 15, 2007021906,   ,chunshu,   0, 164S,  794E,  15, 1006, DB
+SH, 15, 2007021912,   ,chunshu,   0, 163S,  789E,  15, 1006, DB
+SH, 15, 2007021918,   ,chunshu,   0, 162S,  782E,  20, 1004, DB
+SH, 15, 2007022000,   ,chunshu,   0, 161S,  775E,  20, 1004, DB
+SH, 15, 2007022006,   ,chunshu,   0, 158S,  765E,  25, 1002, DB,     INVEST
+SH, 15, 2007022012,   ,chunshu,   0, 153S,  751E,  25, 1002, TD,     INVEST
+SH, 15, 2007022018,   ,chunshu,   0, 144S,  740E,  30, 1000, TD,     INVEST
+SH, 15, 2007022100,   ,chunshu,   0, 144S,  724E,  30, 1000, TD,     INVEST
+SH, 15, 2007022106,   ,chunshu,   0, 143S,  709E,  35,  997, TC,     NONAME
+SH, 15, 2007022112,   ,chunshu,   0, 140S,  694E,  40,  993, TS,     GAMEDE
+SH, 15, 2007022118,   ,chunshu,   0, 141S,  679E,  45,  991, TS,     GAMEDE
+SH, 15, 2007022200,   ,chunshu,   0, 142S,  665E,  50,  985, TS,     GAMEDE
+SH, 15, 2007022206,   ,chunshu,   0, 144S,  651E,  65,  976, TY,     GAMEDE
+SH, 15, 2007022212,   ,chunshu,   0, 147S,  639E,  70,  972, TC,     GAMEDE
+SH, 15, 2007022218,   ,chunshu,   0, 151S,  629E,  80,  967, TC,     GAMEDE
+SH, 15, 2007022300,   ,chunshu,   0, 156S,  618E,  85,  958, TC,     GAMEDE
+SH, 15, 2007022306,   ,chunshu,   0, 163S,  608E,  90,  954, TC,     GAMEDE
+SH, 15, 2007022312,   ,chunshu,   0, 164S,  596E,  90,  954, TC,     GAMEDE
+SH, 15, 2007022318,   ,chunshu,   0, 167S,  587E, 100,  944, TC,     GAMEDE
+SH, 15, 2007022400,   ,chunshu,   0, 171S,  580E, 100,  948, TY,     GAMEDE
+SH, 15, 2007022406,   ,chunshu,   0, 176S,  573E,  95,  952, TY,     GAMEDE
+SH, 15, 2007022412,   ,chunshu,   0, 181S,  566E,  95,  949, TY,     GAMEDE
+SH, 15, 2007022418,   ,chunshu,   0, 186S,  559E,  90,  954, TY,     GAMEDE
+SH, 15, 2007022500,   ,chunshu,   0, 189S,  551E,  90,  956, TY,     GAMEDE
+SH, 15, 2007022506,   ,chunshu,   0, 187S,  544E,  90,  954, TY,     GAMEDE
+SH, 15, 2007022512,   ,chunshu,   0, 183S,  542E,  95,  949, TY,     GAMEDE
+SH, 15, 2007022518,   ,chunshu,   0, 185S,  541E, 105,  938, TY,     GAMEDE
+SH, 15, 2007022600,   ,chunshu,   0, 184S,  536E, 105,  938, TY,     GAMEDE
+SH, 15, 2007022606,   ,chunshu,   0, 183S,  532E, 105,  944, TY,     GAMEDE
+SH, 15, 2007022612,   ,chunshu,   0, 181S,  529E,  90,  954, TY,     GAMEDE
+SH, 15, 2007022618,   ,chunshu,   0, 184S,  530E,  90,  954, TY,     GAMEDE
+SH, 15, 2007022700,   ,chunshu,   0, 187S,  530E,  90,  954, TY,     GAMEDE
+SH, 15, 2007022706,   ,chunshu,   0, 193S,  530E,  85,  958, TY,     GAMEDE
+SH, 15, 2007022712,   ,chunshu,   0, 202S,  528E,  80,  963, TY,     GAMEDE
+SH, 15, 2007022718,   ,chunshu,   0, 213S,  527E,  75,  963, TY,     GAMEDE
+SH, 15, 2007022800,   ,chunshu,   0, 228S,  524E,  75,  967, TY,     GAMEDE
+SH, 15, 2007022806,   ,chunshu,   0, 241S,  515E,  75,  967, TY,     GAMEDE
+SH, 15, 2007022812,   ,chunshu,   0, 254S,  508E,  75,  967, TY,     GAMEDE
+SH, 15, 2007022818,   ,chunshu,   0, 264S,  501E,  75,  967, TY,     GAMEDE
+SH, 15, 2007030100,   ,chunshu,   0, 276S,  499E,  75,  967, TY,     GAMEDE
+SH, 15, 2007030106,   ,chunshu,   0, 287S,  495E,  70,  972, TY,     GAMEDE
+SH, 15, 2007030112,   ,chunshu,   0, 297S,  490E,  65,  976, TY,     GAMEDE
+SH, 15, 2007030118,   ,chunshu,   0, 302S,  487E,  55,  982, TS,     GAMEDE
+SH, 15, 2007030200,   ,chunshu,   0, 307S,  484E,  50,  987, TS,     GAMEDE
+SH, 15, 2007030206,   ,chunshu,   0, 314S,  487E,  35,  997, EX,     GAMEDE
+SH, 15, 2007030212,   ,chunshu,   0, 321S,  490E,  35,  997, EX
+SH, 15, 2007030218,   ,chunshu,   0, 325S,  493E,  35,  997, EX
+SH, 15, 2007030300,   ,chunshu,   0, 329S,  496E,  35,  997, EX

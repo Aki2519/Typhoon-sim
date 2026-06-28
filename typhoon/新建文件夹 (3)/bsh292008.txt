@@ -1,0 +1,20 @@
+SH, 29, 2008042106,   ,chunshu,   0,  80S,  855E,  20, 1007, DB,     INVEST
+SH, 29, 2008042112,   ,chunshu,   0,  84S,  865E,  20, 1007, DB,     INVEST
+SH, 29, 2008042118,   ,chunshu,   0,  83S,  877E,  25, 1004, TD,     INVEST
+SH, 29, 2008042200,   ,chunshu,   0,  83S,  890E,  25, 1004, TD,     INVEST
+SH, 29, 2008042206,   ,chunshu,   0,  82S,  906E,  30, 1000, TD,     INVEST
+SH, 29, 2008042212,   ,chunshu,   0,  82S,  926E,  30, 1000, TD,     INVEST
+SH, 29, 2008042218,   ,chunshu,   0,  85S,  940E,  35,  996, TS,     NONAME
+SH, 29, 2008042300,   ,chunshu,   0,  89S,  953E,  40,  993, TS,     NONAME
+SH, 29, 2008042306,   ,chunshu,   0,  92S,  962E,  40,  993, TS,      DURGA
+SH, 29, 2008042312,   ,chunshu,   0,  95S,  969E,  40,  993, TS,      DURGA
+SH, 29, 2008042318,   ,chunshu,   0,  98S,  976E,  40,  993, TS,      DURGA
+SH, 29, 2008042400,   ,chunshu,   0, 102S,  983E,  35,  996, TS,      DURGA
+SH, 29, 2008042406,   ,chunshu,   0, 107S,  990E,  35,  996, TS,      DURGA
+SH, 29, 2008042412,   ,chunshu,   0, 113S,  995E,  35,  996, TS,      DURGA
+SH, 29, 2008042418,   ,chunshu,   0, 119S,  998E,  30, 1000, TD,      DURGA
+SH, 29, 2008042500,   ,chunshu,   0, 127S, 1001E,  30, 1000, TD
+SH, 29, 2008042506,   ,chunshu,   0, 137S, 1002E,  30, 1000, TD
+SH, 29, 2008042512,   ,chunshu,   0, 147S, 1001E,  30, 1000, TD
+SH, 29, 2008042518,   ,chunshu,   0, 156S,  999E,  25, 1004, TD
+SH, 29, 2008042600,   ,chunshu,   0, 164S,  997E,  25, 1004, TD

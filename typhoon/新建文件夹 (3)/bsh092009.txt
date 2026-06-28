@@ -1,0 +1,26 @@
+SH, 09, 2009011718,   ,chunshu,   0, 206S,  427E,  20, 1007, DB
+SH, 09, 2009011800,   ,chunshu,   0, 209S,  426E,  25, 1004, TD
+SH, 09, 2009011806,   ,chunshu,   0, 212S,  422E,  30, 1000, TD,     INVEST
+SH, 09, 2009011812,   ,chunshu,   0, 217S,  420E,  30, 1000, TD,     INVEST
+SH, 09, 2009011818,   ,chunshu,   0, 217S,  416E,  30, 1000, TD,     INVEST
+SH, 09, 2009011900,   ,chunshu,   0, 215S,  412E,  40,  993, TS,     INVEST
+SH, 09, 2009011906,   ,chunshu,   0, 217S,  410E,  40,  993, TS,       NINE
+SH, 09, 2009011912,   ,chunshu,   0, 220S,  409E,  55,  982, TS,     FANELE
+SH, 09, 2009011918,   ,chunshu,   0, 215S,  414E,  65,  974, TY,     FANELE
+SH, 09, 2009012000,   ,chunshu,   0, 211S,  420E,  90,  956, TY,     FANELE
+SH, 09, 2009012006,   ,chunshu,   0, 205S,  423E, 100,  948, TY,     FANELE
+SH, 09, 2009012012,   ,chunshu,   0, 201S,  426E, 115,  937, TY,     FANELE
+SH, 09, 2009012015,   ,chunshu,   0, 200S,  429E, 105,  944, TY
+SH, 09, 2009012018,   ,chunshu,   0, 201S,  432E, 105,  944, TY,     FANELE
+SH, 09, 2009012100,   ,chunshu,   0, 206S,  436E, 100,  948, TY,     FANELE
+SH, 09, 2009012106,   ,chunshu,   0, 213S,  443E,  80,  963, TY,     FANELE
+SH, 09, 2009012112,   ,chunshu,   0, 224S,  453E,  30, 1000, TD,     FANELE
+SH, 09, 2009012118,   ,chunshu,   0, 234S,  465E,  30, 1000, TD,     FANELE
+SH, 09, 2009012200,   ,chunshu,   0, 239S,  479E,  25, 1004, TD,     FANELE
+SH, 09, 2009012206,   ,chunshu,   0, 245S,  493E,  30, 1000, TD,     FANELE
+SH, 09, 2009012212,   ,chunshu,   0, 253S,  505E,  30, 1000, TD,     FANELE
+SH, 09, 2009012218,   ,chunshu,   0, 266S,  512E,  35,  996, EX,     FANELE
+SH, 09, 2009012300,   ,chunshu,   0, 279S,  519E,  35,  996, EX
+SH, 09, 2009012306,   ,chunshu,   0, 294S,  523E,  35,  996, EX
+SH, 09, 2009012312,   ,chunshu,   0, 310S,  531E,  25, 1004, EX
+SH, 09, 2009012318,   ,chunshu,   0, 315S,  538E,  25, 1004, EX

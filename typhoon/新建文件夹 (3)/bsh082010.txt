@@ -1,0 +1,18 @@
+SH, 08, 2010011900,   ,chunshu,   0, 121S, 1234E,  15, 1010, TD
+SH, 08, 2010011906,   ,chunshu,   0, 117S, 1230E,  20, 1007, DB
+SH, 08, 2010011912,   ,chunshu,   0, 119S, 1225E,  25, 1004, TD
+SH, 08, 2010011918,   ,chunshu,   0, 121S, 1223E,  25, 1002, DB,     INVEST
+SH, 08, 2010012000,   ,chunshu,   0, 123S, 1221E,  30, 1000, TD,     INVEST
+SH, 08, 2010012006,   ,chunshu,   0, 126S, 1221E,  35,  996, TS,     INVEST
+SH, 08, 2010012012,   ,chunshu,   0, 129S, 1224E,  40,  993, TS,     INVEST
+SH, 08, 2010012018,   ,chunshu,   0, 132S, 1227E,  50,  985, TS,     INVEST
+SH, 08, 2010012100,   ,chunshu,   0, 137S, 1232E,  60,  978, TS,      MAGDA
+SH, 08, 2010012106,   ,chunshu,   0, 143S, 1235E,  65,  974, TY,      MAGDA
+SH, 08, 2010012112,   ,chunshu,   0, 146S, 1241E,  60,  978, TS,      MAGDA
+SH, 08, 2010012118,   ,chunshu,   0, 152S, 1244E,  60,  978, TS,      MAGDA
+SH, 08, 2010012200,   ,chunshu,   0, 160S, 1246E,  60,  978, TS,      MAGDA
+SH, 08, 2010012206,   ,chunshu,   0, 167S, 1245E,  55,  982, TS,      MAGDA
+SH, 08, 2010012212,   ,chunshu,   0, 175S, 1244E,  40,  993, TS,      MAGDA
+SH, 08, 2010012218,   ,chunshu,   0, 183S, 1241E,  30, 1000, TD,      MAGDA
+SH, 08, 2010012300,   ,chunshu,   0, 184S, 1240E,  25, 1004, TD
+SH, 08, 2010012306,   ,chunshu,   0, 185S, 1239E,  15, 1010, TD

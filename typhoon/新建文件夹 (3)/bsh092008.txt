@@ -1,0 +1,26 @@
+SH, 09, 2007122912,   ,chunshu,   0, 196S,  426E,  15, 1008, DB
+SH, 09, 2007122918,   ,chunshu,   0, 192S,  425E,  15, 1010, DB
+SH, 09, 2007123000,   ,chunshu,   0, 188S,  424E,  15, 1010, DB
+SH, 09, 2007123006,   ,chunshu,   0, 185S,  422E,  15, 1010, DB
+SH, 09, 2007123012,   ,chunshu,   0, 182S,  419E,  30, 1003, TD,     INVEST
+SH, 09, 2007123018,   ,chunshu,   0, 181S,  416E,  30, 1000, TD,     INVEST
+SH, 09, 2007123100,   ,chunshu,   0, 181S,  414E,  30, 1000, TD,     INVEST
+SH, 09, 2007123106,   ,chunshu,   0, 182S,  413E,  30, 1000, TD,     INVEST
+SH, 09, 2007123112,   ,chunshu,   0, 184S,  412E,  35,  996, TS,     INVEST
+SH, 09, 2007123118,   ,chunshu,   0, 186S,  412E,  35,  996, TS,     NONAME
+SH, 09, 2008010100,   ,chunshu,   0, 190S,  410E,  40,  993, TS,     NONAME
+SH, 09, 2008010106,   ,chunshu,   0, 192S,  407E,  40,  993, TS,      ELNUS
+SH, 09, 2008010112,   ,chunshu,   0, 194S,  404E,  40,  993, TS,      ELNUS
+SH, 09, 2008010118,   ,chunshu,   0, 196S,  402E,  35,  996, TS,      ELNUS
+SH, 09, 2008010200,   ,chunshu,   0, 198S,  401E,  35,  996, TS,      ELNUS
+SH, 09, 2008010206,   ,chunshu,   0, 199S,  401E,  40,  993, TS,      ELNUS
+SH, 09, 2008010212,   ,chunshu,   0, 204S,  402E,  40,  993, TS,      ELNUS
+SH, 09, 2008010218,   ,chunshu,   0, 210S,  404E,  40,  993, TS,      ELNUS
+SH, 09, 2008010300,   ,chunshu,   0, 218S,  407E,  35,  996, TS,      ELNUS
+SH, 09, 2008010306,   ,chunshu,   0, 226S,  411E,  35,  996, TS,      ELNUS
+SH, 09, 2008010312,   ,chunshu,   0, 235S,  417E,  35,  996, TS
+SH, 09, 2008010318,   ,chunshu,   0, 250S,  423E,  35,  996, TS,      ELNUS
+SH, 09, 2008010400,   ,chunshu,   0, 256S,  425E,  20, 1007, DB,      ELNUS
+SH, 09, 2008010406,   ,chunshu,   0, 260S,  426E,  20, 1007, DB
+SH, 09, 2008010412,   ,chunshu,   0, 264S,  427E,  20, 1007, DB
+SH, 09, 2008010418,   ,chunshu,   0, 268S,  428E,  20, 1007, DB

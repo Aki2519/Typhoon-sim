@@ -1,0 +1,28 @@
+SH, 08, 2007122600,   ,chunshu,   0,  95S, 1157E,  15, 1010, DB
+SH, 08, 2007122606,   ,chunshu,   0,  97S, 1158E,  20, 1007, DB
+SH, 08, 2007122612,   ,chunshu,   0, 101S, 1161E,  25, 1004, TD
+SH, 08, 2007122618,   ,chunshu,   0, 105S, 1165E,  25, 1004, TD,     INVEST
+SH, 08, 2007122700,   ,chunshu,   0, 111S, 1171E,  25, 1004, TD,     INVEST
+SH, 08, 2007122706,   ,chunshu,   0, 120S, 1177E,  25, 1003, TD,     INVEST
+SH, 08, 2007122712,   ,chunshu,   0, 132S, 1180E,  25, 1002, TD,     INVEST
+SH, 08, 2007122718,   ,chunshu,   0, 138S, 1178E,  30, 1000, TD,     INVEST
+SH, 08, 2007122800,   ,chunshu,   0, 144S, 1176E,  30, 1000, TD,     INVEST
+SH, 08, 2007122806,   ,chunshu,   0, 150S, 1180E,  35,  996, TS,     NONAME
+SH, 08, 2007122812,   ,chunshu,   0, 155S, 1183E,  40,  993, TS,    MELANIE
+SH, 08, 2007122818,   ,chunshu,   0, 162S, 1179E,  45,  993, TS,    MELANIE
+SH, 08, 2007122900,   ,chunshu,   0, 168S, 1174E,  60,  978, TS,    MELANIE
+SH, 08, 2007122906,   ,chunshu,   0, 173S, 1168E,  60,  978, TS,    MELANIE
+SH, 08, 2007122912,   ,chunshu,   0, 179S, 1161E,  60,  978, TS,    MELANIE
+SH, 08, 2007122918,   ,chunshu,   0, 182S, 1151E,  60,  978, TS,    MELANIE
+SH, 08, 2007123000,   ,chunshu,   0, 185S, 1141E,  60,  978, TS,    MELANIE
+SH, 08, 2007123006,   ,chunshu,   0, 187S, 1134E,  60,  978, TS,    MELANIE
+SH, 08, 2007123012,   ,chunshu,   0, 188S, 1128E,  60,  978, TS,    MELANIE
+SH, 08, 2007123018,   ,chunshu,   0, 188S, 1124E,  55,  982, TS,    MELANIE
+SH, 08, 2007123100,   ,chunshu,   0, 188S, 1120E,  50,  985, TS,    MELANIE
+SH, 08, 2007123106,   ,chunshu,   0, 189S, 1116E,  45,  989, TS,    MELANIE
+SH, 08, 2007123112,   ,chunshu,   0, 190S, 1112E,  40,  993, TS,    MELANIE
+SH, 08, 2007123118,   ,chunshu,   0, 194S, 1110E,  35,  996, TS,    MELANIE
+SH, 08, 2008010100,   ,chunshu,   0, 199S, 1109E,  35,  996, TS,    MELANIE
+SH, 08, 2008010106,   ,chunshu,   0, 208S, 1106E,  30, 1000, TD
+SH, 08, 2008010112,   ,chunshu,   0, 213S, 1100E,  25, 1004, TD
+SH, 08, 2008010118,   ,chunshu,   0, 219S, 1093E,  25, 1004, TD

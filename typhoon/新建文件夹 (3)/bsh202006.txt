@@ -1,0 +1,31 @@
+SH, 20, 2006032312,   ,chunshu,   0, 141S, 1286E,  15, 1006, DB
+SH, 20, 2006032318,   ,chunshu,   0, 145S, 1288E,  15, 1006, DB
+SH, 20, 2006032400,   ,chunshu,   0, 149S, 1290E,  15, 1006, DB
+SH, 20, 2006032406,   ,chunshu,   0, 153S, 1289E,  15, 1006, DB
+SH, 20, 2006032412,   ,chunshu,   0, 155S, 1284E,  15, 1006, DB
+SH, 20, 2006032418,   ,chunshu,   0, 153S, 1277E,  15, 1006, DB
+SH, 20, 2006032500,   ,chunshu,   0, 152S, 1274E,  20, 1004, DB
+SH, 20, 2006032506,   ,chunshu,   0, 151S, 1272E,  20, 1004, DB
+SH, 20, 2006032512,   ,chunshu,   0, 150S, 1269E,  20, 1004, DB
+SH, 20, 2006032518,   ,chunshu,   0, 149S, 1262E,  25, 1002, TD
+SH, 20, 2006032600,   ,chunshu,   0, 149S, 1257E,  30, 1000, TD,     INVEST
+SH, 20, 2006032606,   ,chunshu,   0, 149S, 1253E,  30, 1000, TD,     INVEST
+SH, 20, 2006032612,   ,chunshu,   0, 149S, 1250E,  35,  997, TS,     INVEST
+SH, 20, 2006032618,   ,chunshu,   0, 150S, 1247E,  35,  997, TS,     INVEST
+SH, 20, 2006032700,   ,chunshu,   0, 150S, 1243E,  35,  997, TS,     INVEST
+SH, 20, 2006032706,   ,chunshu,   0, 151S, 1236E,  45,  991, TS,     GLENDA
+SH, 20, 2006032712,   ,chunshu,   0, 155S, 1230E,  55,  982, TS,     GLENDA
+SH, 20, 2006032718,   ,chunshu,   0, 156S, 1222E,  65,  976, TY,     GLENDA
+SH, 20, 2006032800,   ,chunshu,   0, 158S, 1216E,  75,  967, TY,     GLENDA
+SH, 20, 2006032806,   ,chunshu,   0, 161S, 1211E, 115,  927, TY,     GLENDA
+SH, 20, 2006032812,   ,chunshu,   0, 167S, 1204E, 120,  933, TY,     GLENDA
+SH, 20, 2006032818,   ,chunshu,   0, 171S, 1195E, 120,  933, TY,     GLENDA
+SH, 20, 2006032900,   ,chunshu,   0, 175S, 1186E, 120,  922, TY,     GLENDA
+SH, 20, 2006032906,   ,chunshu,   0, 179S, 1179E, 115,  937, TY,     GLENDA
+SH, 20, 2006032912,   ,chunshu,   0, 183S, 1173E, 115,  927, TY,     GLENDA
+SH, 20, 2006032918,   ,chunshu,   0, 189S, 1169E, 105,  938, TY,     GLENDA
+SH, 20, 2006033000,   ,chunshu,   0, 195S, 1165E, 105,  938, TY,     GLENDA
+SH, 20, 2006033006,   ,chunshu,   0, 206S, 1159E, 100,  944, TY,     GLENDA
+SH, 20, 2006033012,   ,chunshu,   0, 216S, 1151E,  90,  954, TY,     GLENDA
+SH, 20, 2006033018,   ,chunshu,   0, 224S, 1151E,  55,  984, TS
+SH, 20, 2006033100,   ,chunshu,   0, 233S, 1150E,  30, 1000, TD

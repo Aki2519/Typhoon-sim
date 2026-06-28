@@ -1,0 +1,12 @@
+SH, 18, 2010030900,   ,chunshu,   0, 192S,  509E,  20, 1007, DB
+SH, 18, 2010030906,   ,chunshu,   0, 196S,  510E,  25, 1004, TD
+SH, 18, 2010030912,   ,chunshu,   0, 200S,  508E,  30, 1000, DB,     INVEST
+SH, 18, 2010030918,   ,chunshu,   0, 204S,  504E,  30, 1000, DB,     INVEST
+SH, 18, 2010031000,   ,chunshu,   0, 205S,  499E,  35,  996, TS,   EIGHTEEN
+SH, 18, 2010031006,   ,chunshu,   0, 209S,  495E,  35,  996, TS,   EIGHTEEN
+SH, 18, 2010031012,   ,chunshu,   0, 209S,  490E,  40,  993, TS,   EIGHTEEN
+SH, 18, 2010031018,   ,chunshu,   0, 210S,  487E,  50,  985, TS,     HUBERT
+SH, 18, 2010031100,   ,chunshu,   0, 209S,  483E,  40,  993, TS,     HUBERT
+SH, 18, 2010031106,   ,chunshu,   0, 207S,  479E,  35,  996, TS
+SH, 18, 2010031112,   ,chunshu,   0, 209S,  475E,  30, 1000, TD
+SH, 18, 2010031118,   ,chunshu,   0, 212S,  472E,  25, 1004, TD

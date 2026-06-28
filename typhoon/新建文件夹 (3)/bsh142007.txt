@@ -1,0 +1,48 @@
+SH, 14, 2007021118,   ,chunshu,   0, 102S,  706E,  20, 1004, DB,     INVEST
+SH, 14, 2007021200,   ,chunshu,   0, 107S,  707E,  25, 1002, DB,     INVEST
+SH, 14, 2007021206,   ,chunshu,   0, 112S,  706E,  25, 1002, DB
+SH, 14, 2007021212,   ,chunshu,   0, 113S,  703E,  30, 1002, DB,     INVEST
+SH, 14, 2007021218,   ,chunshu,   0, 116S,  702E,  30, 1002, DB,     INVEST
+SH, 14, 2007021300,   ,chunshu,   0, 118S,  700E,  30, 1002, DB,     INVEST
+SH, 14, 2007021306,   ,chunshu,   0, 122S,  700E,  30, 1002, DB,     INVEST
+SH, 14, 2007021312,   ,chunshu,   0, 125S,  695E,  30, 1002, DB,     INVEST
+SH, 14, 2007021318,   ,chunshu,   0, 130S,  690E,  30, 1000, DB,     INVEST
+SH, 14, 2007021400,   ,chunshu,   0, 135S,  684E,  30, 1000, DB,     INVEST
+SH, 14, 2007021406,   ,chunshu,   0, 145S,  677E,  30, 1000, DB,     INVEST
+SH, 14, 2007021412,   ,chunshu,   0, 153S,  667E,  30, 1000, TD,     NONAME
+SH, 14, 2007021418,   ,chunshu,   0, 163S,  659E,  35,  997, TC,     NONAME
+SH, 14, 2007021500,   ,chunshu,   0, 172S,  649E,  35,  996, TS,     NONAME
+SH, 14, 2007021506,   ,chunshu,   0, 179S,  637E,  40,  993, TS,     NONAME
+SH, 14, 2007021512,   ,chunshu,   0, 189S,  623E,  40,  994, TC,      FAVIO
+SH, 14, 2007021518,   ,chunshu,   0, 204S,  618E,  35,  997, TC,      FAVIO
+SH, 14, 2007021600,   ,chunshu,   0, 215S,  610E,  40,  993, TS,      FAVIO
+SH, 14, 2007021606,   ,chunshu,   0, 224S,  599E,  40,  994, TC,      FAVIO
+SH, 14, 2007021612,   ,chunshu,   0, 233S,  588E,  40,  994, TC,      FAVIO
+SH, 14, 2007021618,   ,chunshu,   0, 240S,  575E,  40,  994, TC,      FAVIO
+SH, 14, 2007021700,   ,chunshu,   0, 246S,  561E,  40,  994, TC,      FAVIO
+SH, 14, 2007021706,   ,chunshu,   0, 252S,  547E,  40,  994, TC,      FAVIO
+SH, 14, 2007021712,   ,chunshu,   0, 256S,  532E,  45,  989, TS,      FAVIO
+SH, 14, 2007021718,   ,chunshu,   0, 260S,  518E,  45,  991, TC,      FAVIO
+SH, 14, 2007021800,   ,chunshu,   0, 261S,  505E,  45,  991, TC,      FAVIO
+SH, 14, 2007021806,   ,chunshu,   0, 263S,  493E,  45,  991, TC,      FAVIO
+SH, 14, 2007021812,   ,chunshu,   0, 265S,  482E,  55,  984, TC,      FAVIO
+SH, 14, 2007021818,   ,chunshu,   0, 265S,  474E,  60,  978, TS,      FAVIO
+SH, 14, 2007021900,   ,chunshu,   0, 265S,  467E,  65,  976, TC,      FAVIO
+SH, 14, 2007021906,   ,chunshu,   0, 266S,  460E,  65,  976, TC,      FAVIO
+SH, 14, 2007021912,   ,chunshu,   0, 265S,  453E,  75,  967, TC,      FAVIO
+SH, 14, 2007021918,   ,chunshu,   0, 264S,  446E,  80,  963, TC,      FAVIO
+SH, 14, 2007022000,   ,chunshu,   0, 260S,  437E,  90,  954, TC
+SH, 14, 2007022006,   ,chunshu,   0, 255S,  429E, 100,  944, TC,      FAVIO
+SH, 14, 2007022012,   ,chunshu,   0, 252S,  418E, 115,  927, TC,      FAVIO
+SH, 14, 2007022018,   ,chunshu,   0, 248S,  409E, 115,  927, TC,      FAVIO
+SH, 14, 2007022100,   ,chunshu,   0, 245S,  399E, 120,  922, TC,      FAVIO
+SH, 14, 2007022106,   ,chunshu,   0, 241S,  390E, 115,  927, TC,      FAVIO
+SH, 14, 2007022112,   ,chunshu,   0, 237S,  381E, 105,  944, TY,      FAVIO
+SH, 14, 2007022118,   ,chunshu,   0, 234S,  372E, 100,  944, TC,      FAVIO
+SH, 14, 2007022200,   ,chunshu,   0, 230S,  364E, 100,  948, TY,      FAVIO
+SH, 14, 2007022206,   ,chunshu,   0, 223S,  358E, 100,  948, TY,      FAVIO
+SH, 14, 2007022212,   ,chunshu,   0, 217S,  351E,  90,  954, TC,      FAVIO
+SH, 14, 2007022218,   ,chunshu,   0, 209S,  347E,  80,  963, TC,      FAVIO
+SH, 14, 2007022300,   ,chunshu,   0, 203S,  342E,  60,  980, TC
+SH, 14, 2007022306,   ,chunshu,   0, 198S,  336E,  45,  991, TC
+SH, 14, 2007022312,   ,chunshu,   0, 191S,  328E,  30, 1000, DB

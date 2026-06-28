@@ -1,0 +1,39 @@
+SH, 01, 2014111500,   ,chunshu,   0,  60S,  660E,  20, 1007, DB,     INVEST
+SH, 01, 2014111506,   ,chunshu,   0,  65S,  660E,  20, 1007, DB,     INVEST
+SH, 01, 2014111512,   ,chunshu,   0,  71S,  660E,  20, 1007, DB
+SH, 01, 2014111518,   ,chunshu,   0,  77S,  661E,  20, 1007, DB,     INVEST
+SH, 01, 2014111600,   ,chunshu,   0,  79S,  662E,  25, 1004, TD,     INVEST
+SH, 01, 2014111606,   ,chunshu,   0,  81S,  663E,  30, 1000, TD,     INVEST
+SH, 01, 2014111612,   ,chunshu,   0,  84S,  664E,  30, 1000, TD,     INVEST
+SH, 01, 2014111618,   ,chunshu,   0,  87S,  666E,  40,  993, TS,        ONE
+SH, 01, 2014111700,   ,chunshu,   0,  90S,  669E,  50,  985, TS,     ADJALI
+SH, 01, 2014111706,   ,chunshu,   0,  92S,  673E,  60,  978, TS,     ADJALI
+SH, 01, 2014111712,   ,chunshu,   0,  94S,  679E,  65,  974, TY,     ADJALI
+SH, 01, 2014111718,   ,chunshu,   0,  96S,  686E,  65,  974, TY,     ADJALI
+SH, 01, 2014111800,   ,chunshu,   0, 102S,  693E,  70,  970, TY,     ADJALI
+SH, 01, 2014111806,   ,chunshu,   0, 107S,  698E,  65,  974, TY,     ADJALI
+SH, 01, 2014111812,   ,chunshu,   0, 112S,  701E,  60,  978, TS,     ADJALI
+SH, 01, 2014111818,   ,chunshu,   0, 116S,  703E,  55,  982, TS,     ADJALI
+SH, 01, 2014111900,   ,chunshu,   0, 121S,  705E,  55,  982, TS,     ADJALI
+SH, 01, 2014111906,   ,chunshu,   0, 126S,  705E,  55,  982, TS,     ADJALI
+SH, 01, 2014111912,   ,chunshu,   0, 130S,  703E,  45,  988, TS,     ADJALI
+SH, 01, 2014111918,   ,chunshu,   0, 133S,  700E,  35,  996, TS,     ADJALI
+SH, 01, 2014112000,   ,chunshu,   0, 135S,  697E,  30, 1000, TD,     ADJALI
+SH, 01, 2014112006,   ,chunshu,   0, 138S,  693E,  25, 1004, TD,     ADJALI
+SH, 01, 2014112012,   ,chunshu,   0, 141S,  686E,  25, 1004, TD
+SH, 01, 2014112018,   ,chunshu,   0, 143S,  676E,  25, 1004, TD
+SH, 01, 2014112100,   ,chunshu,   0, 148S,  663E,  20, 1007, DB
+SH, 01, 2014112106,   ,chunshu,   0, 152S,  649E,  20, 1007, DB
+SH, 01, 2014112112,   ,chunshu,   0, 150S,  635E,  20, 1007, DB
+SH, 01, 2014112118,   ,chunshu,   0, 148S,  625E,  20, 1007, DB
+SH, 01, 2014112200,   ,chunshu,   0, 146S,  616E,  20, 1007, DB
+SH, 01, 2014112206,   ,chunshu,   0, 143S,  606E,  20, 1007, DB
+SH, 01, 2014112212,   ,chunshu,   0, 141S,  595E,  20, 1007, DB
+SH, 01, 2014112218,   ,chunshu,   0, 139S,  582E,  20, 1007, DB
+SH, 01, 2014112300,   ,chunshu,   0, 136S,  573E,  20, 1007, DB
+SH, 01, 2014112306,   ,chunshu,   0, 134S,  562E,  20, 1007, DB
+SH, 01, 2014112312,   ,chunshu,   0, 132S,  551E,  20, 1007, DB
+SH, 01, 2014112318,   ,chunshu,   0, 131S,  539E,  20, 1007, DB
+SH, 01, 2014112400,   ,chunshu,   0, 129S,  525E,  20, 1007, DB
+SH, 01, 2014112406,   ,chunshu,   0, 121S,  512E,  20, 1007, DB
+SH, 01, 2014112412,   ,chunshu,   0, 111S,  500E,  20, 1007, DB

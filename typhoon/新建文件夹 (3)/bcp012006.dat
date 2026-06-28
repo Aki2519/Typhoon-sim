@@ -1,0 +1,87 @@
+CP, 01, 2006081600,   ,chunshu,   0, 104N, 1425W,  25, 1010, DB
+CP, 01, 2006081606,   ,chunshu,   0, 104N, 1439W,  25, 1010, DB
+CP, 01, 2006081612,   ,chunshu,   0, 104N, 1454W,  25, 1010, DB
+CP, 01, 2006081618,   ,chunshu,   0, 103N, 1467W,  25, 1009, DB
+CP, 01, 2006081700,   ,chunshu,   0, 103N, 1479W,  25, 1009, DB,     INVEST
+CP, 01, 2006081706,   ,chunshu,   0, 103N, 1487W,  25, 1009, DB,     INVEST
+CP, 01, 2006081712,   ,chunshu,   0, 103N, 1497W,  25, 1009, DB,     INVEST
+CP, 01, 2006081718,   ,chunshu,   0, 103N, 1506W,  25, 1009, DB,     INVEST
+CP, 01, 2006081800,   ,chunshu,   0, 103N, 1516W,  25, 1009, DB
+CP, 01, 2006081806,   ,chunshu,   0, 103N, 1526W,  25, 1009, DB,     INVEST
+CP, 01, 2006081812,   ,chunshu,   0, 103N, 1536W,  25, 1009, DB,     INVEST
+CP, 01, 2006081818,   ,chunshu,   0, 103N, 1545W,  25, 1009, DB
+CP, 01, 2006081900,   ,chunshu,   0, 103N, 1554W,  25, 1009, DB,     INVEST
+CP, 01, 2006081906,   ,chunshu,   0, 103N, 1563W,  25, 1009, DB,     INVEST
+CP, 01, 2006081912,   ,chunshu,   0, 103N, 1571W,  25, 1009, DB,     INVEST
+CP, 01, 2006081918,   ,chunshu,   0, 103N, 1579W,  25, 1008, DB,     INVEST
+CP, 01, 2006082000,   ,chunshu,   0, 104N, 1587W,  30, 1012, TD,     INVEST
+CP, 01, 2006082006,   ,chunshu,   0, 105N, 1594W,  30, 1012, TD
+CP, 01, 2006082012,   ,chunshu,   0, 107N, 1602W,  40, 1007, TS,       IOKE
+CP, 01, 2006082018,   ,chunshu,   0, 110N, 1617W,  45, 1005, TS,       IOKE
+CP, 01, 2006082100,   ,chunshu,   0, 112N, 1632W,  65,  995, HU,       IOKE
+CP, 01, 2006082106,   ,chunshu,   0, 115N, 1644W,  70,  990, HU,       IOKE
+CP, 01, 2006082112,   ,chunshu,   0, 120N, 1652W,  75,  985, HU,       IOKE
+CP, 01, 2006082118,   ,chunshu,   0, 127N, 1660W, 100,  960, HU,       IOKE
+CP, 01, 2006082200,   ,chunshu,   0, 135N, 1670W, 115,  945, HU,       IOKE
+CP, 01, 2006082206,   ,chunshu,   0, 145N, 1677W, 115,  945, HU,       IOKE
+CP, 01, 2006082212,   ,chunshu,   0, 152N, 1685W, 115,  945, HU,       IOKE
+CP, 01, 2006082218,   ,chunshu,   0, 158N, 1693W,  90,  964, HU,       IOKE
+CP, 01, 2006082300,   ,chunshu,   0, 164N, 1698W,  90,  971, HU,       IOKE
+CP, 01, 2006082306,   ,chunshu,   0, 169N, 1702W,  90,  971, HU,       IOKE
+CP, 01, 2006082312,   ,chunshu,   0, 173N, 1705W,  90,  971, HU,       IOKE
+CP, 01, 2006082318,   ,chunshu,   0, 176N, 1709W,  90,  971, HU,       IOKE
+CP, 01, 2006082400,   ,chunshu,   0, 181N, 1714W,  90,  971, HU,       IOKE
+CP, 01, 2006082406,   ,chunshu,   0, 185N, 1720W, 100,  960, HU,       IOKE
+CP, 01, 2006082412,   ,chunshu,   0, 186N, 1725W, 115,  945, HU,       IOKE
+CP, 01, 2006082418,   ,chunshu,   0, 188N, 1729W, 125,  935, HU,       IOKE
+CP, 01, 2006082500,   ,chunshu,   0, 190N, 1734W, 125,  935, HU,       IOKE
+CP, 01, 2006082506,   ,chunshu,   0, 191N, 1742W, 140,  920, HU,       IOKE
+CP, 01, 2006082512,   ,chunshu,   0, 192N, 1747W, 140,  920, HU,       IOKE
+CP, 01, 2006082518,   ,chunshu,   0, 192N, 1751W, 140,  920, HU,       IOKE
+CP, 01, 2006082600,   ,chunshu,   0, 193N, 1758W, 130,  935, HU,       IOKE
+CP, 01, 2006082606,   ,chunshu,   0, 191N, 1765W, 130,  935, HU,       IOKE
+CP, 01, 2006082612,   ,chunshu,   0, 188N, 1774W, 140,  920, HU,       IOKE
+CP, 01, 2006082618,   ,chunshu,   0, 183N, 1780W, 140,  920, HU,       IOKE
+CP, 01, 2006082700,   ,chunshu,   0, 179N, 1789W, 140,  920, HU,       IOKE
+CP, 01, 2006082706,   ,chunshu,   0, 176N, 1798W, 140,  900, HU,       IOKE
+CP, 01, 2006082712,   ,chunshu,   0, 172N, 1793E, 140,  900, TY,       IOKE
+CP, 01, 2006082718,   ,chunshu,   0, 168N, 1784E, 140,  900, TY,       IOKE
+CP, 01, 2006082800,   ,chunshu,   0, 166N, 1776E, 135,  900, TY,       IOKE
+CP, 01, 2006082806,   ,chunshu,   0, 163N, 1767E, 130,  910, TY,       IOKE
+CP, 01, 2006082812,   ,chunshu,   0, 162N, 1758E, 130,  910, TY,       IOKE
+CP, 01, 2006082818,   ,chunshu,   0, 161N, 1750E, 130,  910, TY,       IOKE
+CP, 01, 2006082900,   ,chunshu,   0, 160N, 1742E, 130,  910, TY,       IOKE
+CP, 01, 2006082906,   ,chunshu,   0, 162N, 1734E, 135,  910, TY,       IOKE
+CP, 01, 2006082912,   ,chunshu,   0, 162N, 1726E, 130,  910, TY,       IOKE
+CP, 01, 2006082918,   ,chunshu,   0, 164N, 1719E, 140,  910, TY,       IOKE
+CP, 01, 2006083000,   ,chunshu,   0, 167N, 1711E, 140,  910, TY,       IOKE
+CP, 01, 2006083006,   ,chunshu,   0, 171N, 1704E, 140,  910, TY,       IOKE
+CP, 01, 2006083012,   ,chunshu,   0, 175N, 1697E, 135,  910, TY,       IOKE
+CP, 01, 2006083018,   ,chunshu,   0, 180N, 1691E, 135,  910, TY,       IOKE
+CP, 01, 2006083100,   ,chunshu,   0, 186N, 1682E, 135,  910, TY,       IOKE
+CP, 01, 2006083106,   ,chunshu,   0, 193N, 1673E, 135,  910, TY,       IOKE
+CP, 01, 2006083112,   ,chunshu,   0, 197N, 1662E, 135,  910, TY,       IOKE
+CP, 01, 2006083118,   ,chunshu,   0, 202N, 1653E, 135,  910, TY,       IOKE
+CP, 01, 2006090100,   ,chunshu,   0, 207N, 1644E, 130,  910, TY,       IOKE
+CP, 01, 2006090106,   ,chunshu,   0, 212N, 1635E, 130,  910, TY,       IOKE
+CP, 01, 2006090112,   ,chunshu,   0, 218N, 1622E, 115,  927, TY,       IOKE
+CP, 01, 2006090118,   ,chunshu,   0, 223N, 1607E, 115,  927, TY,       IOKE
+CP, 01, 2006090200,   ,chunshu,   0, 230N, 1593E, 115,  927, TY,       IOKE
+CP, 01, 2006090206,   ,chunshu,   0, 235N, 1578E, 110,  927, TY,       IOKE
+CP, 01, 2006090212,   ,chunshu,   0, 240N, 1562E, 110,  927, TY,       IOKE
+CP, 01, 2006090218,   ,chunshu,   0, 245N, 1548E, 110,  927, TY,       IOKE
+CP, 01, 2006090300,   ,chunshu,   0, 251N, 1535E, 100,  927, TY,       IOKE
+CP, 01, 2006090306,   ,chunshu,   0, 257N, 1525E, 100,  927, TY,       IOKE
+CP, 01, 2006090312,   ,chunshu,   0, 265N, 1517E,  95,  927, TY,       IOKE
+CP, 01, 2006090318,   ,chunshu,   0, 275N, 1508E,  95,  927, HU,       IOKE
+CP, 01, 2006090400,   ,chunshu,   0, 285N, 1499E,  85,  958, TY,       IOKE
+CP, 01, 2006090406,   ,chunshu,   0, 296N, 1489E,  70,  972, TY,       IOKE
+CP, 01, 2006090412,   ,chunshu,   0, 309N, 1480E,  65,  976, TY,       IOKE
+CP, 01, 2006090418,   ,chunshu,   0, 325N, 1475E,  65,  976, TY,       IOKE
+CP, 01, 2006090500,   ,chunshu,   0, 340N, 1469E,  60,  980, TS,       IOKE
+CP, 01, 2006090506,   ,chunshu,   0, 357N, 1474E,  60,  980, TS,       IOKE
+CP, 01, 2006090512,   ,chunshu,   0, 375N, 1488E,  60,  980, TS,       IOKE
+CP, 01, 2006090518,   ,chunshu,   0, 397N, 1508E,  55,  980, TS
+CP, 01, 2006090600,   ,chunshu,   0, 422N, 1533E,  50,  980, EX
+CP, 01, 2006090606,   ,chunshu,   0, 450N, 1567E,  35,  980, EX
+CP, 01, 2006090612,   ,chunshu,   0, 476N, 1612E,  30,  980, EX

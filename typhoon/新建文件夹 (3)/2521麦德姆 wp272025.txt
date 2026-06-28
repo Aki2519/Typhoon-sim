@@ -1,0 +1,31 @@
+WP, 27, 2025093012,   ,chunshu,   0, 138N, 1342E,  15, 1008, DB,    INVEST
+WP, 27, 2025093018,   ,chunshu,   0, 137N, 1331E,  20, 1005, DB,    INVEST
+WP, 27, 2025100100,   ,chunshu,   0, 140N, 1320E,  20, 1005, DB,    INVEST
+WP, 27, 2025100106,   ,chunshu,   0, 141N, 1308E,  25, 1005, TD,TWENTYSEVE
+WP, 27, 2025100112,   ,chunshu,   0, 141N, 1298E,  25, 1002, TD,TWENTYSEVE
+WP, 27, 2025100118,   ,chunshu,   0, 144N, 1285E,  35,  998, TS,TWENTYSEVE
+WP, 27, 2025100200,   ,chunshu,   0, 148N, 1275E,  45,  995, TS,TWENTYSEVE
+WP, 27, 2025100206,   ,chunshu,   0, 153N, 1261E,  45,  992, TS,TWENTYSEVE
+WP, 27, 2025100212,   ,chunshu,   0, 157N, 1249E,  50,  988, TS,     MATMO
+WP, 27, 2025100218,   ,chunshu,   0, 160N, 1238E,  60,  982, TS,     MATMO
+WP, 27, 2025100300,   ,chunshu,   0, 164N, 1226E,  65,  980, TY,     MATMO
+WP, 27, 2025100306,   ,chunshu,   0, 168N, 1211E,  55,  992, TY,     MATMO
+WP, 27, 2025100312,   ,chunshu,   0, 175N, 1194E,  55,  990, TS,     MATMO
+WP, 27, 2025100318,   ,chunshu,   0, 177N, 1180E,  55,  988, TS,     MATMO
+WP, 27, 2025100400,   ,chunshu,   0, 178N, 1167E,  60,  985, TS,     MATMO
+WP, 27, 2025100406,   ,chunshu,   0, 183N, 1153E,  65,  982, TY,     MATMO
+WP, 27, 2025100412,   ,chunshu,   0, 190N, 1140E,  70,  980, TY,     MATMO
+WP, 27, 2025100418,   ,chunshu,   0, 197N, 1128E,  85,  975, TY,     MATMO
+WP, 27, 2025100500,   ,chunshu,   0, 202N, 1116E,  95,  972, TY,     MATMO
+WP, 27, 2025100503,   ,chunshu,   0, 205N, 1111E, 100,  970, TY,     MATMO
+WP, 27, 2025100506,   ,chunshu,   0, 208N, 1106E,  90,  970, TY,     MATMO
+WP, 27, 2025100512,   ,chunshu,   0, 214N, 1095E,  80,  975, TY,     MATMO
+WP, 27, 2025100518,   ,chunshu,   0, 219N, 1085E,  65,  980, TY,     MATMO
+WP, 27, 2025100600,   ,chunshu,   0, 220N, 1073E,  55,  982, TS,     MATMO
+WP, 27, 2025100606,   ,chunshu,   0, 221N, 1067E,  45,  995, TS,     MATMO
+WP, 27, 2025100612,   ,chunshu,   0, 230N, 1063E,  30,  995, TD,     MATMO
+WP, 27, 2025100618,   ,chunshu,   0, 235N, 1062E,  20, 1002, LO,     MATMO
+WP, 27, 2025100700,   ,chunshu,   0, 236N, 1037E,  20, 1005, LO,     MATMO
+WP, 27, 2025100706,   ,chunshu,   0, 239N, 1031E,  20, 1005, LO,     MATMO
+WP, 27, 2025100712,   ,chunshu,   0, 243N, 1025E,  15, 1005, LO,     MATMO
+WP, 27, 2025100718,   ,chunshu,   0, 248N, 1017E,  15, 1005, LO,     MATMO

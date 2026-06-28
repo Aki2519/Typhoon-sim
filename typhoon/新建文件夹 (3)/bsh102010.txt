@@ -1,0 +1,17 @@
+SH, 10, 2010012700,   ,chunshu,   0, 135S, 1732W,  15, 1010, DB
+SH, 10, 2010012706,   ,chunshu,   0, 143S, 1714W,  25, 1007, TD,     INVEST
+SH, 10, 2010012712,   ,chunshu,   0, 152S, 1697W,  35,  996, TS,     INVEST
+SH, 10, 2010012718,   ,chunshu,   0, 166S, 1687W,  45,  989, TS,      NISHA
+SH, 10, 2010012800,   ,chunshu,   0, 176S, 1675W,  50,  985, TS,      NISHA
+SH, 10, 2010012806,   ,chunshu,   0, 186S, 1665W,  50,  985, TS,      NISHA
+SH, 10, 2010012812,   ,chunshu,   0, 194S, 1653W,  55,  982, TS,      NISHA
+SH, 10, 2010012818,   ,chunshu,   0, 198S, 1645W,  45,  989, TS,      NISHA
+SH, 10, 2010012900,   ,chunshu,   0, 201S, 1639W,  45,  989, TS,      NISHA
+SH, 10, 2010012906,   ,chunshu,   0, 200S, 1633W,  40,  993, TS,      NISHA
+SH, 10, 2010012912,   ,chunshu,   0, 196S, 1629W,  35,  996, TS,      NISHA
+SH, 10, 2010012918,   ,chunshu,   0, 190S, 1625W,  35,  996, TS,      NISHA
+SH, 10, 2010013000,   ,chunshu,   0, 184S, 1621W,  35,  996, TS,      NISHA
+SH, 10, 2010013006,   ,chunshu,   0, 181S, 1616W,  30, 1000, TD
+SH, 10, 2010013012,   ,chunshu,   0, 180S, 1611W,  25, 1004, TD
+SH, 10, 2010013018,   ,chunshu,   0, 180S, 1607W,  25, 1004, TD
+SH, 10, 2010013100,   ,chunshu,   0, 177S, 1608W,  15, 1010, DB

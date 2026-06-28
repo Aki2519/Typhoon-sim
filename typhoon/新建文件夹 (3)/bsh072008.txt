@@ -1,0 +1,17 @@
+SH, 07, 2007121712,   ,chunshu,   0, 121S,  877E,  25, 1003, TD
+SH, 07, 2007121718,   ,chunshu,   0, 125S,  870E,  25, 1006, TD,     INVEST
+SH, 07, 2007121800,   ,chunshu,   0, 129S,  863E,  25, 1004, TD,     INVEST
+SH, 07, 2007121806,   ,chunshu,   0, 132S,  855E,  30, 1000, TD,     INVEST
+SH, 07, 2007121812,   ,chunshu,   0, 134S,  846E,  35,  996, TS,     NONAME
+SH, 07, 2007121818,   ,chunshu,   0, 136S,  837E,  40,  993, TS,     NONAME
+SH, 07, 2007121900,   ,chunshu,   0, 137S,  828E,  45,  989, TS,     NONAME
+SH, 07, 2007121906,   ,chunshu,   0, 139S,  823E,  45,  989, TS,     NONAME
+SH, 07, 2007121912,   ,chunshu,   0, 143S,  820E,  45,  989, TS,     NONAME
+SH, 07, 2007121918,   ,chunshu,   0, 149S,  820E,  45,  989, TS,     NONAME
+SH, 07, 2007122000,   ,chunshu,   0, 155S,  823E,  45,  989, TS,     NONAME
+SH, 07, 2007122006,   ,chunshu,   0, 164S,  833E,  45,  989, TS,     NONAME
+SH, 07, 2007122012,   ,chunshu,   0, 174S,  843E,  50,  985, TS,       DAMA
+SH, 07, 2007122018,   ,chunshu,   0, 184S,  854E,  50,  985, TS,       DAMA
+SH, 07, 2007122100,   ,chunshu,   0, 193S,  868E,  45,  989, TS,       DAMA
+SH, 07, 2007122106,   ,chunshu,   0, 204S,  884E,  40,  993, EX,       DAMA
+SH, 07, 2007122112,   ,chunshu,   0, 212S,  905E,  30, 1000, EX,       DAMA

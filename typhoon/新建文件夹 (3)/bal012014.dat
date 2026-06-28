@@ -1,0 +1,47 @@
+AL, 01, 2014062818,   ,chunshu,   0, 320N,  782W,  20, 1017, LO,     INVEST
+AL, 01, 2014062900,   ,chunshu,   0, 312N,  778W,  20, 1017, LO,     INVEST
+AL, 01, 2014062906,   ,chunshu,   0, 305N,  774W,  20, 1017, LO,     INVEST
+AL, 01, 2014062912,   ,chunshu,   0, 300N,  772W,  20, 1016, LO,     INVEST
+AL, 01, 2014062918,   ,chunshu,   0, 297N,  772W,  25, 1015, LO,     INVEST
+AL, 01, 2014063000,   ,chunshu,   0, 295N,  775W,  25, 1014, LO,     INVEST
+AL, 01, 2014063006,   ,chunshu,   0, 292N,  780W,  25, 1013, LO,     INVEST
+AL, 01, 2014063012,   ,chunshu,   0, 287N,  784W,  25, 1011, LO,     INVEST
+AL, 01, 2014063018,   ,chunshu,   0, 281N,  787W,  30, 1010, LO,     INVEST
+AL, 01, 2014070100,   ,chunshu,   0, 277N,  789W,  30, 1008, TD,        ONE
+AL, 01, 2014070106,   ,chunshu,   0, 275N,  791W,  30, 1007, TD,        ONE
+AL, 01, 2014070112,   ,chunshu,   0, 275N,  792W,  35, 1005, TS,        ONE
+AL, 01, 2014070118,   ,chunshu,   0, 277N,  793W,  40, 1003, TS,     ARTHUR
+AL, 01, 2014070200,   ,chunshu,   0, 279N,  792W,  45,  999, TS,     ARTHUR
+AL, 01, 2014070206,   ,chunshu,   0, 282N,  791W,  50,  995, TS,     ARTHUR
+AL, 01, 2014070212,   ,chunshu,   0, 287N,  790W,  55,  995, TS,     ARTHUR
+AL, 01, 2014070218,   ,chunshu,   0, 294N,  791W,  60,  994, TS,     ARTHUR
+AL, 01, 2014070300,   ,chunshu,   0, 301N,  792W,  65,  987, HU,     ARTHUR
+AL, 01, 2014070306,   ,chunshu,   0, 309N,  791W,  70,  984, HU,     ARTHUR
+AL, 01, 2014070312,   ,chunshu,   0, 318N,  788W,  80,  981, HU,     ARTHUR
+AL, 01, 2014070318,   ,chunshu,   0, 329N,  783W,  80,  978, HU,     ARTHUR
+AL, 01, 2014070400,   ,chunshu,   0, 340N,  773W,  85,  975, HU,     ARTHUR
+AL, 01, 2014070403, 15,chunshu,   0, 347N,  766W,  85,  974, HU
+AL, 01, 2014070406,   ,chunshu,   0, 353N,  760W,  85,  973, HU,     ARTHUR
+AL, 01, 2014070408,   ,chunshu,   0, 358N,  755W,  85,  973, HU
+AL, 01, 2014070412,   ,chunshu,   0, 368N,  744W,  80,  976, HU,     ARTHUR
+AL, 01, 2014070418,   ,chunshu,   0, 384N,  724W,  70,  978, HU,     ARTHUR
+AL, 01, 2014070500,   ,chunshu,   0, 402N,  697W,  65,  976, HU,     ARTHUR
+AL, 01, 2014070506,   ,chunshu,   0, 423N,  676W,  60,  981, TS,     ARTHUR
+AL, 01, 2014070512,   ,chunshu,   0, 441N,  665W,  60,  982, EX,     ARTHUR
+AL, 01, 2014070518,   ,chunshu,   0, 459N,  653W,  55,  980, EX
+AL, 01, 2014070600,   ,chunshu,   0, 471N,  640W,  50,  981, EX
+AL, 01, 2014070606,   ,chunshu,   0, 476N,  624W,  45,  982, EX
+AL, 01, 2014070612,   ,chunshu,   0, 485N,  602W,  40,  986, EX
+AL, 01, 2014070618,   ,chunshu,   0, 503N,  581W,  35,  989, EX
+AL, 01, 2014070700,   ,chunshu,   0, 523N,  564W,  35,  988, EX
+AL, 01, 2014070706,   ,chunshu,   0, 542N,  554W,  35,  985, EX
+AL, 01, 2014070712,   ,chunshu,   0, 560N,  547W,  35,  984, EX
+AL, 01, 2014070718,   ,chunshu,   0, 573N,  542W,  40,  985, EX
+AL, 01, 2014070800,   ,chunshu,   0, 581N,  541W,  45,  988, EX
+AL, 01, 2014070806,   ,chunshu,   0, 589N,  547W,  40,  991, EX
+AL, 01, 2014070812,   ,chunshu,   0, 594N,  561W,  35,  993, EX
+AL, 01, 2014070818,   ,chunshu,   0, 600N,  570W,  30,  995, EX
+AL, 01, 2014070900,   ,chunshu,   0, 603N,  567W,  30,  997, EX
+AL, 01, 2014070906,   ,chunshu,   0, 601N,  562W,  25, 1001, EX
+AL, 01, 2014070912,   ,chunshu,   0, 598N,  557W,  25, 1005, EX
+AL, 01, 2014070918,   ,chunshu,   0, 595N,  550W,  25, 1008, EX

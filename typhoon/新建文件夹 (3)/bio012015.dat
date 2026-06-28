@@ -1,0 +1,27 @@
+IO, 01, 2015060606,   ,chunshu,   0, 131N,  685E,  25, 1004, TD,     INVEST
+IO, 01, 2015060612,   ,chunshu,   0, 138N,  686E,  25, 1004, TD,     INVEST
+IO, 01, 2015060618,   ,chunshu,   0, 145N,  686E,  25, 1004, TD,     INVEST
+IO, 01, 2015060700,   ,chunshu,   0, 152N,  686E,  30, 1000, TD,     INVEST
+IO, 01, 2015060706,   ,chunshu,   0, 157N,  685E,  40,  993, TS,        ONE
+IO, 01, 2015060712,   ,chunshu,   0, 164N,  685E,  40,  993, TS,        ONE
+IO, 01, 2015060718,   ,chunshu,   0, 172N,  685E,  40,  993, TS,        ONE
+IO, 01, 2015060721,   ,chunshu,   0, 175N,  683E,  40,  993, TS,        ONE
+IO, 01, 2015060800,   ,chunshu,   0, 179N,  676E,  40,  993, TS,        ONE
+IO, 01, 2015060806,   ,chunshu,   0, 181N,  668E,  45,  989, TS,        ONE
+IO, 01, 2015060812,   ,chunshu,   0, 188N,  663E,  45,  989, TS,        ONE
+IO, 01, 2015060818,   ,chunshu,   0, 194N,  657E,  50,  985, TS,    ASHOBAA
+IO, 01, 2015060900,   ,chunshu,   0, 202N,  651E,  50,  985, TS,    ASHOBAA
+IO, 01, 2015060906,   ,chunshu,   0, 206N,  641E,  50,  985, TS,    ASHOBAA
+IO, 01, 2015060912,   ,chunshu,   0, 209N,  635E,  50,  985, TS,    ASHOBAA
+IO, 01, 2015060918,   ,chunshu,   0, 210N,  627E,  55,  982, TS,    ASHOBAA
+IO, 01, 2015061000,   ,chunshu,   0, 210N,  619E,  55,  982, TS,    ASHOBAA
+IO, 01, 2015061006,   ,chunshu,   0, 209N,  616E,  55,  982, TS,    ASHOBAA
+IO, 01, 2015061012,   ,chunshu,   0, 208N,  614E,  50,  985, TS,    ASHOBAA
+IO, 01, 2015061018,   ,chunshu,   0, 206N,  614E,  45,  989, TS,    ASHOBAA
+IO, 01, 2015061021,   ,chunshu,   0, 207N,  615E,  45,  989, TS,    ASHOBAA
+IO, 01, 2015061100,   ,chunshu,   0, 208N,  610E,  45,  989, TS,    ASHOBAA
+IO, 01, 2015061106,   ,chunshu,   0, 208N,  606E,  45,  989, TS,    ASHOBAA
+IO, 01, 2015061112,   ,chunshu,   0, 208N,  603E,  40,  993, TS,    ASHOBAA
+IO, 01, 2015061118,   ,chunshu,   0, 208N,  601E,  35,  996, TS,    ASHOBAA
+IO, 01, 2015061200,   ,chunshu,   0, 208N,  600E,  35,  996, TS
+IO, 01, 2015061206,   ,chunshu,   0, 207N,  598E,  30, 1000, TD,    ASHOBAA

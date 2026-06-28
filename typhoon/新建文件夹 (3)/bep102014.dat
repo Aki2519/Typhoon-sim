@@ -1,0 +1,66 @@
+EP, 10, 2014080200,   ,chunshu,   0, 125N, 1112W,  25, 1008, LO,     INVEST
+EP, 10, 2014080206,   ,chunshu,   0, 125N, 1112W,  25, 1008, LO,     INVEST
+EP, 10, 2014080212,   ,chunshu,   0, 132N, 1119W,  25, 1008, LO,     INVEST
+EP, 10, 2014080218,   ,chunshu,   0, 134N, 1125W,  25, 1008, LO,     INVEST
+EP, 10, 2014080300,   ,chunshu,   0, 137N, 1132W,  25, 1008, LO,     INVEST
+EP, 10, 2014080306,   ,chunshu,   0, 138N, 1140W,  25, 1008, LO,     INVEST
+EP, 10, 2014080312,   ,chunshu,   0, 138N, 1148W,  25, 1008, LO,     INVEST
+EP, 10, 2014080318,   ,chunshu,   0, 137N, 1156W,  25, 1007, LO,     INVEST
+EP, 10, 2014080400,   ,chunshu,   0, 135N, 1166W,  30, 1006, TD,        TEN
+EP, 10, 2014080406,   ,chunshu,   0, 135N, 1177W,  35, 1005, TS,        TEN
+EP, 10, 2014080412,   ,chunshu,   0, 135N, 1192W,  40, 1004, TS,      JULIO
+EP, 10, 2014080418,   ,chunshu,   0, 135N, 1207W,  45, 1002, TS,      JULIO
+EP, 10, 2014080500,   ,chunshu,   0, 135N, 1219W,  50, 1000, TS,      JULIO
+EP, 10, 2014080506,   ,chunshu,   0, 136N, 1230W,  50, 1000, TS,      JULIO
+EP, 10, 2014080512,   ,chunshu,   0, 138N, 1240W,  50, 1000, TS,      JULIO
+EP, 10, 2014080518,   ,chunshu,   0, 140N, 1253W,  55,  997, TS,      JULIO
+EP, 10, 2014080600,   ,chunshu,   0, 143N, 1268W,  60,  993, TS,      JULIO
+EP, 10, 2014080606,   ,chunshu,   0, 147N, 1282W,  65,  989, HU,      JULIO
+EP, 10, 2014080612,   ,chunshu,   0, 151N, 1297W,  70,  985, HU,      JULIO
+EP, 10, 2014080618,   ,chunshu,   0, 156N, 1311W,  75,  981, HU,      JULIO
+EP, 10, 2014080700,   ,chunshu,   0, 162N, 1325W,  80,  979, HU,      JULIO
+EP, 10, 2014080706,   ,chunshu,   0, 166N, 1341W,  85,  975, HU,      JULIO
+EP, 10, 2014080712,   ,chunshu,   0, 168N, 1356W,  90,  971, HU,      JULIO
+EP, 10, 2014080718,   ,chunshu,   0, 170N, 1370W,  95,  966, HU,      JULIO
+EP, 10, 2014080800,   ,chunshu,   0, 173N, 1384W, 100,  963, HU,      JULIO
+EP, 10, 2014080806,   ,chunshu,   0, 176N, 1398W, 105,  960, HU,      JULIO
+EP, 10, 2014080812,   ,chunshu,   0, 179N, 1412W, 100,  964, HU,      JULIO
+EP, 10, 2014080818,   ,chunshu,   0, 183N, 1426W,  95,  968, HU,      JULIO
+EP, 10, 2014080900,   ,chunshu,   0, 187N, 1440W,  90,  972, HU,      JULIO
+EP, 10, 2014080906,   ,chunshu,   0, 192N, 1454W,  85,  976, HU,      JULIO
+EP, 10, 2014080912,   ,chunshu,   0, 199N, 1468W,  85,  978, HU,      JULIO
+EP, 10, 2014080918,   ,chunshu,   0, 207N, 1482W,  85,  980, HU,      JULIO
+EP, 10, 2014081000,   ,chunshu,   0, 214N, 1496W,  80,  981, HU,      JULIO
+EP, 10, 2014081006,   ,chunshu,   0, 222N, 1507W,  80,  982, HU,      JULIO
+EP, 10, 2014081012,   ,chunshu,   0, 231N, 1517W,  80,  983, HU,      JULIO
+EP, 10, 2014081018,   ,chunshu,   0, 240N, 1525W,  80,  982, HU,      JULIO
+EP, 10, 2014081100,   ,chunshu,   0, 249N, 1533W,  75,  984, HU,      JULIO
+EP, 10, 2014081106,   ,chunshu,   0, 256N, 1540W,  70,  986, HU,      JULIO
+EP, 10, 2014081112,   ,chunshu,   0, 263N, 1547W,  65,  988, HU,      JULIO
+EP, 10, 2014081118,   ,chunshu,   0, 269N, 1554W,  65,  988, HU,      JULIO
+EP, 10, 2014081200,   ,chunshu,   0, 274N, 1560W,  60,  990, TS,      JULIO
+EP, 10, 2014081206,   ,chunshu,   0, 279N, 1566W,  60,  991, TS,      JULIO
+EP, 10, 2014081212,   ,chunshu,   0, 282N, 1569W,  55,  994, TS,      JULIO
+EP, 10, 2014081218,   ,chunshu,   0, 286N, 1573W,  55,  994, TS,      JULIO
+EP, 10, 2014081300,   ,chunshu,   0, 292N, 1579W,  60,  991, TS,      JULIO
+EP, 10, 2014081306,   ,chunshu,   0, 297N, 1584W,  65,  987, HU,      JULIO
+EP, 10, 2014081312,   ,chunshu,   0, 301N, 1589W,  65,  985, HU,      JULIO
+EP, 10, 2014081318,   ,chunshu,   0, 305N, 1592W,  70,  983, HU,      JULIO
+EP, 10, 2014081400,   ,chunshu,   0, 308N, 1592W,  65,  986, HU,      JULIO
+EP, 10, 2014081406,   ,chunshu,   0, 311N, 1589W,  60,  989, TS,      JULIO
+EP, 10, 2014081412,   ,chunshu,   0, 313N, 1584W,  55,  993, TS,      JULIO
+EP, 10, 2014081418,   ,chunshu,   0, 315N, 1580W,  50,  996, TS,      JULIO
+EP, 10, 2014081500,   ,chunshu,   0, 318N, 1576W,  45,  999, TS,      JULIO
+EP, 10, 2014081506,   ,chunshu,   0, 321N, 1575W,  40, 1002, TS,      JULIO
+EP, 10, 2014081512,   ,chunshu,   0, 323N, 1575W,  30, 1005, TD,      JULIO
+EP, 10, 2014081518,   ,chunshu,   0, 325N, 1576W,  30, 1007, LO
+EP, 10, 2014081600,   ,chunshu,   0, 328N, 1578W,  30, 1008, LO
+EP, 10, 2014081606,   ,chunshu,   0, 331N, 1582W,  30, 1009, LO
+EP, 10, 2014081612,   ,chunshu,   0, 334N, 1587W,  30, 1010, LO
+EP, 10, 2014081618,   ,chunshu,   0, 336N, 1592W,  25, 1011, LO
+EP, 10, 2014081700,   ,chunshu,   0, 341N, 1594W,  25, 1012, LO
+EP, 10, 2014081706,   ,chunshu,   0, 346N, 1594W,  25, 1013, LO
+EP, 10, 2014081712,   ,chunshu,   0, 355N, 1592W,  25, 1014, LO
+EP, 10, 2014081718,   ,chunshu,   0, 365N, 1592W,  20, 1014, LO
+EP, 10, 2014081800,   ,chunshu,   0, 376N, 1590W,  20, 1014, LO
+EP, 10, 2014081806,   ,chunshu,   0, 388N, 1585W,  20, 1014, LO

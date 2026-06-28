@@ -1,0 +1,19 @@
+SH, 11, 2010012618,   ,chunshu,   0, 168S,  584E,  20, 1007, DB
+SH, 11, 2010012700,   ,chunshu,   0, 175S,  592E,  25, 1004, DB
+SH, 11, 2010012706,   ,chunshu,   0, 183S,  597E,  30, 1000, DB,     INVEST
+SH, 11, 2010012712,   ,chunshu,   0, 192S,  598E,  30, 1000, DB,     INVEST
+SH, 11, 2010012718,   ,chunshu,   0, 201S,  595E,  35,  996, TS,     ELEVEN
+SH, 11, 2010012800,   ,chunshu,   0, 206S,  590E,  35,  996, TS,     ELEVEN
+SH, 11, 2010012806,   ,chunshu,   0, 213S,  590E,  35,  996, TS,     ELEVEN
+SH, 11, 2010012812,   ,chunshu,   0, 218S,  595E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010012818,   ,chunshu,   0, 228S,  596E,  35,  996, TS,     ELEVEN
+SH, 11, 2010012900,   ,chunshu,   0, 240S,  590E,  35,  996, TS,     ELEVEN
+SH, 11, 2010012906,   ,chunshu,   0, 250S,  598E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010012912,   ,chunshu,   0, 265S,  598E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010012918,   ,chunshu,   0, 274S,  605E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010013000,   ,chunshu,   0, 284S,  610E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010013006,   ,chunshu,   0, 292S,  619E,  30, 1000, TD,     ELEVEN
+SH, 11, 2010013012,   ,chunshu,   0, 302S,  627E,  25, 1004, TD
+SH, 11, 2010013018,   ,chunshu,   0, 310S,  638E,  20, 1007, EX
+SH, 11, 2010013100,   ,chunshu,   0, 320S,  652E,  20, 1007, EX
+SH, 11, 2010013106,   ,chunshu,   0, 332S,  664E,  20, 1007, EX

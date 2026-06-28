@@ -1,0 +1,11 @@
+SH, 01, 2007072812,   ,chunshu,   0,  59S,  866E,  30, 1000, TD,     INVEST
+SH, 01, 2007072818,   ,chunshu,   0,  68S,  875E,  30, 1000, TD,     INVEST
+SH, 01, 2007072900,   ,chunshu,   0,  78S,  884E,  30, 1000, TD,     INVEST
+SH, 01, 2007072906,   ,chunshu,   0,  88S,  893E,  30, 1000, TD,     INVEST
+SH, 01, 2007072912,   ,chunshu,   0,  96S,  900E,  30, 1000, TD,     INVEST
+SH, 01, 2007072918,   ,chunshu,   0, 104S,  906E,  35,  996, TS,     INVEST
+SH, 01, 2007073000,   ,chunshu,   0, 110S,  911E,  40,  993, TS,     NONAME
+SH, 01, 2007073006,   ,chunshu,   0, 116S,  915E,  35,  996, TS,     NONAME
+SH, 01, 2007073012,   ,chunshu,   0, 120S,  917E,  35,  996, TS
+SH, 01, 2007073018,   ,chunshu,   0, 123S,  914E,  25, 1004, EX
+SH, 01, 2007073100,   ,chunshu,   0, 123S,  908E,  25, 1004, EX

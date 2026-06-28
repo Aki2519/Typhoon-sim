@@ -1,0 +1,37 @@
+WP, 26, 2025092112,   ,chunshu,   0,  92N, 1408E,  15, 1009, WV,   INVEST
+WP, 26, 2025092118,   ,chunshu,   0,  93N, 1403E,  15, 1008, DB,   INVEST
+WP, 26, 2025092200,   ,chunshu,   0,  95N, 1399E,  15, 1008, DB,   INVEST
+WP, 26, 2025092206,   ,chunshu,   0,  97N, 1391E,  15, 1008, DB,   INVEST
+WP, 26, 2025092212,   ,chunshu,   0,  98N, 1383E,  15, 1008, DB,   INVEST
+WP, 26, 2025092218,   ,chunshu,   0,  99N, 1375E,  20, 1008, DB,   INVEST
+WP, 26, 2025092300,   ,chunshu,   0,  98N, 1365E,  20, 1007, DB,   INVEST
+WP, 26, 2025092306,   ,chunshu,   0,  97N, 1355E,  25, 1003, TD,   INVEST
+WP, 26, 2025092312,   ,chunshu,   0,  96N, 1346E,  30, 1003, TD,TWENTYSIX
+WP, 26, 2025092318,   ,chunshu,   0,  95N, 1337E,  35, 1000, TD,TWENTYSIX
+WP, 26, 2025092400,   ,chunshu,   0,  97N, 1327E,  40,  998, TS,   BUALOI
+WP, 26, 2025092406,   ,chunshu,   0, 100N, 1318E,  50,  995, TS,   BUALOI
+WP, 26, 2025092412,   ,chunshu,   0, 104N, 1310E,  55,  995, TS,   BUALOI
+WP, 26, 2025092418,   ,chunshu,   0, 108N, 1301E,  60,  992, TS,   BUALOI
+WP, 26, 2025092500,   ,chunshu,   0, 112N, 1291E,  65,  985, TS,   BUALOI
+WP, 26, 2025092506,   ,chunshu,   0, 115N, 1279E,  70,  982, TS,   BUALOI
+WP, 26, 2025092512,   ,chunshu,   0, 117N, 1268E,  65,  985, TS,   BUALOI
+WP, 26, 2025092518,   ,chunshu,   0, 121N, 1253E,  60,  988, TS,   BUALOI
+WP, 26, 2025092600,   ,chunshu,   0, 124N, 1232E,  60,  990, TS,   BUALOI
+WP, 26, 2025092606,   ,chunshu,   0, 128N, 1212E,  55,  990, TS,   BUALOI
+WP, 26, 2025092612,   ,chunshu,   0, 134N, 1191E,  65,  985, TS,   BUALOI
+WP, 26, 2025092618,   ,chunshu,   0, 139N, 1171E,  70,  982, TY,   BUALOI
+WP, 26, 2025092700,   ,chunshu,   0, 146N, 1151E,  75,  978, TY,   BUALOI
+WP, 26, 2025092706,   ,chunshu,   0, 153N, 1136E,  70,  980, TY,   BUALOI
+WP, 26, 2025092712,   ,chunshu,   0, 156N, 1121E,  65,  980, TY,   BUALOI
+WP, 26, 2025092718,   ,chunshu,   0, 159N, 1107E,  75,  978, TS,   BUALOI
+WP, 26, 2025092800,   ,chunshu,   0, 164N, 1094E,  80,  975, TY,   BUALOI
+WP, 26, 2025092806,   ,chunshu,   0, 171N, 1081E,  85,  972, TY,   BUALOI
+WP, 26, 2025092812,   ,chunshu,   0, 176N, 1072E,  90,  968, TY,   BUALOI
+WP, 26, 2025092818,   ,chunshu,   0, 181N, 1062E,  75,  970, TY,   BUALOI
+WP, 26, 2025092900,   ,chunshu,   0, 186N, 1052E,  65,  982, TY,   BUALOI
+WP, 26, 2025092906,   ,chunshu,   0, 194N, 1039E,  55,  985, TS,   BUALOI
+WP, 26, 2025092912,   ,chunshu,   0, 204N, 1025E,  35,  998, TS,   BUALOI
+WP, 26, 2025092918,   ,chunshu,   0, 212N, 1011E,  25, 1005, TD,   BUALOI
+WP, 26, 2025093000,   ,chunshu,   0, 220N,  997E,  25, 1005, TD,   BUALOI
+WP, 26, 2025093006,   ,chunshu,   0, 227N,  985E,  20, 1005, LO,   BUALOI
+WP, 26, 2025093012,   ,chunshu,   0, 232N,  977E,  20, 1005, LO,   BUALOI

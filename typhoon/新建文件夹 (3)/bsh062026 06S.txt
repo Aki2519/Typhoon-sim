@@ -1,0 +1,16 @@
+SH, 06, 2025120312,   ,chunshu,   0, 112S, 1579W,  15, 1010, DB,     INVEST
+SH, 06, 2025120318,   ,chunshu,   0, 116S, 1565W,  15, 1010, DB,     INVEST
+SH, 06, 2025120400,   ,chunshu,   0, 120S, 1554W,  25, 1010, TD,     INVEST
+SH, 06, 2025120406,   ,chunshu,   0, 122S, 1542W,  25, 1008, TD,     INVEST
+SH, 06, 2025120412,   ,chunshu,   0, 125S, 1528W,  30, 1005, TD,     INVEST
+SH, 06, 2025120418,   ,chunshu,   0, 128S, 1514W,  35, 1002, TS,     INVEST
+SH, 06, 2025120500,   ,chunshu,   0, 140S, 1499W,  45, 1000, TS,        SIX
+SH, 06, 2025120506,   ,chunshu,   0, 150S, 1488W,  50,  995, TS,        SIX
+SH, 06, 2025120512,   ,chunshu,   0, 161S, 1480W,  60,  990, TS,        SIX
+SH, 06, 2025120518,   ,chunshu,   0, 173S, 1473W,  45,  995, TS,        SIX
+SH, 06, 2025120600,   ,chunshu,   0, 189S, 1471W,  35, 1000, TS,        SIX
+SH, 06, 2025120606,   ,chunshu,   0, 202S, 1465W,  30, 1000, SD,        SIX
+SH, 06, 2025120612,   ,chunshu,   0, 220S, 1455W,  30, 1000, TD,        SIX
+SH, 06, 2025120618,   ,chunshu,   0, 238S, 1444W,  30, 1000, TD,        SIX
+SH, 06, 2025120700,   ,chunshu,   0, 255S, 1431W,  25, 1000, TD,        SIX
+SH, 06, 2025120706,   ,chunshu,   0, 280S, 1410W,  25, 1000, TD,        SIX

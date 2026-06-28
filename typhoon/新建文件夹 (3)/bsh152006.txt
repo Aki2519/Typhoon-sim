@@ -1,0 +1,8 @@
+SH, 15, 2006022618,   ,chunshu,   0, 167S, 1148E,  20, 1000, DB,     INVEST
+SH, 15, 2006022700,   ,chunshu,   0, 172S, 1141E,  25, 1002, TD,     INVEST
+SH, 15, 2006022706,   ,chunshu,   0, 180S, 1143E,  25, 1001, TD,     INVEST
+SH, 15, 2006022712,   ,chunshu,   0, 188S, 1147E,  25, 1002, TD,     INVEST
+SH, 15, 2006022718,   ,chunshu,   0, 195S, 1153E,  35,  997, TS,     INVEST
+SH, 15, 2006022800,   ,chunshu,   0, 204S, 1157E,  35,  997, TS,       EMMA
+SH, 15, 2006022806,   ,chunshu,   0, 215S, 1161E,  30, 1000, EX
+SH, 15, 2006022812,   ,chunshu,   0, 243S, 1170E,  25, 1004, EX

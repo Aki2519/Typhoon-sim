@@ -1,0 +1,46 @@
+SH, 22, 2007032800,   ,chunshu,   0, 134S,  760E,  15, 1010, DB
+SH, 22, 2007032806,   ,chunshu,   0, 134S,  742E,  15, 1006, DB
+SH, 22, 2007032812,   ,chunshu,   0, 135S,  727E,  15, 1006, DB
+SH, 22, 2007032818,   ,chunshu,   0, 135S,  714E,  25, 1004, TD
+SH, 22, 2007032900,   ,chunshu,   0, 135S,  705E,  25, 1002, TD
+SH, 22, 2007032906,   ,chunshu,   0, 135S,  696E,  25, 1002, TD,     INVEST
+SH, 22, 2007032912,   ,chunshu,   0, 134S,  689E,  30, 1000, TD,     INVEST
+SH, 22, 2007032918,   ,chunshu,   0, 131S,  683E,  30, 1000, TD,     INVEST
+SH, 22, 2007033000,   ,chunshu,   0, 131S,  675E,  35,  996, TS,     INVEST
+SH, 22, 2007033006,   ,chunshu,   0, 132S,  669E,  45,  989, TS,     NONAME
+SH, 22, 2007033012,   ,chunshu,   0, 134S,  662E,  55,  982, TS,     NONAME
+SH, 22, 2007033018,   ,chunshu,   0, 136S,  656E,  60,  978, TS,       JAYA
+SH, 22, 2007033100,   ,chunshu,   0, 139S,  648E,  75,  967, TY,       JAYA
+SH, 22, 2007033106,   ,chunshu,   0, 142S,  638E,  90,  956, TY,       JAYA
+SH, 22, 2007033112,   ,chunshu,   0, 145S,  627E, 100,  948, TY,       JAYA
+SH, 22, 2007033118,   ,chunshu,   0, 147S,  615E, 105,  944, TY,       JAYA
+SH, 22, 2007040100,   ,chunshu,   0, 148S,  603E, 110,  941, TY,       JAYA
+SH, 22, 2007040106,   ,chunshu,   0, 150S,  591E, 100,  948, TY,       JAYA
+SH, 22, 2007040112,   ,chunshu,   0, 151S,  579E, 100,  948, TY,       JAYA
+SH, 22, 2007040118,   ,chunshu,   0, 151S,  568E,  95,  952, TY,       JAYA
+SH, 22, 2007040200,   ,chunshu,   0, 150S,  557E,  95,  952, TY,       JAYA
+SH, 22, 2007040206,   ,chunshu,   0, 152S,  546E, 100,  948, TY,       JAYA
+SH, 22, 2007040212,   ,chunshu,   0, 153S,  536E, 105,  944, TY,       JAYA
+SH, 22, 2007040218,   ,chunshu,   0, 151S,  526E, 105,  944, TY,       JAYA
+SH, 22, 2007040300,   ,chunshu,   0, 149S,  516E,  95,  952, TY,       JAYA
+SH, 22, 2007040306,   ,chunshu,   0, 146S,  505E,  80,  963, TY,       JAYA
+SH, 22, 2007040312,   ,chunshu,   0, 146S,  494E,  65,  974, TY,       JAYA
+SH, 22, 2007040318,   ,chunshu,   0, 149S,  481E,  55,  982, TS,       JAYA
+SH, 22, 2007040400,   ,chunshu,   0, 150S,  471E,  45,  991, TC,       JAYA
+SH, 22, 2007040406,   ,chunshu,   0, 133S,  453E,  25, 1004, TD
+SH, 22, 2007040412,   ,chunshu,   0, 138S,  440E,  25, 1004, TD
+SH, 22, 2007040418,   ,chunshu,   0, 142S,  432E,  20, 1004, TD
+SH, 22, 2007040500,   ,chunshu,   0, 143S,  427E,  20, 1004, DB
+SH, 22, 2007040506,   ,chunshu,   0, 145S,  419E,  25, 1002, DB
+SH, 22, 2007040512,   ,chunshu,   0, 150S,  416E,  30, 1000, DB,       JAYA
+SH, 22, 2007040518,   ,chunshu,   0, 156S,  414E,  30, 1000, DB,       JAYA
+SH, 22, 2007040600,   ,chunshu,   0, 166S,  408E,  30, 1000, DB,       JAYA
+SH, 22, 2007040606,   ,chunshu,   0, 167S,  405E,  30, 1000, DB,       JAYA
+SH, 22, 2007040612,   ,chunshu,   0, 170S,  401E,  30, 1000, DB
+SH, 22, 2007040618,   ,chunshu,   0, 172S,  398E,  30, 1000, DB
+SH, 22, 2007040700,   ,chunshu,   0, 178S,  396E,  25, 1002, DB
+SH, 22, 2007040706,   ,chunshu,   0, 182S,  397E,  25, 1002, DB
+SH, 22, 2007040712,   ,chunshu,   0, 185S,  403E,  25, 1002, DB
+SH, 22, 2007040718,   ,chunshu,   0, 184S,  412E,  25, 1002, DB,       JAYA
+SH, 22, 2007040800,   ,chunshu,   0, 177S,  407E,  25, 1002, DB,       JAYA
+SH, 22, 2007040806,   ,chunshu,   0, 173S,  404E,  25, 1002, DB

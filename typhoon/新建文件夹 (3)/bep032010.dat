@@ -1,0 +1,32 @@
+EP, 03, 2010061506,   ,chunshu,   0, 146N, 1053W,  20, 1008, LO
+EP, 03, 2010061512,   ,chunshu,   0, 147N, 1052W,  25, 1007, LO,     INVEST
+EP, 03, 2010061518,   ,chunshu,   0, 149N, 1053W,  25, 1007, LO,     INVEST
+EP, 03, 2010061600,   ,chunshu,   0, 150N, 1055W,  25, 1007, LO,     INVEST
+EP, 03, 2010061606,   ,chunshu,   0, 148N, 1057W,  25, 1007, LO
+EP, 03, 2010061612,   ,chunshu,   0, 146N, 1056W,  25, 1007, LO,     INVEST
+EP, 03, 2010061618,   ,chunshu,   0, 147N, 1054W,  25, 1007, LO,     INVEST
+EP, 03, 2010061700,   ,chunshu,   0, 148N, 1054W,  25, 1007, LO,     INVEST
+EP, 03, 2010061706,   ,chunshu,   0, 149N, 1055W,  30, 1005, TD,     INVEST
+EP, 03, 2010061712,   ,chunshu,   0, 150N, 1057W,  35, 1003, TS,      THREE
+EP, 03, 2010061718,   ,chunshu,   0, 152N, 1060W,  40, 1001, TS,       BLAS
+EP, 03, 2010061800,   ,chunshu,   0, 154N, 1064W,  40, 1000, TS,       BLAS
+EP, 03, 2010061806,   ,chunshu,   0, 156N, 1068W,  40, 1000, TS,       BLAS
+EP, 03, 2010061812,   ,chunshu,   0, 158N, 1073W,  40, 1000, TS,       BLAS
+EP, 03, 2010061818,   ,chunshu,   0, 161N, 1078W,  40, 1000, TS,       BLAS
+EP, 03, 2010061900,   ,chunshu,   0, 163N, 1084W,  45,  999, TS,       BLAS
+EP, 03, 2010061906,   ,chunshu,   0, 164N, 1090W,  50,  996, TS,       BLAS
+EP, 03, 2010061912,   ,chunshu,   0, 165N, 1096W,  55,  994, TS,       BLAS
+EP, 03, 2010061918,   ,chunshu,   0, 167N, 1103W,  55,  994, TS,       BLAS
+EP, 03, 2010062000,   ,chunshu,   0, 170N, 1111W,  50,  996, TS,       BLAS
+EP, 03, 2010062006,   ,chunshu,   0, 173N, 1120W,  45,  999, TS,       BLAS
+EP, 03, 2010062012,   ,chunshu,   0, 176N, 1130W,  40, 1002, TS,       BLAS
+EP, 03, 2010062018,   ,chunshu,   0, 177N, 1142W,  35, 1005, TS,       BLAS
+EP, 03, 2010062100,   ,chunshu,   0, 178N, 1154W,  30, 1007, TD,       BLAS
+EP, 03, 2010062106,   ,chunshu,   0, 178N, 1167W,  30, 1008, TD,       BLAS
+EP, 03, 2010062112,   ,chunshu,   0, 176N, 1179W,  30, 1009, TD,       BLAS
+EP, 03, 2010062118,   ,chunshu,   0, 173N, 1192W,  25, 1009, LO,       BLAS
+EP, 03, 2010062200,   ,chunshu,   0, 170N, 1205W,  25, 1009, LO
+EP, 03, 2010062206,   ,chunshu,   0, 167N, 1218W,  25, 1010, LO
+EP, 03, 2010062212,   ,chunshu,   0, 165N, 1232W,  25, 1010, LO
+EP, 03, 2010062218,   ,chunshu,   0, 163N, 1246W,  25, 1010, LO
+EP, 03, 2010062300,   ,chunshu,   0, 162N, 1259W,  25, 1011, LO

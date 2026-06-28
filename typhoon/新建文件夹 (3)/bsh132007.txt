@@ -1,0 +1,26 @@
+SH, 13, 2007020518,   ,chunshu,   0, 191S,  502E,  20, 1004, DB
+SH, 13, 2007020600,   ,chunshu,   0, 191S,  504E,  20, 1007, DB,     INVEST
+SH, 13, 2007020606,   ,chunshu,   0, 189S,  505E,  20, 1007, DB,     INVEST
+SH, 13, 2007020612,   ,chunshu,   0, 186S,  504E,  20, 1007, DB,     INVEST
+SH, 13, 2007020618,   ,chunshu,   0, 184S,  502E,  20, 1007, DB,     INVEST
+SH, 13, 2007020700,   ,chunshu,   0, 181S,  501E,  25, 1004, DB,     INVEST
+SH, 13, 2007020706,   ,chunshu,   0, 176S,  501E,  25, 1002, DB,     INVEST
+SH, 13, 2007020712,   ,chunshu,   0, 171S,  504E,  25, 1004, DB,     INVEST
+SH, 13, 2007020718,   ,chunshu,   0, 166S,  508E,  25, 1004, DB,     INVEST
+SH, 13, 2007020800,   ,chunshu,   0, 162S,  511E,  30, 1000, DB,     INVEST
+SH, 13, 2007020806,   ,chunshu,   0, 157S,  515E,  30, 1000, DB,     INVEST
+SH, 13, 2007020812,   ,chunshu,   0, 158S,  519E,  30, 1000, DB,     INVEST
+SH, 13, 2007020818,   ,chunshu,   0, 155S,  523E,  30, 1000, DB,     INVEST
+SH, 13, 2007020900,   ,chunshu,   0, 153S,  529E,  30, 1000, DB,     INVEST
+SH, 13, 2007020906,   ,chunshu,   0, 152S,  540E,  35,  997, TC,     INVEST
+SH, 13, 2007020912,   ,chunshu,   0, 151S,  556E,  40,  994, TC,     NONAME
+SH, 13, 2007020918,   ,chunshu,   0, 156S,  574E,  50,  987, TC,     NONAME
+SH, 13, 2007021000,   ,chunshu,   0, 162S,  592E,  55,  984, TC,       ENOK
+SH, 13, 2007021006,   ,chunshu,   0, 172S,  607E,  55,  981, TC,       ENOK
+SH, 13, 2007021012,   ,chunshu,   0, 182S,  622E,  50,  987, TC,       ENOK
+SH, 13, 2007021018,   ,chunshu,   0, 194S,  632E,  40,  993, TS,       ENOK
+SH, 13, 2007021100,   ,chunshu,   0, 207S,  640E,  35,  996, TS,       ENOK
+SH, 13, 2007021106,   ,chunshu,   0, 219S,  642E,  35,  997, TC,       ENOK
+SH, 13, 2007021112,   ,chunshu,   0, 228S,  647E,  30, 1000, DB
+SH, 13, 2007021118,   ,chunshu,   0, 233S,  646E,  25, 1004, DB
+SH, 13, 2007021200,   ,chunshu,   0, 236S,  641E,  25, 1004, DB

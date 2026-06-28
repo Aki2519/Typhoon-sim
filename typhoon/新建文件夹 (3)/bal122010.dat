@@ -1,0 +1,51 @@
+AL, 12, 2010091206,   ,chunshu,   0, 129N,  205W,  30, 1007, TD,     INVEST
+AL, 12, 2010091212,   ,chunshu,   0, 130N,  213W,  30, 1006, TD,     TWELVE
+AL, 12, 2010091218,   ,chunshu,   0, 131N,  221W,  35, 1005, TS,     TWELVE
+AL, 12, 2010091300,   ,chunshu,   0, 135N,  231W,  40, 1004, TS,     TWELVE
+AL, 12, 2010091306,   ,chunshu,   0, 140N,  242W,  40, 1004, TS,      JULIA
+AL, 12, 2010091312,   ,chunshu,   0, 145N,  254W,  40, 1004, TS,      JULIA
+AL, 12, 2010091318,   ,chunshu,   0, 150N,  265W,  45, 1003, TS,      JULIA
+AL, 12, 2010091400,   ,chunshu,   0, 153N,  275W,  45, 1002, TS,      JULIA
+AL, 12, 2010091406,   ,chunshu,   0, 156N,  284W,  60,  994, TS,      JULIA
+AL, 12, 2010091412,   ,chunshu,   0, 159N,  292W,  70,  987, HU,      JULIA
+AL, 12, 2010091418,   ,chunshu,   0, 161N,  299W,  80,  979, HU,      JULIA
+AL, 12, 2010091500,   ,chunshu,   0, 164N,  306W,  90,  973, HU,      JULIA
+AL, 12, 2010091506,   ,chunshu,   0, 169N,  314W, 110,  956, HU,      JULIA
+AL, 12, 2010091512,   ,chunshu,   0, 177N,  322W, 120,  948, HU,      JULIA
+AL, 12, 2010091518,   ,chunshu,   0, 188N,  330W, 115,  951, HU,      JULIA
+AL, 12, 2010091600,   ,chunshu,   0, 199N,  341W, 105,  958, HU,      JULIA
+AL, 12, 2010091606,   ,chunshu,   0, 209N,  358W, 100,  962, HU,      JULIA
+AL, 12, 2010091612,   ,chunshu,   0, 218N,  377W,  90,  970, HU,      JULIA
+AL, 12, 2010091618,   ,chunshu,   0, 227N,  400W,  80,  977, HU,      JULIA
+AL, 12, 2010091700,   ,chunshu,   0, 231N,  420W,  75,  981, HU,      JULIA
+AL, 12, 2010091706,   ,chunshu,   0, 235N,  440W,  75,  981, HU,      JULIA
+AL, 12, 2010091712,   ,chunshu,   0, 239N,  458W,  70,  983, HU,      JULIA
+AL, 12, 2010091718,   ,chunshu,   0, 246N,  474W,  65,  986, HU,      JULIA
+AL, 12, 2010091800,   ,chunshu,   0, 256N,  487W,  60,  988, TS,      JULIA
+AL, 12, 2010091806,   ,chunshu,   0, 269N,  498W,  55,  991, TS,      JULIA
+AL, 12, 2010091812,   ,chunshu,   0, 283N,  507W,  50,  994, TS,      JULIA
+AL, 12, 2010091818,   ,chunshu,   0, 298N,  514W,  50,  993, TS,      JULIA
+AL, 12, 2010091900,   ,chunshu,   0, 314N,  518W,  55,  989, TS,      JULIA
+AL, 12, 2010091906,   ,chunshu,   0, 328N,  520W,  50,  993, TS,      JULIA
+AL, 12, 2010091912,   ,chunshu,   0, 339N,  514W,  45,  995, TS,      JULIA
+AL, 12, 2010091918,   ,chunshu,   0, 346N,  502W,  45,  995, TS,      JULIA
+AL, 12, 2010092000,   ,chunshu,   0, 349N,  492W,  45,  995, TS,      JULIA
+AL, 12, 2010092006,   ,chunshu,   0, 349N,  480W,  40,  997, TS,      JULIA
+AL, 12, 2010092012,   ,chunshu,   0, 347N,  469W,  40,  999, TS,      JULIA
+AL, 12, 2010092018,   ,chunshu,   0, 346N,  460W,  40, 1002, LO
+AL, 12, 2010092100,   ,chunshu,   0, 344N,  451W,  40, 1003, LO
+AL, 12, 2010092106,   ,chunshu,   0, 344N,  441W,  35, 1004, LO
+AL, 12, 2010092112,   ,chunshu,   0, 345N,  430W,  35, 1005, LO
+AL, 12, 2010092118,   ,chunshu,   0, 345N,  419W,  30, 1006, LO
+AL, 12, 2010092200,   ,chunshu,   0, 343N,  409W,  30, 1007, LO
+AL, 12, 2010092206,   ,chunshu,   0, 339N,  399W,  30, 1007, LO
+AL, 12, 2010092212,   ,chunshu,   0, 336N,  388W,  30, 1007, LO
+AL, 12, 2010092218,   ,chunshu,   0, 332N,  380W,  30, 1008, LO
+AL, 12, 2010092300,   ,chunshu,   0, 330N,  378W,  30, 1008, LO
+AL, 12, 2010092306,   ,chunshu,   0, 327N,  377W,  30, 1009, LO
+AL, 12, 2010092312,   ,chunshu,   0, 324N,  378W,  30, 1009, LO,      JULIA
+AL, 12, 2010092318,   ,chunshu,   0, 320N,  386W,  30, 1010, LO,      JULIA
+AL, 12, 2010092400,   ,chunshu,   0, 315N,  400W,  30, 1010, LO
+AL, 12, 2010092406,   ,chunshu,   0, 312N,  416W,  30, 1011, LO
+AL, 12, 2010092412,   ,chunshu,   0, 309N,  431W,  30, 1011, LO,      JULIA
+AL, 12, 2010092418,   ,chunshu,   0, 306N,  443W,  30, 1012, LO

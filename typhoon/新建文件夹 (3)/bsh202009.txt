@@ -1,0 +1,19 @@
+SH, 20, 2009031000,   ,chunshu,   0, 186S, 1562W,  25, 1004, TD,     INVEST
+SH, 20, 2009031006,   ,chunshu,   0, 191S, 1568W,  25, 1004, TD,     INVEST
+SH, 20, 2009031012,   ,chunshu,   0, 196S, 1574W,  25, 1004, TD,     INVEST
+SH, 20, 2009031018,   ,chunshu,   0, 201S, 1577W,  30, 1000, TD,     INVEST
+SH, 20, 2009031100,   ,chunshu,   0, 206S, 1579W,  30, 1000, TD,     INVEST
+SH, 20, 2009031106,   ,chunshu,   0, 211S, 1581W,  35,  996, TS,     INVEST
+SH, 20, 2009031112,   ,chunshu,   0, 217S, 1582W,  40,  993, TS,     TWENTY
+SH, 20, 2009031118,   ,chunshu,   0, 221S, 1582W,  55,  982, TS,       JONI
+SH, 20, 2009031200,   ,chunshu,   0, 226S, 1587W,  55,  982, TS,       JONI
+SH, 20, 2009031206,   ,chunshu,   0, 233S, 1588W,  55,  982, TS,       JONI
+SH, 20, 2009031212,   ,chunshu,   0, 239S, 1591W,  55,  982, TS,       JONI
+SH, 20, 2009031218,   ,chunshu,   0, 249S, 1593W,  55,  982, TS,       JONI
+SH, 20, 2009031300,   ,chunshu,   0, 261S, 1593W,  55,  982, TS,       JONI
+SH, 20, 2009031306,   ,chunshu,   0, 277S, 1592W,  55,  982, TS,       JONI
+SH, 20, 2009031312,   ,chunshu,   0, 294S, 1592W,  45,  989, TS,       JONI
+SH, 20, 2009031318,   ,chunshu,   0, 315S, 1588W,  35,  996, TS,       JONI
+SH, 20, 2009031400,   ,chunshu,   0, 339S, 1583W,  35,  996, TS,       JONI
+SH, 20, 2009031406,   ,chunshu,   0, 358S, 1575W,  35,  996, TS
+SH, 20, 2009031412,   ,chunshu,   0, 374S, 1561W,  30, 1000, TD

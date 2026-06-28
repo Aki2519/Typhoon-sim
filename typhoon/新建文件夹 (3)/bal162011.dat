@@ -1,0 +1,59 @@
+AL, 16, 2011092006,   ,chunshu,   0, 116N,  370W,  25, 1008, LO,     INVEST
+AL, 16, 2011092012,   ,chunshu,   0, 119N,  377W,  25, 1007, LO,     INVEST
+AL, 16, 2011092018,   ,chunshu,   0, 122N,  386W,  30, 1007, TD,     INVEST
+AL, 16, 2011092100,   ,chunshu,   0, 125N,  397W,  40, 1005, TS,    OPHELIA
+AL, 16, 2011092106,   ,chunshu,   0, 127N,  411W,  45, 1004, TS,    OPHELIA
+AL, 16, 2011092112,   ,chunshu,   0, 129N,  426W,  50,  999, TS,    OPHELIA
+AL, 16, 2011092118,   ,chunshu,   0, 131N,  441W,  50,  999, TS,    OPHELIA
+AL, 16, 2011092200,   ,chunshu,   0, 133N,  452W,  50,  998, TS,    OPHELIA
+AL, 16, 2011092206,   ,chunshu,   0, 135N,  463W,  55,  993, TS,    OPHELIA
+AL, 16, 2011092212,   ,chunshu,   0, 137N,  473W,  55,  993, TS,    OPHELIA
+AL, 16, 2011092218,   ,chunshu,   0, 139N,  483W,  50,  997, TS,    OPHELIA
+AL, 16, 2011092300,   ,chunshu,   0, 141N,  494W,  45, 1000, TS,    OPHELIA
+AL, 16, 2011092306,   ,chunshu,   0, 144N,  505W,  40, 1003, TS,    OPHELIA
+AL, 16, 2011092312,   ,chunshu,   0, 147N,  517W,  45, 1003, TS,    OPHELIA
+AL, 16, 2011092318,   ,chunshu,   0, 152N,  529W,  50, 1001, TS,    OPHELIA
+AL, 16, 2011092400,   ,chunshu,   0, 158N,  540W,  45, 1004, TS,    OPHELIA
+AL, 16, 2011092406,   ,chunshu,   0, 165N,  548W,  45, 1005, TS,    OPHELIA
+AL, 16, 2011092412,   ,chunshu,   0, 172N,  559W,  45, 1005, TS,    OPHELIA
+AL, 16, 2011092418,   ,chunshu,   0, 176N,  570W,  40, 1007, TS,    OPHELIA
+AL, 16, 2011092500,   ,chunshu,   0, 179N,  580W,  40, 1008, TS,    OPHELIA
+AL, 16, 2011092506,   ,chunshu,   0, 182N,  590W,  35, 1008, TS,    OPHELIA
+AL, 16, 2011092512,   ,chunshu,   0, 184N,  598W,  30, 1010, LO,    OPHELIA
+AL, 16, 2011092518,   ,chunshu,   0, 186N,  605W,  30, 1012, LO,    OPHELIA
+AL, 16, 2011092600,   ,chunshu,   0, 185N,  608W,  25, 1012, DB
+AL, 16, 2011092606,   ,chunshu,   0, 183N,  607W,  25, 1012, DB
+AL, 16, 2011092612,   ,chunshu,   0, 180N,  605W,  25, 1012, DB
+AL, 16, 2011092618,   ,chunshu,   0, 178N,  602W,  25, 1012, DB
+AL, 16, 2011092700,   ,chunshu,   0, 176N,  599W,  25, 1012, DB
+AL, 16, 2011092706,   ,chunshu,   0, 176N,  595W,  25, 1012, DB
+AL, 16, 2011092712,   ,chunshu,   0, 178N,  593W,  25, 1010, TD,    OPHELIA
+AL, 16, 2011092718,   ,chunshu,   0, 180N,  594W,  25, 1009, TD,    OPHELIA
+AL, 16, 2011092800,   ,chunshu,   0, 181N,  595W,  30, 1009, TD,    OPHELIA
+AL, 16, 2011092806,   ,chunshu,   0, 182N,  596W,  40, 1005, TS,    OPHELIA
+AL, 16, 2011092812,   ,chunshu,   0, 184N,  598W,  40, 1001, TS,    OPHELIA
+AL, 16, 2011092818,   ,chunshu,   0, 187N,  601W,  45, 1001, TS,    OPHELIA
+AL, 16, 2011092900,   ,chunshu,   0, 191N,  605W,  50,  995, TS,    OPHELIA
+AL, 16, 2011092906,   ,chunshu,   0, 196N,  609W,  55,  995, TS,    OPHELIA
+AL, 16, 2011092912,   ,chunshu,   0, 202N,  614W,  55,  991, TS,    OPHELIA
+AL, 16, 2011092918,   ,chunshu,   0, 210N,  619W,  65,  987, HU,    OPHELIA
+AL, 16, 2011093000,   ,chunshu,   0, 216N,  623W,  70,  982, HU,    OPHELIA
+AL, 16, 2011093006,   ,chunshu,   0, 224N,  627W,  85,  971, HU,    OPHELIA
+AL, 16, 2011093012,   ,chunshu,   0, 234N,  630W,  95,  966, HU,    OPHELIA
+AL, 16, 2011093018,   ,chunshu,   0, 246N,  633W, 100,  959, HU,    OPHELIA
+AL, 16, 2011100100,   ,chunshu,   0, 259N,  633W, 105,  955, HU,    OPHELIA
+AL, 16, 2011100106,   ,chunshu,   0, 273N,  632W, 105,  951, HU,    OPHELIA
+AL, 16, 2011100112,   ,chunshu,   0, 289N,  631W, 105,  948, HU,    OPHELIA
+AL, 16, 2011100118,   ,chunshu,   0, 307N,  629W, 110,  946, HU,    OPHELIA
+AL, 16, 2011100200,   ,chunshu,   0, 328N,  625W, 120,  940, HU,    OPHELIA
+AL, 16, 2011100206,   ,chunshu,   0, 350N,  621W, 110,  945, HU,    OPHELIA
+AL, 16, 2011100212,   ,chunshu,   0, 374N,  616W, 105,  951, HU,    OPHELIA
+AL, 16, 2011100218,   ,chunshu,   0, 401N,  608W,  90,  960, HU,    OPHELIA
+AL, 16, 2011100300,   ,chunshu,   0, 428N,  596W,  70,  972, HU,    OPHELIA
+AL, 16, 2011100306,   ,chunshu,   0, 454N,  576W,  60,  980, TS,    OPHELIA
+AL, 16, 2011100310,   ,chunshu,   0, 469N,  554W,  60,  990, EX
+AL, 16, 2011100312,   ,chunshu,   0, 474N,  540W,  50,  994, EX,    OPHELIA
+AL, 16, 2011100318,   ,chunshu,   0, 489N,  492W,  45,  994, EX
+AL, 16, 2011100400,   ,chunshu,   0, 499N,  436W,  40,  994, EX
+AL, 16, 2011100406,   ,chunshu,   0, 506N,  378W,  40,  996, EX
+AL, 16, 2011100412,   ,chunshu,   0, 513N,  319W,  40,  996, EX

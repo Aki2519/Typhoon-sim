@@ -1,0 +1,44 @@
+SH, 05, 2006121600,   ,chunshu,   0,  73S,  691E,  15, 1006, DB
+SH, 05, 2006121606,   ,chunshu,   0,  73S,  682E,  15, 1006, DB
+SH, 05, 2006121612,   ,chunshu,   0,  78S,  672E,  20, 1004, DB
+SH, 05, 2006121618,   ,chunshu,   0,  86S,  665E,  25, 1002, TD,     INVEST
+SH, 05, 2006121700,   ,chunshu,   0,  93S,  658E,  25, 1002, TD,     INVEST
+SH, 05, 2006121706,   ,chunshu,   0,  99S,  656E,  30, 1000, TD,     INVEST
+SH, 05, 2006121712,   ,chunshu,   0, 104S,  654E,  30, 1000, TD,     INVEST
+SH, 05, 2006121718,   ,chunshu,   0, 107S,  650E,  30, 1000, TD,     INVEST
+SH, 05, 2006121800,   ,chunshu,   0, 108S,  644E,  35,  997, TS,     INVEST
+SH, 05, 2006121806,   ,chunshu,   0, 110S,  637E,  40,  994, TS,     INVEST
+SH, 05, 2006121812,   ,chunshu,   0, 111S,  626E,  40,  993, TS,     NONAME
+SH, 05, 2006121818,   ,chunshu,   0, 111S,  614E,  55,  984, TS,     NONAME
+SH, 05, 2006121900,   ,chunshu,   0, 108S,  603E,  65,  976, TY,      BONDO
+SH, 05, 2006121906,   ,chunshu,   0, 105S,  594E,  90,  956, TY,      BONDO
+SH, 05, 2006121912,   ,chunshu,   0, 106S,  585E, 115,  927, TY,      BONDO
+SH, 05, 2006121918,   ,chunshu,   0, 107S,  574E, 135,  904, ST,      BONDO
+SH, 05, 2006122000,   ,chunshu,   0, 108S,  560E, 135,  904, ST,      BONDO
+SH, 05, 2006122006,   ,chunshu,   0, 106S,  550E, 130,  910, ST,      BONDO
+SH, 05, 2006122012,   ,chunshu,   0, 102S,  541E, 120,  922, TY,      BONDO
+SH, 05, 2006122018,   ,chunshu,   0,  99S,  531E, 115,  927, TY,      BONDO
+SH, 05, 2006122100,   ,chunshu,   0,  96S,  522E, 105,  938, TY,      BONDO
+SH, 05, 2006122106,   ,chunshu,   0,  95S,  515E, 115,  927, TY,      BONDO
+SH, 05, 2006122112,   ,chunshu,   0,  98S,  510E, 110,  933, TY,      BONDO
+SH, 05, 2006122118,   ,chunshu,   0, 102S,  506E, 105,  938, TY,      BONDO
+SH, 05, 2006122200,   ,chunshu,   0, 104S,  503E,  90,  954, TC,      BONDO
+SH, 05, 2006122206,   ,chunshu,   0, 106S,  501E,  75,  967, TY,      BONDO
+SH, 05, 2006122212,   ,chunshu,   0, 107S,  500E,  75,  967, TY,      BONDO
+SH, 05, 2006122218,   ,chunshu,   0, 108S,  499E,  75,  967, TY,      BONDO
+SH, 05, 2006122300,   ,chunshu,   0, 110S,  499E,  75,  967, TY,      BONDO
+SH, 05, 2006122306,   ,chunshu,   0, 115S,  497E,  75,  967, TY,      BONDO
+SH, 05, 2006122312,   ,chunshu,   0, 117S,  493E,  90,  954, TY,      BONDO
+SH, 05, 2006122318,   ,chunshu,   0, 118S,  489E, 100,  944, TY,      BONDO
+SH, 05, 2006122400,   ,chunshu,   0, 123S,  486E, 115,  927, TY,      BONDO
+SH, 05, 2006122406,   ,chunshu,   0, 127S,  481E, 110,  941, TY,      BONDO
+SH, 05, 2006122412,   ,chunshu,   0, 132S,  477E, 110,  941, TY,      BONDO
+SH, 05, 2006122418,   ,chunshu,   0, 137S,  474E, 100,  948, TY,      BONDO
+SH, 05, 2006122500,   ,chunshu,   0, 144S,  472E,  95,  952, TY,      BONDO
+SH, 05, 2006122506,   ,chunshu,   0, 149S,  468E,  80,  963, TY,      BONDO
+SH, 05, 2006122512,   ,chunshu,   0, 154S,  465E,  70,  970, TY,      BONDO
+SH, 05, 2006122518,   ,chunshu,   0, 163S,  462E,  50,  987, TS,      BONDO
+SH, 05, 2006122600,   ,chunshu,   0, 175S,  459E,  35,  997, TS,      BONDO
+SH, 05, 2006122606,   ,chunshu,   0, 189S,  452E,  25, 1002, TD,      BONDO
+SH, 05, 2006122612,   ,chunshu,   0, 197S,  439E,  25, 1004, DB,      BONDO
+SH, 05, 2006122618,   ,chunshu,   0, 206S,  428E,  20, 1004, DB

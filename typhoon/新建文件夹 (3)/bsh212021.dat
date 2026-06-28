@@ -1,0 +1,34 @@
+SH, 21, 2021021400,   ,chunshu,   0, 236S,  323E,  20, 1007, SD, 
+SH, 21, 2021021406,   ,chunshu,   0, 234S,  324E,  20, 1007, SD, 
+SH, 21, 2021021412,   ,chunshu,   0, 232S,  325E,  20, 1007, SD, 
+SH, 21, 2021021418,   ,chunshu,   0, 229S,  326E,  20, 1002, DB, 
+SH, 21, 2021021500,   ,chunshu,   0, 227S,  328E,  25,  999, SD
+SH, 21, 2021021506,   ,chunshu,   0, 224S,  331E,  25, 1000, SD,     INVEST
+SH, 21, 2021021512,   ,chunshu,   0, 220S,  337E,  25,  997, SD,     INVEST
+SH, 21, 2021021518,   ,chunshu,   0, 219S,  343E,  25,  997, SD,     INVEST
+SH, 21, 2021021600,   ,chunshu,   0, 217S,  352E,  25, 1002, SD,     INVEST
+SH, 21, 2021021606,   ,chunshu,   0, 217S,  356E,  25, 1001, SD,     INVEST
+SH, 21, 2021021612,   ,chunshu,   0, 215S,  361E,  25,  998, TD,     INVEST
+SH, 21, 2021021618,   ,chunshu,   0, 212S,  366E,  30, 1000, TD,     INVEST
+SH, 21, 2021021700,   ,chunshu,   0, 212S,  370E,  30,  999, TD,     INVEST
+SH, 21, 2021021706,   ,chunshu,   0, 213S,  372E,  35,  993, TS,     INVEST
+SH, 21, 2021021712,   ,chunshu,   0, 215S,  374E,  40,  994, TS,     INVEST
+SH, 21, 2021021718,   ,chunshu,   0, 218S,  376E,  45,  991, TS,     INVEST
+SH, 21, 2021021800,   ,chunshu,   0, 222S,  377E,  45,  992, TS,     GUAMBE
+SH, 21, 2021021806,   ,chunshu,   0, 226S,  377E,  50,  991, TS,     GUAMBE
+SH, 21, 2021021812,   ,chunshu,   0, 232S,  375E,  55,  983, TS,     GUAMBE
+SH, 21, 2021021818,   ,chunshu,   0, 235S,  374E,  55,  984, TS,     GUAMBE
+SH, 21, 2021021900,   ,chunshu,   0, 241S,  372E,  60,  981, TS,     GUAMBE
+SH, 21, 2021021906,   ,chunshu,   0, 244S,  369E,  75,  974, TY,     GUAMBE
+SH, 21, 2021021912,   ,chunshu,   0, 249S,  365E,  90,  960, TY,     GUAMBE
+SH, 21, 2021021918,   ,chunshu,   0, 250S,  364E,  85,  965, TY,     GUAMBE
+SH, 21, 2021022000,   ,chunshu,   0, 255S,  362E,  70,  975, TY,     GUAMBE
+SH, 21, 2021022006,   ,chunshu,   0, 258S,  361E,  60,  978, TS,     GUAMBE
+SH, 21, 2021022012,   ,chunshu,   0, 268S,  365E,  60,  980, TS,     GUAMBE
+SH, 21, 2021022018,   ,chunshu,   0, 274S,  368E,  60,  982, TS,     GUAMBE
+SH, 21, 2021022100,   ,chunshu,   0, 287S,  376E,  55,  986, TS,     GUAMBE
+SH, 21, 2021022106,   ,chunshu,   0, 297S,  383E,  50,  987, TS,     GUAMBE
+SH, 21, 2021022112,   ,chunshu,   0, 309S,  392E,  50,  988, TS,     GUAMBE
+SH, 21, 2021022118,   ,chunshu,   0, 325S,  413E,  55,  981, TS,     GUAMBE
+SH, 21, 2021022200,   ,chunshu,   0, 339S,  445E,  55,  980, EX,     GUAMBE
+SH, 21, 2021022206,   ,chunshu,   0, 371S,  486E,  55,  982, EX,     GUAMBE

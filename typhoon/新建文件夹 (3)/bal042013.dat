@@ -1,0 +1,51 @@
+AL, 04, 2013072218,   ,chunshu,   0, 113N,  200W,  25, 1009, LO,     INVEST
+AL, 04, 2013072300,   ,chunshu,   0, 115N,  209W,  25, 1009, LO,     INVEST
+AL, 04, 2013072306,   ,chunshu,   0, 117N,  218W,  25, 1009, LO,     INVEST
+AL, 04, 2013072312,   ,chunshu,   0, 120N,  228W,  25, 1009, LO,     INVEST
+AL, 04, 2013072318,   ,chunshu,   0, 124N,  239W,  25, 1008, TD,     INVEST
+AL, 04, 2013072400,   ,chunshu,   0, 130N,  254W,  30, 1007, TD,     INVEST
+AL, 04, 2013072406,   ,chunshu,   0, 135N,  271W,  35, 1006, TS,       FOUR
+AL, 04, 2013072412,   ,chunshu,   0, 139N,  290W,  40, 1005, TS,     DORIAN
+AL, 04, 2013072418,   ,chunshu,   0, 144N,  308W,  45, 1004, TS,     DORIAN
+AL, 04, 2013072500,   ,chunshu,   0, 149N,  324W,  45, 1004, TS,     DORIAN
+AL, 04, 2013072506,   ,chunshu,   0, 153N,  339W,  50, 1002, TS,     DORIAN
+AL, 04, 2013072512,   ,chunshu,   0, 157N,  355W,  50, 1002, TS,     DORIAN
+AL, 04, 2013072518,   ,chunshu,   0, 160N,  371W,  50, 1003, TS,     DORIAN
+AL, 04, 2013072600,   ,chunshu,   0, 164N,  387W,  45, 1005, TS,     DORIAN
+AL, 04, 2013072606,   ,chunshu,   0, 169N,  407W,  45, 1006, TS,     DORIAN
+AL, 04, 2013072612,   ,chunshu,   0, 173N,  428W,  45, 1008, TS,     DORIAN
+AL, 04, 2013072618,   ,chunshu,   0, 176N,  450W,  40, 1010, TS,     DORIAN
+AL, 04, 2013072700,   ,chunshu,   0, 178N,  471W,  35, 1012, TS,     DORIAN
+AL, 04, 2013072706,   ,chunshu,   0, 180N,  492W,  35, 1012, TS,     DORIAN
+AL, 04, 2013072712,   ,chunshu,   0, 183N,  511W,  35, 1012, TS,     DORIAN
+AL, 04, 2013072718,   ,chunshu,   0, 186N,  530W,  35, 1012, DB,     DORIAN
+AL, 04, 2013072800,   ,chunshu,   0, 190N,  549W,  35, 1012, DB
+AL, 04, 2013072806,   ,chunshu,   0, 194N,  568W,  35, 1013, DB
+AL, 04, 2013072812,   ,chunshu,   0, 198N,  586W,  35, 1013, DB,     INVEST
+AL, 04, 2013072818,   ,chunshu,   0, 201N,  603W,  30, 1013, DB,     DORIAN
+AL, 04, 2013072900,   ,chunshu,   0, 204N,  620W,  25, 1014, DB,     DORIAN
+AL, 04, 2013072906,   ,chunshu,   0, 206N,  637W,  25, 1014, DB,     DORIAN
+AL, 04, 2013072912,   ,chunshu,   0, 208N,  653W,  25, 1015, DB,     DORIAN
+AL, 04, 2013072918,   ,chunshu,   0, 210N,  669W,  25, 1015, DB,     DORIAN
+AL, 04, 2013073000,   ,chunshu,   0, 213N,  685W,  25, 1015, DB,     DORIAN
+AL, 04, 2013073006,   ,chunshu,   0, 215N,  698W,  25, 1015, DB
+AL, 04, 2013073012,   ,chunshu,   0, 217N,  710W,  25, 1015, DB
+AL, 04, 2013073018,   ,chunshu,   0, 219N,  722W,  25, 1015, DB
+AL, 04, 2013073100,   ,chunshu,   0, 221N,  733W,  25, 1015, DB
+AL, 04, 2013073106,   ,chunshu,   0, 224N,  744W,  25, 1015, DB
+AL, 04, 2013073112,   ,chunshu,   0, 226N,  753W,  25, 1015, DB
+AL, 04, 2013073118,   ,chunshu,   0, 228N,  759W,  25, 1015, DB
+AL, 04, 2013080100,   ,chunshu,   0, 230N,  765W,  25, 1014, DB
+AL, 04, 2013080106,   ,chunshu,   0, 233N,  770W,  25, 1013, DB
+AL, 04, 2013080112,   ,chunshu,   0, 237N,  777W,  25, 1013, DB
+AL, 04, 2013080118,   ,chunshu,   0, 242N,  784W,  25, 1013, DB,     DORIAN
+AL, 04, 2013080200,   ,chunshu,   0, 249N,  790W,  25, 1013, DB,     DORIAN
+AL, 04, 2013080206,   ,chunshu,   0, 257N,  793W,  25, 1013, DB,     DORIAN
+AL, 04, 2013080212,   ,chunshu,   0, 265N,  794W,  25, 1013, DB,     DORIAN
+AL, 04, 2013080218,   ,chunshu,   0, 274N,  794W,  25, 1013, TD,     DORIAN
+AL, 04, 2013080300,   ,chunshu,   0, 284N,  793W,  30, 1013, TD,     DORIAN
+AL, 04, 2013080306,   ,chunshu,   0, 294N,  791W,  30, 1013, TD,     DORIAN
+AL, 04, 2013080312,   ,chunshu,   0, 303N,  788W,  30, 1013, TD,     DORIAN
+AL, 04, 2013080318,   ,chunshu,   0, 311N,  781W,  30, 1013, LO,     DORIAN
+AL, 04, 2013080400,   ,chunshu,   0, 318N,  772W,  30, 1012, LO
+AL, 04, 2013080406,   ,chunshu,   0, 324N,  756W,  30, 1011, LO,     DORIAN

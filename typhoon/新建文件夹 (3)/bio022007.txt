@@ -1,0 +1,32 @@
+IO, 02, 2007053106,   ,chunshu,   0, 137N,  716E,  15, 1006, DB
+IO, 02, 2007053112,   ,chunshu,   0, 140N,  717E,  15, 1006, DB
+IO, 02, 2007053118,   ,chunshu,   0, 142N,  715E,  15, 1006, DB
+IO, 02, 2007060100,   ,chunshu,   0, 144N,  709E,  15, 1006, DB
+IO, 02, 2007060106,   ,chunshu,   0, 147N,  700E,  30, 1000, TD,     INVEST
+IO, 02, 2007060112,   ,chunshu,   0, 150N,  688E,  30, 1000, TD,     INVEST
+IO, 02, 2007060118,   ,chunshu,   0, 151N,  683E,  30, 1000, TD,     INVEST
+IO, 02, 2007060200,   ,chunshu,   0, 151N,  678E,  40,  994, TS,     NONAME
+IO, 02, 2007060206,   ,chunshu,   0, 151N,  673E,  45,  989, TS,     NONAME
+IO, 02, 2007060212,   ,chunshu,   0, 154N,  671E,  55,  982, TS,       GONU
+IO, 02, 2007060218,   ,chunshu,   0, 156N,  672E,  55,  982, TS,       GONU
+IO, 02, 2007060300,   ,chunshu,   0, 160N,  675E,  60,  978, TS,       GONU
+IO, 02, 2007060306,   ,chunshu,   0, 169N,  676E,  65,  974, TY,       GONU
+IO, 02, 2007060312,   ,chunshu,   0, 175N,  668E,  70,  970, TY,       GONU
+IO, 02, 2007060318,   ,chunshu,   0, 180N,  661E,  95,  952, TY,       GONU
+IO, 02, 2007060400,   ,chunshu,   0, 186N,  655E, 120,  933, TY
+IO, 02, 2007060406,   ,chunshu,   0, 192N,  649E, 135,  904, ST,       GONU
+IO, 02, 2007060412,   ,chunshu,   0, 199N,  641E, 145,  914, ST,       GONU
+IO, 02, 2007060418,   ,chunshu,   0, 205N,  633E, 140,  898, ST,       GONU
+IO, 02, 2007060500,   ,chunshu,   0, 208N,  625E, 135,  904, ST,       GONU
+IO, 02, 2007060506,   ,chunshu,   0, 212N,  617E, 125,  916, TY,       GONU
+IO, 02, 2007060512,   ,chunshu,   0, 216N,  611E, 115,  937, TY,       GONU
+IO, 02, 2007060518,   ,chunshu,   0, 220N,  606E, 110,  941, TY,       GONU
+IO, 02, 2007060600,   ,chunshu,   0, 226N,  600E,  90,  956, TY,       GONU
+IO, 02, 2007060606,   ,chunshu,   0, 231N,  595E,  90,  956, TY,       GONU
+IO, 02, 2007060612,   ,chunshu,   0, 238N,  592E,  75,  967, TY,       GONU
+IO, 02, 2007060618,   ,chunshu,   0, 245N,  589E,  65,  974, TY,       GONU
+IO, 02, 2007060700,   ,chunshu,   0, 248N,  584E,  55,  982, TS
+IO, 02, 2007060706,   ,chunshu,   0, 249N,  583E,  45,  989, TS,       GONU
+IO, 02, 2007060712,   ,chunshu,   0, 251N,  582E,  35,  996, TS
+IO, 02, 2007060718,   ,chunshu,   0, 255N,  581E,  25, 1002, TD
+IO, 02, 2007060800,   ,chunshu,   0, 259N,  578E,  15, 1006, DB

@@ -1,0 +1,30 @@
+SH, 19, 2010031012,   ,chunshu,   0,  97S, 1728W,  25, 1004, DB
+SH, 19, 2010031018,   ,chunshu,   0, 102S, 1731W,  25, 1004, DB,     INVEST
+SH, 19, 2010031100,   ,chunshu,   0, 106S, 1736W,  30, 1000, DB,     INVEST
+SH, 19, 2010031106,   ,chunshu,   0, 109S, 1744W,  30, 1000, TD,     INVEST
+SH, 19, 2010031112,   ,chunshu,   0, 108S, 1753W,  30, 1000, TD,   NINETEEN
+SH, 19, 2010031118,   ,chunshu,   0, 105S, 1757W,  35,  996, TS,   NINETEEN
+SH, 19, 2010031200,   ,chunshu,   0, 107S, 1761W,  40,  993, TS,   NINETEEN
+SH, 19, 2010031206,   ,chunshu,   0, 109S, 1766W,  45,  989, TS,      TOMAS
+SH, 19, 2010031212,   ,chunshu,   0, 111S, 1771W,  55,  982, TS,      TOMAS
+SH, 19, 2010031218,   ,chunshu,   0, 113S, 1776W,  60,  978, TS,      TOMAS
+SH, 19, 2010031300,   ,chunshu,   0, 116S, 1780W,  65,  974, TY,      TOMAS
+SH, 19, 2010031306,   ,chunshu,   0, 121S, 1783W,  65,  974, TY,      TOMAS
+SH, 19, 2010031312,   ,chunshu,   0, 125S, 1787W,  65,  974, TY,      TOMAS
+SH, 19, 2010031318,   ,chunshu,   0, 130S, 1790W,  70,  970, TY,      TOMAS
+SH, 19, 2010031400,   ,chunshu,   0, 135S, 1793W,  85,  959, TY,      TOMAS
+SH, 19, 2010031406,   ,chunshu,   0, 141S, 1795W,  85,  959, TY,      TOMAS
+SH, 19, 2010031412,   ,chunshu,   0, 146S, 1796W, 100,  948, TY,      TOMAS
+SH, 19, 2010031418,   ,chunshu,   0, 151S, 1796W, 100,  948, TY
+SH, 19, 2010031500,   ,chunshu,   0, 156S, 1794W, 110,  941, TY,      TOMAS
+SH, 19, 2010031506,   ,chunshu,   0, 162S, 1795W, 115,  937, TY,      TOMAS
+SH, 19, 2010031512,   ,chunshu,   0, 169S, 1795W, 115,  937, TY,      TOMAS
+SH, 19, 2010031518,   ,chunshu,   0, 177S, 1795W, 105,  944, TY,      TOMAS
+SH, 19, 2010031600,   ,chunshu,   0, 186S, 1795W, 105,  944, TY,      TOMAS
+SH, 19, 2010031606,   ,chunshu,   0, 198S, 1792W, 105,  944, TY,      TOMAS
+SH, 19, 2010031612,   ,chunshu,   0, 212S, 1787W, 105,  944, TY,      TOMAS
+SH, 19, 2010031618,   ,chunshu,   0, 231S, 1780W, 105,  944, TY,      TOMAS
+SH, 19, 2010031700,   ,chunshu,   0, 250S, 1767W, 100,  948, TY,      TOMAS
+SH, 19, 2010031706,   ,chunshu,   0, 270S, 1747W,  85,  959, TY,      TOMAS
+SH, 19, 2010031712,   ,chunshu,   0, 294S, 1717W,  65,  974, TY
+SH, 19, 2010031718,   ,chunshu,   0, 314S, 1678W,  45,  989, EX

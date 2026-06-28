@@ -1,0 +1,29 @@
+SH, 11, 2006021018,   ,chunshu,   0, 149S, 1748W,  25, 1002, TD
+SH, 11, 2006021100,   ,chunshu,   0, 156S, 1743W,  30, 1000, TD,     INVEST
+SH, 11, 2006021106,   ,chunshu,   0, 165S, 1742W,  30, 1000, TD,     INVEST
+SH, 11, 2006021112,   ,chunshu,   0, 172S, 1749W,  35,  997, TS,     INVEST
+SH, 11, 2006021118,   ,chunshu,   0, 177S, 1755W,  40,  994, TS,     VAIANU
+SH, 11, 2006021200,   ,chunshu,   0, 180S, 1759W,  45,  989, TS,     VAIANU
+SH, 11, 2006021206,   ,chunshu,   0, 182S, 1764W,  50,  985, TS,     VAIANU
+SH, 11, 2006021212,   ,chunshu,   0, 187S, 1766W,  60,  980, TS,     VAIANU
+SH, 11, 2006021218,   ,chunshu,   0, 194S, 1767W,  65,  976, TY
+SH, 11, 2006021300,   ,chunshu,   0, 201S, 1767W,  65,  976, TY,     VAIANU
+SH, 11, 2006021306,   ,chunshu,   0, 209S, 1769W,  70,  970, TY,     VAIANU
+SH, 11, 2006021312,   ,chunshu,   0, 216S, 1768W,  75,  967, TY,     VAIANU
+SH, 11, 2006021318,   ,chunshu,   0, 222S, 1765W,  75,  967, TY,     VAIANU
+SH, 11, 2006021400,   ,chunshu,   0, 228S, 1762W,  75,  967, TY,     VAIANU
+SH, 11, 2006021406,   ,chunshu,   0, 233S, 1758W,  70,  972, TY,     VAIANU
+SH, 11, 2006021412,   ,chunshu,   0, 239S, 1749W,  70,  972, TY,     VAIANU
+SH, 11, 2006021418,   ,chunshu,   0, 244S, 1740W,  65,  976, TY,     VAIANU
+SH, 11, 2006021500,   ,chunshu,   0, 253S, 1730W,  55,  984, TS,     VAIANU
+SH, 11, 2006021506,   ,chunshu,   0, 257S, 1719W,  45,  991, TS
+SH, 11, 2006021512,   ,chunshu,   0, 261S, 1708W,  45,  991, TS
+SH, 11, 2006021518,   ,chunshu,   0, 266S, 1696W,  45,  991, TS,     VAIANU
+SH, 11, 2006021600,   ,chunshu,   0, 274S, 1685W,  40,  994, TS,     VAIANU
+SH, 11, 2006021606,   ,chunshu,   0, 280S, 1675W,  35,  997, EX,     VAIANU
+SH, 11, 2006021612,   ,chunshu,   0, 285S, 1667W,  35,  997, EX
+SH, 11, 2006021618,   ,chunshu,   0, 289S, 1661W,  35,  997, EX
+SH, 11, 2006021700,   ,chunshu,   0, 298S, 1656W,  30, 1000, EX
+SH, 11, 2006021706,   ,chunshu,   0, 307S, 1655W,  30, 1000, EX
+SH, 11, 2006021712,   ,chunshu,   0, 315S, 1653W,  30, 1000, EX
+SH, 11, 2006021718,   ,chunshu,   0, 322S, 1650W,  25, 1002, EX

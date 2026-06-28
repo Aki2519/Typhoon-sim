@@ -1,0 +1,56 @@
+SH, 16, 2013021412,   ,chunshu,   0, 201S,  418E,  15, 1010, DB
+SH, 16, 2013021418,   ,chunshu,   0, 203S,  416E,  20, 1007, DB
+SH, 16, 2013021500,   ,chunshu,   0, 207S,  411E,  20, 1007, DB
+SH, 16, 2013021506,   ,chunshu,   0, 210S,  405E,  25, 1004, TD
+SH, 16, 2013021512,   ,chunshu,   0, 208S,  398E,  25, 1004, TD
+SH, 16, 2013021518,   ,chunshu,   0, 202S,  395E,  25, 1004, TD
+SH, 16, 2013021600,   ,chunshu,   0, 198S,  386E,  25, 1004, TD
+SH, 16, 2013021606,   ,chunshu,   0, 186S,  381E,  25, 1004, TD
+SH, 16, 2013021612,   ,chunshu,   0, 172S,  377E,  25, 1004, TD
+SH, 16, 2013021618,   ,chunshu,   0, 166S,  382E,  25, 1004, TD
+SH, 16, 2013021700,   ,chunshu,   0, 165S,  390E,  20, 1007, DB,     INVEST
+SH, 16, 2013021706,   ,chunshu,   0, 167S,  398E,  20, 1007, DB,     INVEST
+SH, 16, 2013021712,   ,chunshu,   0, 174S,  401E,  20, 1007, DB,     INVEST
+SH, 16, 2013021718,   ,chunshu,   0, 186S,  410E,  25, 1004, TD,     INVEST
+SH, 16, 2013021800,   ,chunshu,   0, 190S,  402E,  25, 1004, TD,     INVEST
+SH, 16, 2013021806,   ,chunshu,   0, 193S,  404E,  25, 1004, TD,     INVEST
+SH, 16, 2013021812,   ,chunshu,   0, 195S,  408E,  30, 1000, TD,     INVEST
+SH, 16, 2013021818,   ,chunshu,   0, 198S,  412E,  30, 1000, TD,     INVEST
+SH, 16, 2013021900,   ,chunshu,   0, 202S,  411E,  30, 1000, TD,    SIXTEEN
+SH, 16, 2013021906,   ,chunshu,   0, 206S,  411E,  30, 1000, TD,    SIXTEEN
+SH, 16, 2013021912,   ,chunshu,   0, 212S,  411E,  40,  993, TS,     HARUNA
+SH, 16, 2013021915,   ,chunshu,   0, 214S,  412E,  40,  993, TS
+SH, 16, 2013021918,   ,chunshu,   0, 214S,  410E,  45,  989, TS,     HARUNA
+SH, 16, 2013022000,   ,chunshu,   0, 215S,  407E,  55,  982, TS,     HARUNA
+SH, 16, 2013022006,   ,chunshu,   0, 217S,  409E,  60,  978, TS,     HARUNA
+SH, 16, 2013022012,   ,chunshu,   0, 221S,  409E,  70,  970, TY,     HARUNA
+SH, 16, 2013022018,   ,chunshu,   0, 223S,  411E,  90,  956, TY,     HARUNA
+SH, 16, 2013022100,   ,chunshu,   0, 225S,  413E,  95,  952, TY,     HARUNA
+SH, 16, 2013022106,   ,chunshu,   0, 224S,  415E, 105,  944, TY,     HARUNA
+SH, 16, 2013022112,   ,chunshu,   0, 222S,  418E, 100,  948, TY,     HARUNA
+SH, 16, 2013022118,   ,chunshu,   0, 221S,  424E,  90,  956, TY,     HARUNA
+SH, 16, 2013022200,   ,chunshu,   0, 222S,  430E,  90,  956, TY,     HARUNA
+SH, 16, 2013022206,   ,chunshu,   0, 225S,  436E,  85,  959, TY,     HARUNA
+SH, 16, 2013022212,   ,chunshu,   0, 231S,  442E,  80,  963, TY,     HARUNA
+SH, 16, 2013022218,   ,chunshu,   0, 238S,  451E,  70,  970, TY,     HARUNA
+SH, 16, 2013022300,   ,chunshu,   0, 243S,  463E,  60,  978, TS
+SH, 16, 2013022306,   ,chunshu,   0, 249S,  477E,  50,  985, TS,     HARUNA
+SH, 16, 2013022312,   ,chunshu,   0, 253S,  487E,  45,  989, TS,     HARUNA
+SH, 16, 2013022318,   ,chunshu,   0, 258S,  496E,  40,  993, TS,     HARUNA
+SH, 16, 2013022400,   ,chunshu,   0, 261S,  509E,  40,  993, TS,     HARUNA
+SH, 16, 2013022406,   ,chunshu,   0, 266S,  524E,  40,  993, TS,     HARUNA
+SH, 16, 2013022412,   ,chunshu,   0, 269S,  540E,  35,  996, TS,     HARUNA
+SH, 16, 2013022418,   ,chunshu,   0, 271S,  557E,  35,  996, TS,     HARUNA
+SH, 16, 2013022500,   ,chunshu,   0, 270S,  574E,  35,  996, TS,     HARUNA
+SH, 16, 2013022506,   ,chunshu,   0, 269S,  589E,  25, 1004, TD
+SH, 16, 2013022512,   ,chunshu,   0, 272S,  601E,  30, 1000, TD
+SH, 16, 2013022518,   ,chunshu,   0, 273S,  614E,  30, 1000, SD,     HARUNA
+SH, 16, 2013022600,   ,chunshu,   0, 273S,  623E,  30, 1000, SD,     HARUNA
+SH, 16, 2013022606,   ,chunshu,   0, 272S,  627E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022612,   ,chunshu,   0, 271S,  631E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022618,   ,chunshu,   0, 266S,  627E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022700,   ,chunshu,   0, 261S,  622E,  25, 1004, SD
+SH, 16, 2013022706,   ,chunshu,   0, 254S,  614E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022712,   ,chunshu,   0, 249S,  603E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022718,   ,chunshu,   0, 245S,  596E,  25, 1004, SD,     HARUNA
+SH, 16, 2013022800,   ,chunshu,   0, 243S,  583E,  20, 1007, DB

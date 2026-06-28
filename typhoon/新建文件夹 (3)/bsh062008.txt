@@ -1,0 +1,42 @@
+SH, 06, 2007121212,   ,chunshu,   0, 134S,  703E,  25, 1004, TD,     INVEST
+SH, 06, 2007121218,   ,chunshu,   0, 135S,  702E,  30, 1000, TD,     INVEST
+SH, 06, 2007121300,   ,chunshu,   0, 136S,  701E,  30, 1000, TD,     INVEST
+SH, 06, 2007121306,   ,chunshu,   0, 137S,  700E,  35,  996, TS,     INVEST
+SH, 06, 2007121312,   ,chunshu,   0, 138S,  699E,  35,  996, TS,     NONAME
+SH, 06, 2007121318,   ,chunshu,   0, 139S,  697E,  35,  996, TS,     NONAME
+SH, 06, 2007121400,   ,chunshu,   0, 140S,  695E,  35,  996, TS,     NONAME
+SH, 06, 2007121406,   ,chunshu,   0, 142S,  695E,  30, 1000, TD,     NONAME
+SH, 06, 2007121412,   ,chunshu,   0, 144S,  695E,  30, 1000, TD,     NONAME
+SH, 06, 2007121418,   ,chunshu,   0, 145S,  693E,  30, 1000, TD,     NONAME
+SH, 06, 2007121500,   ,chunshu,   0, 146S,  687E,  35,  996, TS,     NONAME
+SH, 06, 2007121506,   ,chunshu,   0, 151S,  681E,  35,  996, TS,     NONAME
+SH, 06, 2007121512,   ,chunshu,   0, 156S,  675E,  35,  996, TS,     NONAME
+SH, 06, 2007121518,   ,chunshu,   0, 159S,  669E,  35,  996, TS,     NONAME
+SH, 06, 2007121600,   ,chunshu,   0, 162S,  662E,  35,  996, TS,     NONAME
+SH, 06, 2007121606,   ,chunshu,   0, 165S,  654E,  35,  996, TS,     NONAME
+SH, 06, 2007121612,   ,chunshu,   0, 169S,  647E,  35,  996, TS,     NONAME
+SH, 06, 2007121618,   ,chunshu,   0, 174S,  639E,  35,  996, TS,     NONAME
+SH, 06, 2007121700,   ,chunshu,   0, 185S,  631E,  35,  996, TS,     NONAME
+SH, 06, 2007121706,   ,chunshu,   0, 194S,  621E,  35,  996, TS,     NONAME
+SH, 06, 2007121712,   ,chunshu,   0, 201S,  611E,  40,  993, TS,     CELINA
+SH, 06, 2007121718,   ,chunshu,   0, 205S,  607E,  40,  993, TS,     CELINA
+SH, 06, 2007121800,   ,chunshu,   0, 208S,  603E,  40,  993, TS,     CELINA
+SH, 06, 2007121806,   ,chunshu,   0, 211S,  600E,  40,  993, TS
+SH, 06, 2007121812,   ,chunshu,   0, 214S,  597E,  35,  996, TS
+SH, 06, 2007121818,   ,chunshu,   0, 217S,  594E,  35,  996, TS,     CELINA
+SH, 06, 2007121900,   ,chunshu,   0, 220S,  591E,  30, 1000, TD,     CELINA
+SH, 06, 2007121906,   ,chunshu,   0, 222S,  585E,  30, 1000, TD
+SH, 06, 2007121912,   ,chunshu,   0, 224S,  578E,  30, 1000, TD
+SH, 06, 2007121918,   ,chunshu,   0, 226S,  572E,  30, 1000, TD
+SH, 06, 2007122000,   ,chunshu,   0, 226S,  566E,  30, 1000, TD
+SH, 06, 2007122006,   ,chunshu,   0, 221S,  555E,  30, 1000, TD
+SH, 06, 2007122012,   ,chunshu,   0, 216S,  548E,  30, 1000, TD
+SH, 06, 2007122018,   ,chunshu,   0, 212S,  541E,  30, 1000, TD
+SH, 06, 2007122100,   ,chunshu,   0, 212S,  534E,  30, 1000, TD
+SH, 06, 2007122106,   ,chunshu,   0, 210S,  526E,  30, 1000, TD
+SH, 06, 2007122112,   ,chunshu,   0, 210S,  519E,  25, 1004, TD
+SH, 06, 2007122118,   ,chunshu,   0, 208S,  512E,  25, 1004, TD
+SH, 06, 2007122200,   ,chunshu,   0, 206S,  507E,  25, 1004, TD
+SH, 06, 2007122206,   ,chunshu,   0, 205S,  505E,  25, 1004, TD
+SH, 06, 2007122212,   ,chunshu,   0, 204S,  504E,  25, 1004, TD
+SH, 06, 2007122218,   ,chunshu,   0, 203S,  502E,  25, 1004, TD

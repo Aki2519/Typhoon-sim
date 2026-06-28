@@ -1,0 +1,16 @@
+SH, 11, 2009012600,   ,chunshu,   0, 151S, 1783W,  20, 1007, DB
+SH, 11, 2009012606,   ,chunshu,   0, 157S, 1772W,  20, 1007, DB
+SH, 11, 2009012612,   ,chunshu,   0, 166S, 1763W,  25, 1004, TD
+SH, 11, 2009012618,   ,chunshu,   0, 171S, 1761W,  30, 1004, TD,     INVEST
+SH, 11, 2009012700,   ,chunshu,   0, 175S, 1761W,  30, 1000, TD,     INVEST
+SH, 11, 2009012706,   ,chunshu,   0, 180S, 1761W,  30, 1000, TD,     INVEST
+SH, 11, 2009012712,   ,chunshu,   0, 189S, 1764W,  30, 1000, TD,     INVEST
+SH, 11, 2009012718,   ,chunshu,   0, 197S, 1768W,  35,  996, TS,     INVEST
+SH, 11, 2009012800,   ,chunshu,   0, 203S, 1771W,  30, 1000, TD,     INVEST
+SH, 11, 2009012806,   ,chunshu,   0, 210S, 1771W,  30, 1000, TD,     INVEST
+SH, 11, 2009012812,   ,chunshu,   0, 215S, 1775W,  35,  996, TS,     INVEST
+SH, 11, 2009012818,   ,chunshu,   0, 219S, 1778W,  35,  996, TS,     HETTIE
+SH, 11, 2009012900,   ,chunshu,   0, 225S, 1778W,  30, 1000, TD,     HETTIE
+SH, 11, 2009012906,   ,chunshu,   0, 230S, 1779W,  25, 1004, TD
+SH, 11, 2009012912,   ,chunshu,   0, 235S, 1781W,  20, 1007, DB
+SH, 11, 2009012918,   ,chunshu,   0, 239S, 1784W,  20, 1007, DB

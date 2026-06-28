@@ -1,0 +1,17 @@
+IO, 04,2028060306,   ,chunshu,   0,  54N,  870E,  20,    0, DB,    Booran
+IO, 04,2028060312,   ,chunshu,   0,  58N,  866E,  20,    0, DB,    Booran
+IO, 04,2028060318,   ,chunshu,   0,  65N,  861E,  25,    0, TD,    Booran
+IO, 04,2028060400,   ,chunshu,   0,  72N,  857E,  25,    0, TD,    Booran
+IO, 04,2028060406,   ,chunshu,   0,  81N,  856E,  30,    0, TD,    Booran
+IO, 04,2028060412,   ,chunshu,   0,  86N,  849E,  35,    0, TS,    Booran
+IO, 04,2028060418,   ,chunshu,   0,  94N,  843E,  40,    0, TS,    Booran
+IO, 04,2028060500,   ,chunshu,   0,  98N,  839E,  40,    0, TS,    Booran
+IO, 04,2028060506,   ,chunshu,   0, 101N,  832E,  45,    0, TS,    Booran
+IO, 04,2028060512,   ,chunshu,   0, 105N,  827E,  55,    0, TS,    Booran
+IO, 04,2028060518,   ,chunshu,   0, 111N,  821E,  55,    0, TS,    Booran
+IO, 04,2028060600,   ,chunshu,   0, 120N,  818E,  50,    0, TS,    Booran
+IO, 04,2028060606,   ,chunshu,   0, 127N,  821E,  40,    0, TS,    Booran
+IO, 04,2028060612,   ,chunshu,   0, 132N,  826E,  30,    0, TD,    Booran
+IO, 04,2028060618,   ,chunshu,   0, 137N,  832E,  20,    0, LO,    Booran
+IO, 04,2028060700,   ,chunshu,   0, 144N,  842E,  15,    0, LO,    Booran
+IO, 04,2028060706,   ,chunshu,   0, 154N,  858E,  15,    0, LO,    Booran

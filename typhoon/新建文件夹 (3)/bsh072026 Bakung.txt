@@ -1,0 +1,55 @@
+SH, 07, 2025120812,   ,chunshu,   0,  53S,  928E,  20, 1008, DB,     INVEST
+SH, 07, 2025120818,   ,chunshu,   0,  58S,  929E,  20, 1008, DB,     INVEST
+SH, 07, 2025120900,   ,chunshu,   0,  62S,  926E,  20, 1008, DB,     INVEST
+SH, 07, 2025120906,   ,chunshu,   0,  62S,  931E,  20, 1008, DB,     INVEST
+SH, 07, 2025120912,   ,chunshu,   0,  58S,  937E,  20, 1008, DB,     INVEST
+SH, 07, 2025120918,   ,chunshu,   0,  54S,  949E,  20, 1008, DB,     INVEST
+SH, 07, 2025121000,   ,chunshu,   0,  47S,  962E,  25, 1008, TD,     INVEST
+SH, 07, 2025121006,   ,chunshu,   0,  42S,  986E,  25, 1008, TD,     INVEST
+SH, 07, 2025121012,   ,chunshu,   0,  48S,  997E,  25, 1008, TD,     INVEST
+SH, 07, 2025121018,   ,chunshu,   0,  56S, 1002E,  25, 1008, TD,     INVEST
+SH, 07, 2025121100,   ,chunshu,   0,  64S, 1007E,  25, 1008, TD,     INVEST
+SH, 07, 2025121106,   ,chunshu,   0,  71S, 1008E,  30, 1005, TD,     INVEST
+SH, 07, 2025121112,   ,chunshu,   0,  75S, 1003E,  30, 1005, TD,     INVEST
+SH, 07, 2025121118,   ,chunshu,   0,  79S,  994E,  35, 1005, TS,      SEVEN
+SH, 07, 2025121200,   ,chunshu,   0,  82S,  983E,  35, 1002, TS,      SEVEN
+SH, 07, 2025121206,   ,chunshu,   0,  84S,  974E,  35, 1002, TS,      SEVEN
+SH, 07, 2025121212,   ,chunshu,   0,  85S,  965E,  40, 1002, TS,      SEVEN
+SH, 07, 2025121218,   ,chunshu,   0,  86S,  953E,  45,  998, TS,     BAKUNG
+SH, 07, 2025121300,   ,chunshu,   0,  88S,  946E,  50,  992, TS,     BAKUNG
+SH, 07, 2025121306,   ,chunshu,   0,  91S,  941E,  65,  985, TY,     BAKUNG
+SH, 07, 2025121312,   ,chunshu,   0,  95S,  932E,  95,  970, TY,     BAKUNG
+SH, 07, 2025121318,   ,chunshu,   0,  99S,  923E, 110,  958, TY,     BAKUNG
+SH, 07, 2025121400,   ,chunshu,   0, 102S,  917E,  95,  970, TY,     BAKUNG
+SH, 07, 2025121406,   ,chunshu,   0, 103S,  911E,  90,  970, TY,     BAKUNG
+SH, 07, 2025121412,   ,chunshu,   0, 106S,  909E, 110,  955, TY,     BAKUNG
+SH, 07, 2025121418,   ,chunshu,   0, 108S,  911E,  85,  978, TY,     BAKUNG
+SH, 07, 2025121500,   ,chunshu,   0, 109S,  913E,  60,  985, TS,     BAKUNG
+SH, 07, 2025121506,   ,chunshu,   0, 110S,  916E,  50,  992, TS,     BAKUNG
+SH, 07, 2025121512,   ,chunshu,   0, 110S,  922E,  45,  995, TS,     BAKUNG
+SH, 07, 2025121518,   ,chunshu,   0, 110S,  927E,  45,  995, TS,     BAKUNG
+SH, 07, 2025121600,   ,chunshu,   0, 112S,  932E,  45,  995, TS,     BAKUNG
+SH, 07, 2025121606,   ,chunshu,   0, 114S,  932E,  50,  992, TS,     BAKUNG
+SH, 07, 2025121612,   ,chunshu,   0, 116S,  932E,  65,  982, TY,     BAKUNG
+SH, 07, 2025121618,   ,chunshu,   0, 118S,  931E,  90,  968, TY,     BAKUNG
+SH, 07, 2025121700,   ,chunshu,   0, 120S,  930E, 105,  960, TY,     BAKUNG
+SH, 07, 2025121706,   ,chunshu,   0, 120S,  926E,  70,  982, TY,     BAKUNG
+SH, 07, 2025121712,   ,chunshu,   0, 115S,  916E,  55,  990, TS,     BAKUNG
+SH, 07, 2025121718,   ,chunshu,   0, 110S,  914E,  45,  998, TS,     BAKUNG
+SH, 07, 2025121800,   ,chunshu,   0, 106S,  915E,  35, 1000, TS,     BAKUNG
+SH, 07, 2025121806,   ,chunshu,   0, 102S,  916E,  30, 1002, TD,     BAKUNG
+SH, 07, 2025121812,   ,chunshu,   0,  96S,  911E,  25, 1005, TD,     BAKUNG
+SH, 07, 2025121818,   ,chunshu,   0,  90S,  907E,  25, 1005, TD,     BAKUNG
+SH, 07, 2025121900,   ,chunshu,   0,  87S,  903E,  20, 1005, DB,     BAKUNG
+SH, 07, 2025121906,   ,chunshu,   0,  82S,  896E,  20, 1005, DB,     BAKUNG
+SH, 07, 2025121912,   ,chunshu,   0,  79S,  893E,  20, 1005, DB,     BAKUNG
+SH, 07, 2025121918,   ,chunshu,   0,  76S,  887E,  15, 1005, DB,     BAKUNG
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      

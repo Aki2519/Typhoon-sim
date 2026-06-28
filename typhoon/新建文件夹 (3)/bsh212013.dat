@@ -1,0 +1,67 @@
+SH, 21, 2013040306,   ,chunshu,   0,  85S,  753E,  20, 1007, DB
+SH, 21, 2013040312,   ,chunshu,   0,  87S,  759E,  20, 1007, DB
+SH, 21, 2013040318,   ,chunshu,   0,  90S,  765E,  25, 1004, TD
+SH, 21, 2013040400,   ,chunshu,   0,  94S,  772E,  25, 1004, TD,     INVEST
+SH, 21, 2013040406,   ,chunshu,   0, 100S,  778E,  25, 1004, TD,     INVEST
+SH, 21, 2013040412,   ,chunshu,   0, 106S,  779E,  25, 1004, TD,     INVEST
+SH, 21, 2013040418,   ,chunshu,   0, 106S,  773E,  25, 1004, TD
+SH, 21, 2013040500,   ,chunshu,   0, 108S,  766E,  25, 1004, TD,     INVEST
+SH, 21, 2013040506,   ,chunshu,   0, 112S,  758E,  25, 1004, TD,     INVEST
+SH, 21, 2013040512,   ,chunshu,   0, 113S,  748E,  25, 1004, TD,     INVEST
+SH, 21, 2013040518,   ,chunshu,   0, 106S,  743E,  30, 1000, TD,     INVEST
+SH, 21, 2013040600,   ,chunshu,   0, 108S,  735E,  30, 1000, TD,     INVEST
+SH, 21, 2013040606,   ,chunshu,   0, 108S,  728E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040612,   ,chunshu,   0, 107S,  721E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040618,   ,chunshu,   0, 106S,  715E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040700,   ,chunshu,   0, 106S,  709E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040706,   ,chunshu,   0, 108S,  702E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040712,   ,chunshu,   0, 110S,  692E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040718,   ,chunshu,   0, 115S,  678E,  30, 1000, TD,  TWENTYONE
+SH, 21, 2013040800,   ,chunshu,   0, 114S,  665E,  35,  996, TS,  TWENTYONE
+SH, 21, 2013040806,   ,chunshu,   0, 109S,  653E,  35,  996, TS,  TWENTYONE
+SH, 21, 2013040812,   ,chunshu,   0, 110S,  641E,  35,  996, TS,     IMELDA
+SH, 21, 2013040818,   ,chunshu,   0, 112S,  633E,  40,  993, TS,     IMELDA
+SH, 21, 2013040900,   ,chunshu,   0, 114S,  623E,  45,  989, TS,     IMELDA
+SH, 21, 2013040906,   ,chunshu,   0, 115S,  612E,  50,  985, TS,     IMELDA
+SH, 21, 2013040912,   ,chunshu,   0, 115S,  603E,  55,  982, TS,     IMELDA
+SH, 21, 2013040918,   ,chunshu,   0, 117S,  595E,  60,  978, TS,     IMELDA
+SH, 21, 2013041000,   ,chunshu,   0, 119S,  587E,  70,  970, TY,     IMELDA
+SH, 21, 2013041006,   ,chunshu,   0, 121S,  584E,  70,  970, TY,     IMELDA
+SH, 21, 2013041012,   ,chunshu,   0, 122S,  580E,  75,  967, TY,     IMELDA
+SH, 21, 2013041014,   ,chunshu,   0, 122S,  579E,  75,  967, TY
+SH, 21, 2013041016,   ,chunshu,   0, 121S,  580E,  80,  963, TY
+SH, 21, 2013041018,   ,chunshu,   0, 122S,  581E,  85,  959, TY,     IMELDA
+SH, 21, 2013041100,   ,chunshu,   0, 126S,  581E,  80,  963, TY,     IMELDA
+SH, 21, 2013041106,   ,chunshu,   0, 129S,  581E,  75,  967, TY,     IMELDA
+SH, 21, 2013041112,   ,chunshu,   0, 131S,  582E,  65,  974, TY,     IMELDA
+SH, 21, 2013041118,   ,chunshu,   0, 132S,  585E,  55,  982, TS,     IMELDA
+SH, 21, 2013041200,   ,chunshu,   0, 135S,  586E,  50,  985, TS
+SH, 21, 2013041206,   ,chunshu,   0, 141S,  589E,  45,  989, TS,     IMELDA
+SH, 21, 2013041212,   ,chunshu,   0, 147S,  592E,  40,  993, TS,     IMELDA
+SH, 21, 2013041218,   ,chunshu,   0, 153S,  595E,  35,  996, TS,     IMELDA
+SH, 21, 2013041300,   ,chunshu,   0, 158S,  595E,  35,  996, TS,     IMELDA
+SH, 21, 2013041306,   ,chunshu,   0, 163S,  593E,  35,  996, TS,     IMELDA
+SH, 21, 2013041312,   ,chunshu,   0, 166S,  590E,  50,  985, TS,     IMELDA
+SH, 21, 2013041318,   ,chunshu,   0, 168S,  590E,  55,  982, TS,     IMELDA
+SH, 21, 2013041400,   ,chunshu,   0, 170S,  592E,  60,  978, TS,     IMELDA
+SH, 21, 2013041406,   ,chunshu,   0, 173S,  594E,  60,  978, TS,     IMELDA
+SH, 21, 2013041412,   ,chunshu,   0, 177S,  600E,  80,  963, TY,     IMELDA
+SH, 21, 2013041418,   ,chunshu,   0, 183S,  606E,  80,  963, TY,     IMELDA
+SH, 21, 2013041500,   ,chunshu,   0, 188S,  613E,  80,  963, TY,     IMELDA
+SH, 21, 2013041506,   ,chunshu,   0, 195S,  618E,  75,  967, TY,     IMELDA
+SH, 21, 2013041512,   ,chunshu,   0, 199S,  623E,  70,  970, TY,     IMELDA
+SH, 21, 2013041518,   ,chunshu,   0, 203S,  624E,  60,  978, TS,     IMELDA
+SH, 21, 2013041600,   ,chunshu,   0, 206S,  626E,  45,  989, TS,     IMELDA
+SH, 21, 2013041606,   ,chunshu,   0, 210S,  629E,  40,  993, TS,     IMELDA
+SH, 21, 2013041612,   ,chunshu,   0, 215S,  630E,  30, 1000, TD,     IMELDA
+SH, 21, 2013041618,   ,chunshu,   0, 213S,  633E,  30, 1000, TD,     IMELDA
+SH, 21, 2013041700,   ,chunshu,   0, 211S,  632E,  30, 1000, TD,     IMELDA
+SH, 21, 2013041706,   ,chunshu,   0, 210S,  628E,  30, 1000, TD,     IMELDA
+SH, 21, 2013041712,   ,chunshu,   0, 212S,  621E,  25, 1004, TD,     IMELDA
+SH, 21, 2013041718,   ,chunshu,   0, 215S,  608E,  25, 1004, SD,     IMELDA
+SH, 21, 2013041800,   ,chunshu,   0, 217S,  594E,  25, 1004, SD,     IMELDA
+SH, 21, 2013041806,   ,chunshu,   0, 216S,  572E,  20, 1007, DB,     IMELDA
+SH, 21, 2013041812,   ,chunshu,   0, 224S,  552E,  20, 1007, DB,     IMELDA
+SH, 21, 2013041818,   ,chunshu,   0, 229S,  533E,  20, 1007, DB,     IMELDA
+SH, 21, 2013041900,   ,chunshu,   0, 235S,  518E,  20, 1007, DB
+SH, 21, 2013041906,   ,chunshu,   0, 247S,  504E,  20, 1007, DB

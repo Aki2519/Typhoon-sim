@@ -1,0 +1,37 @@
+EP, 15, 2014090912,   ,chunshu,   0, 135N, 1001W,  25, 1007, LO,     INVEST
+EP, 15, 2014090918,   ,chunshu,   0, 137N, 1009W,  30, 1006, LO,     INVEST
+EP, 15, 2014091000,   ,chunshu,   0, 140N, 1017W,  30, 1005, TD,     INVEST
+EP, 15, 2014091006,   ,chunshu,   0, 144N, 1024W,  35, 1004, TS,    FIFTEEN
+EP, 15, 2014091012,   ,chunshu,   0, 148N, 1028W,  40, 1002, TS,    FIFTEEN
+EP, 15, 2014091018,   ,chunshu,   0, 152N, 1031W,  40, 1002, TS,      ODILE
+EP, 15, 2014091100,   ,chunshu,   0, 154N, 1035W,  40, 1001, TS,      ODILE
+EP, 15, 2014091106,   ,chunshu,   0, 155N, 1038W,  45,  998, TS,      ODILE
+EP, 15, 2014091112,   ,chunshu,   0, 154N, 1041W,  45,  998, TS,      ODILE
+EP, 15, 2014091118,   ,chunshu,   0, 153N, 1043W,  50,  995, TS,      ODILE
+EP, 15, 2014091200,   ,chunshu,   0, 153N, 1045W,  50,  994, TS,      ODILE
+EP, 15, 2014091206,   ,chunshu,   0, 154N, 1046W,  50,  993, TS,      ODILE
+EP, 15, 2014091212,   ,chunshu,   0, 155N, 1047W,  55,  990, TS,      ODILE
+EP, 15, 2014091218,   ,chunshu,   0, 156N, 1048W,  55,  989, TS,      ODILE
+EP, 15, 2014091300,   ,chunshu,   0, 157N, 1049W,  60,  986, TS,      ODILE
+EP, 15, 2014091306,   ,chunshu,   0, 160N, 1053W,  65,  983, HU,      ODILE
+EP, 15, 2014091312,   ,chunshu,   0, 163N, 1056W,  70,  978, HU,      ODILE
+EP, 15, 2014091318,   ,chunshu,   0, 167N, 1059W,  80,  966, HU,      ODILE
+EP, 15, 2014091400,   ,chunshu,   0, 176N, 1063W,  95,  950, HU,      ODILE
+EP, 15, 2014091406,   ,chunshu,   0, 185N, 1070W, 120,  918, HU,      ODILE
+EP, 15, 2014091412,   ,chunshu,   0, 194N, 1077W, 115,  920, HU,      ODILE
+EP, 15, 2014091418,   ,chunshu,   0, 207N, 1085W, 110,  923, HU,      ODILE
+EP, 15, 2014091500,   ,chunshu,   0, 220N, 1093W, 110,  932, HU,      ODILE
+EP, 15, 2014091504, 45,chunshu,   0, 229N, 1099W, 110,  941, HU
+EP, 15, 2014091506,   ,chunshu,   0, 233N, 1101W, 105,  945, HU,      ODILE
+EP, 15, 2014091512,   ,chunshu,   0, 242N, 1109W,  90,  953, HU,      ODILE
+EP, 15, 2014091518,   ,chunshu,   0, 251N, 1115W,  80,  965, HU,      ODILE
+EP, 15, 2014091600,   ,chunshu,   0, 261N, 1120W,  70,  978, HU,      ODILE
+EP, 15, 2014091606,   ,chunshu,   0, 270N, 1125W,  60,  984, TS,      ODILE
+EP, 15, 2014091612,   ,chunshu,   0, 279N, 1131W,  55,  990, TS,      ODILE
+EP, 15, 2014091618,   ,chunshu,   0, 288N, 1135W,  50,  992, TS,      ODILE
+EP, 15, 2014091700,   ,chunshu,   0, 294N, 1136W,  45,  993, TS,      ODILE
+EP, 15, 2014091706,   ,chunshu,   0, 299N, 1136W,  40,  995, TS,      ODILE
+EP, 15, 2014091712,   ,chunshu,   0, 304N, 1134W,  35,  997, TS,      ODILE
+EP, 15, 2014091716, 30,chunshu,   0, 307N, 1131W,  35,  999, TS
+EP, 15, 2014091718,   ,chunshu,   0, 308N, 1129W,  30, 1001, TD,      ODILE
+EP, 15, 2014091800,   ,chunshu,   0, 310N, 1120W,  25, 1003, TD

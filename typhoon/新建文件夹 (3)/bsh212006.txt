@@ -1,0 +1,22 @@
+SH, 21, 2006040300,   ,chunshu,   0, 156S, 1143E,  15, 1006, DB
+SH, 21, 2006040306,   ,chunshu,   0, 154S, 1138E,  20, 1004, DB
+SH, 21, 2006040312,   ,chunshu,   0, 148S, 1136E,  20, 1004, DB
+SH, 21, 2006040318,   ,chunshu,   0, 143S, 1140E,  25, 1002, TD
+SH, 21, 2006040400,   ,chunshu,   0, 139S, 1146E,  25, 1004, TD,     INVEST
+SH, 21, 2006040406,   ,chunshu,   0, 141S, 1150E,  25, 1004, TD,     INVEST
+SH, 21, 2006040412,   ,chunshu,   0, 145S, 1152E,  30, 1000, TD,     INVEST
+SH, 21, 2006040418,   ,chunshu,   0, 149S, 1154E,  30, 1000, TD,     INVEST
+SH, 21, 2006040500,   ,chunshu,   0, 154S, 1160E,  30, 1000, TD,     INVEST
+SH, 21, 2006040506,   ,chunshu,   0, 161S, 1163E,  30, 1000, TD,     INVEST
+SH, 21, 2006040512,   ,chunshu,   0, 167S, 1164E,  40,  993, TS,     NONAME
+SH, 21, 2006040518,   ,chunshu,   0, 173S, 1163E,  45,  989, TS,     HUBERT
+SH, 21, 2006040600,   ,chunshu,   0, 178S, 1160E,  50,  985, TS,     HUBERT
+SH, 21, 2006040606,   ,chunshu,   0, 183S, 1155E,  55,  984, TS,     HUBERT
+SH, 21, 2006040612,   ,chunshu,   0, 190S, 1153E,  55,  984, TS,     HUBERT
+SH, 21, 2006040618,   ,chunshu,   0, 196S, 1151E,  55,  984, TS,     HUBERT
+SH, 21, 2006040700,   ,chunshu,   0, 202S, 1150E,  55,  984, TS,     HUBERT
+SH, 21, 2006040706,   ,chunshu,   0, 207S, 1150E,  50,  987, TS,     HUBERT
+SH, 21, 2006040712,   ,chunshu,   0, 211S, 1153E,  45,  991, TS,     HUBERT
+SH, 21, 2006040718,   ,chunshu,   0, 215S, 1154E,  30, 1000, TD
+SH, 21, 2006040800,   ,chunshu,   0, 219S, 1154E,  25, 1002, TD
+SH, 21, 2006040806,   ,chunshu,   0, 222S, 1154E,  20, 1004, DB

@@ -1,0 +1,23 @@
+CP, 01, 2014071312,   ,chunshu,   0, 110N, 1285W,  20, 1010, DB
+CP, 01, 2014071318,   ,chunshu,   0, 110N, 1294W,  20, 1010, DB
+CP, 01, 2014071400,   ,chunshu,   0, 111N, 1303W,  20, 1010, DB
+CP, 01, 2014071406,   ,chunshu,   0, 113N, 1311W,  20, 1010, DB
+CP, 01, 2014071412,   ,chunshu,   0, 114N, 1320W,  20, 1010, DB
+CP, 01, 2014071418,   ,chunshu,   0, 114N, 1329W,  20, 1010, DB,     INVEST
+CP, 01, 2014071500,   ,chunshu,   0, 113N, 1337W,  20, 1010, DB,     INVEST
+CP, 01, 2014071506,   ,chunshu,   0, 110N, 1347W,  25, 1010, DB,     INVEST
+CP, 01, 2014071512,   ,chunshu,   0, 108N, 1357W,  25, 1010, DB,     INVEST
+CP, 01, 2014071518,   ,chunshu,   0, 108N, 1367W,  25, 1010, DB,     INVEST
+CP, 01, 2014071600,   ,chunshu,   0, 109N, 1378W,  25, 1009, DB,     INVEST
+CP, 01, 2014071606,   ,chunshu,   0, 110N, 1387W,  25, 1009, DB,     INVEST
+CP, 01, 2014071612,   ,chunshu,   0, 111N, 1395W,  25, 1009, DB,     INVEST
+CP, 01, 2014071618,   ,chunshu,   0, 112N, 1399W,  25, 1009, LO,     INVEST
+CP, 01, 2014071700,   ,chunshu,   0, 115N, 1401W,  25, 1008, LO,     INVEST
+CP, 01, 2014071706,   ,chunshu,   0, 118N, 1401W,  25, 1008, LO,     INVEST
+CP, 01, 2014071712,   ,chunshu,   0, 122N, 1402W,  30, 1007, LO,     INVEST
+CP, 01, 2014071718,   ,chunshu,   0, 124N, 1404W,  35, 1005, TS,        ONE
+CP, 01, 2014071800,   ,chunshu,   0, 132N, 1408W,  40, 1003, TS,       WALI
+CP, 01, 2014071806,   ,chunshu,   0, 143N, 1415W,  40, 1003, TS,       WALI
+CP, 01, 2014071812,   ,chunshu,   0, 151N, 1426W,  35, 1005, TS,       WALI
+CP, 01, 2014071818,   ,chunshu,   0, 156N, 1436W,  30, 1007, TD,       WALI
+CP, 01, 2014071900,   ,chunshu,   0, 161N, 1444W,  25, 1008, LO,       WALI

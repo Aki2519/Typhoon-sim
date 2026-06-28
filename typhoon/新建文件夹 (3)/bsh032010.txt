@@ -1,0 +1,42 @@
+SH, 03, 2009120406,   ,chunshu,   0,  85S,  911E,  15, 1010, DB
+SH, 03, 2009120412,   ,chunshu,   0,  83S,  904E,  15, 1010, DB
+SH, 03, 2009120418,   ,chunshu,   0,  86S,  898E,  15, 1010, DB
+SH, 03, 2009120500,   ,chunshu,   0,  90S,  890E,  15, 1010, DB
+SH, 03, 2009120506,   ,chunshu,   0,  92S,  880E,  15, 1010, DB
+SH, 03, 2009120512,   ,chunshu,   0,  93S,  870E,  15, 1010, DB
+SH, 03, 2009120518,   ,chunshu,   0,  92S,  860E,  15, 1010, DB
+SH, 03, 2009120600,   ,chunshu,   0,  87S,  852E,  20, 1007, TD
+SH, 03, 2009120606,   ,chunshu,   0,  86S,  843E,  25, 1004, DB,     INVEST
+SH, 03, 2009120612,   ,chunshu,   0,  85S,  834E,  30, 1000, DB,     INVEST
+SH, 03, 2009120618,   ,chunshu,   0,  85S,  827E,  30, 1000, DB,     INVEST
+SH, 03, 2009120700,   ,chunshu,   0,  87S,  816E,  35,  996, TS,      THREE
+SH, 03, 2009120706,   ,chunshu,   0,  89S,  805E,  40,  993, TS,      THREE
+SH, 03, 2009120712,   ,chunshu,   0,  91S,  794E,  45,  989, TS,      THREE
+SH, 03, 2009120718,   ,chunshu,   0,  97S,  784E,  55,  982, TS,       CLEO
+SH, 03, 2009120800,   ,chunshu,   0, 104S,  774E,  65,  974, TY,       CLEO
+SH, 03, 2009120806,   ,chunshu,   0, 108S,  764E, 100,  948, TY,       CLEO
+SH, 03, 2009120812,   ,chunshu,   0, 111S,  756E, 115,  937, TY,       CLEO
+SH, 03, 2009120818,   ,chunshu,   0, 114S,  748E, 115,  937, TY,       CLEO
+SH, 03, 2009120900,   ,chunshu,   0, 115S,  740E, 105,  944, TY,       CLEO
+SH, 03, 2009120906,   ,chunshu,   0, 118S,  732E, 100,  948, TY,       CLEO
+SH, 03, 2009120912,   ,chunshu,   0, 122S,  725E,  90,  956, TY,       CLEO
+SH, 03, 2009120918,   ,chunshu,   0, 127S,  717E,  90,  956, TY,       CLEO
+SH, 03, 2009121000,   ,chunshu,   0, 131S,  710E,  80,  963, TY,       CLEO
+SH, 03, 2009121006,   ,chunshu,   0, 134S,  704E,  60,  978, TS,       CLEO
+SH, 03, 2009121012,   ,chunshu,   0, 139S,  698E,  50,  985, TS,       CLEO
+SH, 03, 2009121018,   ,chunshu,   0, 140S,  692E,  50,  985, TS,       CLEO
+SH, 03, 2009121100,   ,chunshu,   0, 140S,  685E,  45,  989, TS,       CLEO
+SH, 03, 2009121106,   ,chunshu,   0, 138S,  677E,  35,  996, TS,       CLEO
+SH, 03, 2009121112,   ,chunshu,   0, 140S,  668E,  30, 1000, TD,       CLEO
+SH, 03, 2009121118,   ,chunshu,   0, 142S,  660E,  30, 1002, TD,       CLEO
+SH, 03, 2009121200,   ,chunshu,   0, 144S,  652E,  30, 1000, TD,       CLEO
+SH, 03, 2009121206,   ,chunshu,   0, 145S,  644E,  30, 1000, TD,       CLEO
+SH, 03, 2009121212,   ,chunshu,   0, 146S,  637E,  25, 1004, TD
+SH, 03, 2009121218,   ,chunshu,   0, 148S,  630E,  25, 1004, TD
+SH, 03, 2009121300,   ,chunshu,   0, 151S,  625E,  30, 1000, TD,       CLEO
+SH, 03, 2009121306,   ,chunshu,   0, 156S,  621E,  30, 1000, TD,       CLEO
+SH, 03, 2009121312,   ,chunshu,   0, 163S,  620E,  30, 1000, TD,       CLEO
+SH, 03, 2009121318,   ,chunshu,   0, 169S,  617E,  30, 1000, TD,       CLEO
+SH, 03, 2009121400,   ,chunshu,   0, 178S,  612E,  30, 1000, TD,       CLEO
+SH, 03, 2009121406,   ,chunshu,   0, 186S,  605E,  25, 1004, TD
+SH, 03, 2009121412,   ,chunshu,   0, 194S,  600E,  25, 1004, TD

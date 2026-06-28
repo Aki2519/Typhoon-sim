@@ -1,0 +1,42 @@
+SH, 19, 2007030700,   ,chunshu,   0, 116S,  661E,  15, 1006, DB
+SH, 19, 2007030706,   ,chunshu,   0, 118S,  663E,  15, 1006, DB
+SH, 19, 2007030712,   ,chunshu,   0, 122S,  664E,  15, 1006, DB
+SH, 19, 2007030718,   ,chunshu,   0, 125S,  663E,  15, 1006, DB
+SH, 19, 2007030800,   ,chunshu,   0, 127S,  662E,  15, 1006, DB
+SH, 19, 2007030806,   ,chunshu,   0, 128S,  661E,  15, 1006, DB
+SH, 19, 2007030812,   ,chunshu,   0, 129S,  659E,  15, 1006, DB
+SH, 19, 2007030818,   ,chunshu,   0, 129S,  657E,  15, 1006, DB
+SH, 19, 2007030900,   ,chunshu,   0, 129S,  655E,  15, 1006, DB
+SH, 19, 2007030906,   ,chunshu,   0, 130S,  652E,  15, 1006, DB
+SH, 19, 2007030912,   ,chunshu,   0, 133S,  648E,  15, 1006, DB
+SH, 19, 2007030918,   ,chunshu,   0, 137S,  643E,  15, 1006, DB
+SH, 19, 2007031000,   ,chunshu,   0, 143S,  635E,  15, 1006, DB
+SH, 19, 2007031006,   ,chunshu,   0, 149S,  624E,  20, 1004, DB
+SH, 19, 2007031012,   ,chunshu,   0, 149S,  612E,  25, 1002, DB,     INVEST
+SH, 19, 2007031018,   ,chunshu,   0, 143S,  604E,  30, 1000, DB,     INVEST
+SH, 19, 2007031100,   ,chunshu,   0, 139S,  597E,  30, 1000, DB,     INVEST
+SH, 19, 2007031106,   ,chunshu,   0, 136S,  592E,  30, 1000, DB,     INVEST
+SH, 19, 2007031112,   ,chunshu,   0, 135S,  590E,  30, 1000, DB,     INVEST
+SH, 19, 2007031118,   ,chunshu,   0, 133S,  585E,  35,  996, TC,     INVEST
+SH, 19, 2007031200,   ,chunshu,   0, 131S,  580E,  40,  994, TC,     NONAME
+SH, 19, 2007031206,   ,chunshu,   0, 130S,  575E,  45,  991, TC
+SH, 19, 2007031212,   ,chunshu,   0, 129S,  570E,  55,  984, TC,    INDLADA
+SH, 19, 2007031218,   ,chunshu,   0, 128S,  562E,  60,  978, TS
+SH, 19, 2007031300,   ,chunshu,   0, 128S,  554E,  70,  972, TC,    INDLALA
+SH, 19, 2007031306,   ,chunshu,   0, 129S,  547E,  75,  967, TC,    INDLALA
+SH, 19, 2007031312,   ,chunshu,   0, 131S,  541E,  75,  967, TC,    INDLALA
+SH, 19, 2007031318,   ,chunshu,   0, 133S,  535E,  75,  967, TC,    INDLALA
+SH, 19, 2007031400,   ,chunshu,   0, 137S,  528E,  90,  954, TC,    INDLALA
+SH, 19, 2007031406,   ,chunshu,   0, 141S,  522E, 100,  944, TC,    INDLALA
+SH, 19, 2007031412,   ,chunshu,   0, 145S,  515E, 115,  927, TC,    INDLALA
+SH, 19, 2007031418,   ,chunshu,   0, 147S,  510E, 120,  933, TY,    INDLALA
+SH, 19, 2007031500,   ,chunshu,   0, 148S,  505E, 110,  941, TY,    INDLALA
+SH, 19, 2007031506,   ,chunshu,   0, 150S,  501E, 100,  944, TC,    INDLALA
+SH, 19, 2007031512,   ,chunshu,   0, 154S,  497E,  85,  958, TC,    INDLALA
+SH, 19, 2007031518,   ,chunshu,   0, 158S,  492E,  70,  972, TC,    INDLALA
+SH, 19, 2007031600,   ,chunshu,   0, 162S,  486E,  55,  984, TC,    INDLALA
+SH, 19, 2007031606,   ,chunshu,   0, 164S,  479E,  35,  997, TC,    INDLALA
+SH, 19, 2007031612,   ,chunshu,   0, 165S,  475E,  30, 1000, DB,    INDLALA
+SH, 19, 2007031618,   ,chunshu,   0, 166S,  472E,  30, 1000, DB,    INDLALA
+SH, 19, 2007031700,   ,chunshu,   0, 169S,  471E,  25, 1002, DB
+SH, 19, 2007031706,   ,chunshu,   0, 171S,  475E,  25, 1002, DB

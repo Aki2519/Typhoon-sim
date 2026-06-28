@@ -1,0 +1,88 @@
+SH, 17, 2014030700,   ,chunshu,   0,  96S, 1382E,  15, 1010, DB,     INVEST
+SH, 17, 2014030706,   ,chunshu,   0,  97S, 1388E,  20, 1007, DB,     INVEST
+SH, 17, 2014030712,   ,chunshu,   0,  99S, 1391E,  20, 1007, DB,     INVEST
+SH, 17, 2014030718,   ,chunshu,   0, 101S, 1394E,  25, 1004, TD,     INVEST
+SH, 17, 2014030800,   ,chunshu,   0, 103S, 1396E,  30, 1000, TD,     INVEST
+SH, 17, 2014030806,   ,chunshu,   0, 108S, 1399E,  30, 1000, TD,     INVEST
+SH, 17, 2014030812,   ,chunshu,   0, 114S, 1401E,  35,  996, TS,    GILLIAN
+SH, 17, 2014030818,   ,chunshu,   0, 119S, 1401E,  35,  996, TS,    GILLIAN
+SH, 17, 2014030900,   ,chunshu,   0, 124S, 1402E,  35,  996, TS,    GILLIAN
+SH, 17, 2014030906,   ,chunshu,   0, 126S, 1404E,  35,  996, TS,    GILLIAN
+SH, 17, 2014030912,   ,chunshu,   0, 128S, 1409E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014030918,   ,chunshu,   0, 131S, 1412E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031000,   ,chunshu,   0, 136S, 1413E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031006,   ,chunshu,   0, 140S, 1413E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031012,   ,chunshu,   0, 145S, 1414E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031018,   ,chunshu,   0, 150S, 1416E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031100,   ,chunshu,   0, 153S, 1416E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031106,   ,chunshu,   0, 157S, 1416E,  20, 1007, DB,    GILLIAN
+SH, 17, 2014031112,   ,chunshu,   0, 161S, 1415E,  20, 1007, DB,    GILLIAN
+SH, 17, 2014031118,   ,chunshu,   0, 161S, 1411E,  20, 1003, DB,    GILLIAN
+SH, 17, 2014031200,   ,chunshu,   0, 160S, 1406E,  15, 1010, DB,    GILLIAN
+SH, 17, 2014031206,   ,chunshu,   0, 158S, 1400E,  15, 1010, DB,    GILLIAN
+SH, 17, 2014031212,   ,chunshu,   0, 156S, 1393E,  15, 1010, DB
+SH, 17, 2014031218,   ,chunshu,   0, 152S, 1386E,  20, 1007, DB
+SH, 17, 2014031300,   ,chunshu,   0, 149S, 1383E,  20, 1007, DB
+SH, 17, 2014031306,   ,chunshu,   0, 147S, 1385E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031312,   ,chunshu,   0, 145S, 1387E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031318,   ,chunshu,   0, 143S, 1392E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031400,   ,chunshu,   0, 139S, 1395E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031406,   ,chunshu,   0, 136S, 1396E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031412,   ,chunshu,   0, 132S, 1396E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031418,   ,chunshu,   0, 125S, 1395E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031500,   ,chunshu,   0, 117S, 1392E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031506,   ,chunshu,   0, 114S, 1390E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031512,   ,chunshu,   0, 112S, 1389E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031518,   ,chunshu,   0, 109S, 1386E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031600,   ,chunshu,   0, 106S, 1382E,  25, 1006, TD,    GILLIAN
+SH, 17, 2014031606,   ,chunshu,   0, 104S, 1377E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031612,   ,chunshu,   0, 103S, 1372E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031618,   ,chunshu,   0, 103S, 1367E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031700,   ,chunshu,   0, 103S, 1360E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031706,   ,chunshu,   0, 103S, 1349E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031712,   ,chunshu,   0, 101S, 1333E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031718,   ,chunshu,   0,  99S, 1324E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031800,   ,chunshu,   0,  96S, 1311E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031806,   ,chunshu,   0,  98S, 1296E,  35,  996, TS,    GILLIAN
+SH, 17, 2014031812,   ,chunshu,   0,  98S, 1276E,  35,  996, TS,    GILLIAN
+SH, 17, 2014031818,   ,chunshu,   0,  94S, 1260E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031900,   ,chunshu,   0,  89S, 1235E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031906,   ,chunshu,   0,  92S, 1213E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014031912,   ,chunshu,   0,  91S, 1192E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014031918,   ,chunshu,   0,  90S, 1177E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014032000,   ,chunshu,   0,  89S, 1164E,  20, 1007, DB,    GILLIAN
+SH, 17, 2014032006,   ,chunshu,   0,  88S, 1150E,  20, 1007, DB,    GILLIAN
+SH, 17, 2014032012,   ,chunshu,   0,  92S, 1131E,  20, 1007, DB,    GILLIAN
+SH, 17, 2014032018,   ,chunshu,   0,  93S, 1114E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014032100,   ,chunshu,   0,  91S, 1091E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014032106,   ,chunshu,   0,  93S, 1081E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014032112,   ,chunshu,   0,  96S, 1071E,  40,  993, TS,    GILLIAN
+SH, 17, 2014032118,   ,chunshu,   0,  99S, 1061E,  45,  989, TS,    GILLIAN
+SH, 17, 2014032200,   ,chunshu,   0, 101S, 1055E,  50,  985, TS,    GILLIAN
+SH, 17, 2014032206,   ,chunshu,   0, 105S, 1051E,  55,  982, TS,    GILLIAN
+SH, 17, 2014032212,   ,chunshu,   0, 114S, 1047E,  70,  970, TY,    GILLIAN
+SH, 17, 2014032218,   ,chunshu,   0, 123S, 1044E,  90,  956, TY,    GILLIAN
+SH, 17, 2014032300,   ,chunshu,   0, 130S, 1040E, 105,  944, TY,    GILLIAN
+SH, 17, 2014032306,   ,chunshu,   0, 138S, 1037E, 115,  937, TY,    GILLIAN
+SH, 17, 2014032312,   ,chunshu,   0, 146S, 1037E, 125,  929, TY,    GILLIAN
+SH, 17, 2014032318,   ,chunshu,   0, 154S, 1036E, 140,  918, ST,    GILLIAN
+SH, 17, 2014032400,   ,chunshu,   0, 163S, 1036E, 140,  918, ST,    GILLIAN
+SH, 17, 2014032406,   ,chunshu,   0, 172S, 1036E, 125,  929, TY,    GILLIAN
+SH, 17, 2014032412,   ,chunshu,   0, 179S, 1038E, 105,  944, TY,    GILLIAN
+SH, 17, 2014032418,   ,chunshu,   0, 185S, 1038E,  90,  956, TY,    GILLIAN
+SH, 17, 2014032500,   ,chunshu,   0, 190S, 1039E,  75,  967, TY,    GILLIAN
+SH, 17, 2014032506,   ,chunshu,   0, 198S, 1038E,  60,  978, TS,    GILLIAN
+SH, 17, 2014032512,   ,chunshu,   0, 204S, 1037E,  50,  985, TS,    GILLIAN
+SH, 17, 2014032518,   ,chunshu,   0, 210S, 1035E,  40,  993, TS,    GILLIAN
+SH, 17, 2014032600,   ,chunshu,   0, 217S, 1029E,  35,  999, TS,    GILLIAN
+SH, 17, 2014032606,   ,chunshu,   0, 217S, 1020E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014032612,   ,chunshu,   0, 216S, 1013E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014032618,   ,chunshu,   0, 214S, 1000E,  30, 1000, TD,    GILLIAN
+SH, 17, 2014032700,   ,chunshu,   0, 212S,  984E,  25, 1004, TD,    GILLIAN
+SH, 17, 2014032706,   ,chunshu,   0, 211S,  970E,  25, 1004, TD
+SH, 17, 2014032712,   ,chunshu,   0, 211S,  957E,  25, 1004, TD
+SH, 17, 2014032718,   ,chunshu,   0, 212S,  940E,  20, 1007, DB
+SH, 17, 2014032800,   ,chunshu,   0, 212S,  928E,  20, 1007, DB
+SH, 17, 2014032806,   ,chunshu,   0, 212S,  918E,  20, 1007, DB
+SH, 17, 2014032812,   ,chunshu,   0, 212S,  904E,  20, 1007, DB
+SH, 17, 2014032818,   ,chunshu,   0, 215S,  885E,  20, 1007, DB

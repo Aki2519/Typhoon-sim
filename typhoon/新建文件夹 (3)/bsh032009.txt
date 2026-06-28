@@ -1,0 +1,11 @@
+SH, 03, 2008111800,   ,chunshu,   0,  88S,  780E,  20, 1007, DB
+SH, 03, 2008111806,   ,chunshu,   0,  93S,  776E,  20, 1007, DB
+SH, 03, 2008111812,   ,chunshu,   0,  96S,  773E,  20, 1007, DB
+SH, 03, 2008111818,   ,chunshu,   0,  98S,  776E,  20, 1007, DB
+SH, 03, 2008111900,   ,chunshu,   0,  99S,  778E,  25, 1004, TD
+SH, 03, 2008111906,   ,chunshu,   0,  99S,  782E,  30, 1000, TD,     INVEST
+SH, 03, 2008111912,   ,chunshu,   0,  97S,  792E,  30, 1000, TD,     INVEST
+SH, 03, 2008111918,   ,chunshu,   0,  94S,  811E,  35,  996, TS,     INVEST
+SH, 03, 2008112000,   ,chunshu,   0, 100S,  831E,  40,  993, TS,      THREE
+SH, 03, 2008112006,   ,chunshu,   0, 105S,  859E,  40,  993, TS,      THREE
+SH, 03, 2008112012,   ,chunshu,   0, 108S,  876E,  35,  996, TS,      THREE

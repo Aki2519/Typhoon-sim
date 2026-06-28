@@ -1,0 +1,50 @@
+EP, 15, 2007101500,   ,chunshu,   0, 150N, 1087W,  25, 1005, TD,    FIFTEEN
+EP, 15, 2007101506,   ,chunshu,   0, 150N, 1088W,  30, 1004, TD,    FIFTEEN
+EP, 15, 2007101512,   ,chunshu,   0, 149N, 1089W,  30, 1003, TD,    FIFTEEN
+EP, 15, 2007101518,   ,chunshu,   0, 147N, 1089W,  30, 1003, TD,    FIFTEEN
+EP, 15, 2007101600,   ,chunshu,   0, 145N, 1089W,  30, 1002, TD,    FIFTEEN
+EP, 15, 2007101606,   ,chunshu,   0, 143N, 1087W,  30, 1002, TD,    FIFTEEN
+EP, 15, 2007101612,   ,chunshu,   0, 141N, 1084W,  35, 1001, TS,       KIKO
+EP, 15, 2007101618,   ,chunshu,   0, 140N, 1080W,  30, 1001, TD,       KIKO
+EP, 15, 2007101700,   ,chunshu,   0, 140N, 1076W,  30, 1001, TD,       KIKO
+EP, 15, 2007101706,   ,chunshu,   0, 143N, 1071W,  35, 1000, TS,       KIKO
+EP, 15, 2007101712,   ,chunshu,   0, 144N, 1064W,  35, 1000, TS,       KIKO
+EP, 15, 2007101718,   ,chunshu,   0, 145N, 1056W,  35, 1000, TS,       KIKO
+EP, 15, 2007101800,   ,chunshu,   0, 147N, 1049W,  35, 1000, TS,       KIKO
+EP, 15, 2007101806,   ,chunshu,   0, 152N, 1042W,  35, 1000, TS,       KIKO
+EP, 15, 2007101812,   ,chunshu,   0, 160N, 1037W,  35, 1000, TS,       KIKO
+EP, 15, 2007101818,   ,chunshu,   0, 165N, 1039W,  35, 1000, TS,       KIKO
+EP, 15, 2007101900,   ,chunshu,   0, 166N, 1043W,  35, 1000, TS,       KIKO
+EP, 15, 2007101906,   ,chunshu,   0, 168N, 1046W,  35, 1000, TS,       KIKO
+EP, 15, 2007101912,   ,chunshu,   0, 170N, 1050W,  40,  999, TS,       KIKO
+EP, 15, 2007101918,   ,chunshu,   0, 172N, 1053W,  45,  998, TS,       KIKO
+EP, 15, 2007102000,   ,chunshu,   0, 174N, 1057W,  45,  997, TS,       KIKO
+EP, 15, 2007102006,   ,chunshu,   0, 176N, 1060W,  50,  995, TS,       KIKO
+EP, 15, 2007102012,   ,chunshu,   0, 179N, 1064W,  55,  993, TS,       KIKO
+EP, 15, 2007102018,   ,chunshu,   0, 182N, 1068W,  60,  991, TS,       KIKO
+EP, 15, 2007102100,   ,chunshu,   0, 186N, 1071W,  60,  991, TS,       KIKO
+EP, 15, 2007102106,   ,chunshu,   0, 189N, 1072W,  60,  992, TS,       KIKO
+EP, 15, 2007102112,   ,chunshu,   0, 192N, 1073W,  50,  996, TS,       KIKO
+EP, 15, 2007102118,   ,chunshu,   0, 194N, 1075W,  45,  998, TS,       KIKO
+EP, 15, 2007102200,   ,chunshu,   0, 195N, 1078W,  45, 1000, TS,       KIKO
+EP, 15, 2007102206,   ,chunshu,   0, 196N, 1081W,  40, 1001, TS,       KIKO
+EP, 15, 2007102212,   ,chunshu,   0, 196N, 1086W,  40, 1002, TS,       KIKO
+EP, 15, 2007102218,   ,chunshu,   0, 196N, 1095W,  35, 1003, TS,       KIKO
+EP, 15, 2007102300,   ,chunshu,   0, 194N, 1104W,  30, 1004, TD,       KIKO
+EP, 15, 2007102306,   ,chunshu,   0, 191N, 1114W,  30, 1005, TD,       KIKO
+EP, 15, 2007102312,   ,chunshu,   0, 187N, 1125W,  30, 1006, TD,       KIKO
+EP, 15, 2007102318,   ,chunshu,   0, 184N, 1136W,  30, 1007, TD,       KIKO
+EP, 15, 2007102400,   ,chunshu,   0, 184N, 1148W,  25, 1008, LO
+EP, 15, 2007102406,   ,chunshu,   0, 184N, 1159W,  25, 1008, LO
+EP, 15, 2007102412,   ,chunshu,   0, 184N, 1170W,  25, 1008, LO
+EP, 15, 2007102418,   ,chunshu,   0, 184N, 1180W,  25, 1009, LO
+EP, 15, 2007102500,   ,chunshu,   0, 185N, 1189W,  20, 1009, LO
+EP, 15, 2007102506,   ,chunshu,   0, 186N, 1197W,  20, 1009, LO
+EP, 15, 2007102512,   ,chunshu,   0, 187N, 1205W,  20, 1010, LO
+EP, 15, 2007102518,   ,chunshu,   0, 188N, 1213W,  20, 1010, LO
+EP, 15, 2007102600,   ,chunshu,   0, 190N, 1219W,  20, 1010, LO
+EP, 15, 2007102606,   ,chunshu,   0, 194N, 1222W,  20, 1011, LO
+EP, 15, 2007102612,   ,chunshu,   0, 198N, 1224W,  20, 1011, LO
+EP, 15, 2007102618,   ,chunshu,   0, 202N, 1225W,  20, 1011, LO
+EP, 15, 2007102700,   ,chunshu,   0, 207N, 1225W,  20, 1011, LO
+EP, 15, 2007102706,   ,chunshu,   0, 211N, 1224W,  20, 1011, LO

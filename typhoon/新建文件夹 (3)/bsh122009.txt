@@ -1,0 +1,13 @@
+SH, 12, 2009013012,   ,chunshu,   0, 162S, 1465E,  20, 1007, DB
+SH, 12, 2009013018,   ,chunshu,   0, 161S, 1468E,  25, 1000, DB,     INVEST
+SH, 12, 2009013100,   ,chunshu,   0, 159S, 1475E,  25, 1000, DB,     INVEST
+SH, 12, 2009013106,   ,chunshu,   0, 165S, 1482E,  25, 1004, TD,     INVEST
+SH, 12, 2009013112,   ,chunshu,   0, 165S, 1479E,  30, 1000, TD,     INVEST
+SH, 12, 2009013118,   ,chunshu,   0, 167S, 1475E,  35,  996, TS,     INVEST
+SH, 12, 2009020100,   ,chunshu,   0, 170S, 1471E,  35,  996, TS,      ELLIE
+SH, 12, 2009020106,   ,chunshu,   0, 178S, 1470E,  35,  996, TS,      ELLIE
+SH, 12, 2009020112,   ,chunshu,   0, 180S, 1463E,  35,  996, TS,      ELLIE
+SH, 12, 2009020118,   ,chunshu,   0, 183S, 1457E,  30, 1000, TD,      ELLIE
+SH, 12, 2009020200,   ,chunshu,   0, 188S, 1455E,  25, 1004, TD,      ELLIE
+SH, 12, 2009020206,   ,chunshu,   0, 190S, 1451E,  20, 1007, DB
+SH, 12, 2009020212,   ,chunshu,   0, 193S, 1449E,  15, 1010, DB

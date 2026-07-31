@@ -37,7 +37,7 @@ class TimeJump(DraggableDialog):
         self.fields = []
         for i, (label, dv) in enumerate(zip(labels, defaults)):
             r = (dx + 120, dy + 80 + i * 45, 100, 24)
-            f = InputField(r, max_length=4, validator=str.isdigit, dark=self.dark_mode)
+            f = InputField(r, max_length=4, dark=self.dark_mode)
             f.set_text(dv)
             self.fields.append(f)
         self.fields[0].activate()

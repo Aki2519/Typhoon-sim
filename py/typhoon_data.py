@@ -46,7 +46,8 @@ class TyphoonDataMixin:
             self.recalc_simulated_times()
             if not self.sim.pl:
                 self.rst()
-                self.cace = self.pts[self.ci]['ace'] if self.pts and self.ci < len(self.pts) else 0.0
+                self.cace = self.pts[self.ci]['ace'] \
+                    if self.pts and 0 <= self.ci < len(self.pts) else 0.0
         for attr in ('_cached_max_wind_color', '_cached_peaks', '_cached_name_colors'):
             if hasattr(self, attr):
                 delattr(self, attr)
@@ -159,7 +160,7 @@ class TyphoonDataMixin:
             right_dt = self.points_dt[right]
             ratio = (self.points_dt[idx] - left_dt).total_seconds() / (right_dt - left_dt).total_seconds() \
                 if right_dt > left_dt else 0
-            return 0.0 + ratio * (off_times[0] - 0.0)
+            return -0.5 + ratio * 0.5
         if left is not None and right is None:
             li = officials.index(left)
             left_t = off_times[li]

@@ -61,6 +61,10 @@ class Settings(DraggableDialog):
         self._shortcuts_scroll_start_y = 0
         self._shortcuts_max_scroll = 0
 
+    def _is_title_bar(self, pos):
+        return (self.bg_rect.collidepoint(pos)
+                and pos[1] - self.bg_rect.y < 40)
+
     @property
     def _accent(self):
         return settings_accent(self.dark_mode, self.sim.color_scheme)
@@ -91,7 +95,7 @@ class Settings(DraggableDialog):
         self.ace_min_lat = 0
         self.ace_max_lat = 90
         self.hemisphere = HEMISPHERE_NORTH
-        self._map_range_mode = 0
+        self._map_range_mode = 1 if getattr(self.sim, 'map_corner_mode', False) else 0
         self.point_size = 150
         self.icon_size = 100
         self.name_size = 100
@@ -99,7 +103,9 @@ class Settings(DraggableDialog):
         self.disable_dpi_scaling = False
         self.fade_typhoon = True
         self.fade_path = True
+        self.fade_path_mode = "fade"
         self.smooth_path = False
+        self.smooth_path_mode = "monotone"
         self.path_mode = "markers"
         self.ace_interpolated = False
         self.show_fps = False
@@ -108,6 +114,7 @@ class Settings(DraggableDialog):
         self.show_future_path = True
         self.show_ace_bar = True
         self.show_ace_total = True
+        self.monthly_summary = True
         self.basin_filter_enabled = True
         self.icon_set = ICON_SET_SIMPLE
         self.color_scheme = 1
@@ -191,7 +198,6 @@ class Settings(DraggableDialog):
         self.bl_lon_label = rt(f_m, "左下角经度:", TX)
         self.bl_lat_label = rt(f_m, "左下角纬度:", TX)
         self.span_lon_label = rt(f_m, "地图宽度 (°):", TX)
-        self.span_lat_label = rt(f_m, "地图高度 (°):", TX)
         self.map_range_modes = [rt(f_m, "经纬范围", (255, 255, 255)), rt(f_m, "角点+大小", (255, 255, 255))]
 
         self.hemisphere_label = rt(f_m, "半球:", TX)
@@ -200,8 +206,14 @@ class Settings(DraggableDialog):
         self.normal_info_text = rt(f_m, "正常模式显示台风信息框:", TX)
         self.season_info_text = rt(f_m, "台风季模式显示台风信息框:", TX)
         self.fade_typhoon_text = rt(f_m, "台风图标平滑消失:", TX)
-        self.fade_path_text = rt(f_m, "台风路径平滑消失:", TX)
+        self.fade_path_mode_text = rt(f_m, "路径消失模式:", TX)
+        self.fade_path_mode_modes = [rt(f_m, "不消失", (255, 255, 255)),
+                                     rt(f_m, "平滑", (255, 255, 255)),
+                                     rt(f_m, "快速", (255, 255, 255))]
         self.smooth_path_text = rt(f_m, "平滑路径:", TX)
+        self.smooth_path_mode_text = rt(f_m, "插值模式:", TX)
+        self.smooth_path_mode_modes = [rt(f_m, "单调三次", (255, 255, 255)),
+                                       rt(f_m, "Catmull", (255, 255, 255))]
         self.path_mode_text = rt(f_m, "路径模式:", TX)
         self.path_mode_modes = [rt(f_m, "点阵", (255, 255, 255)), rt(f_m, "渐变线", (255, 255, 255))]
         self.ace_interp_text = rt(f_m, "连续 ACE:", TX)
@@ -212,6 +224,7 @@ class Settings(DraggableDialog):
                               rt(f_m, "无限制", (255, 255, 255))]
         self.show_ri_text = rt(f_m, "显示 ERI 动画:", TX)
         self.future_path_text = rt(f_m, "显示未经过的路径:", TX)
+        self.monthly_summary_text = rt(f_m, "月度 ACE 总结弹窗:", TX)
         self.fix_icon_point_text = rt(f_m, "固定图标与路径点大小:", TX)
         self.color_scheme_text = rt(f_m, "配色方案:", TX)
         self.icon_set_text = rt(f_m, "台风图标:", TX)
@@ -247,6 +260,7 @@ class Settings(DraggableDialog):
     def activate(self):
         super().activate()
         self.ac = self.sim.ac
+        self._map_range_mode = 1 if getattr(self.sim, 'map_corner_mode', False) else 0
         self.mis = self.sim.mis
         self.mas = self.sim.mas
         self.mlo = self.sim.mlo
@@ -278,13 +292,16 @@ class Settings(DraggableDialog):
         self.disable_dpi_scaling = self.sim.disable_dpi_scaling
         self.fade_typhoon = self.sim.fade_typhoon
         self.fade_path = self.sim.fade_path
+        self.fade_path_mode = getattr(self.sim, 'fade_path_mode', 'fade')
         self.smooth_path = self.sim.smooth_path
+        self.smooth_path_mode = getattr(self.sim, 'smooth_path_mode', 'monotone')
         self.path_mode = getattr(self.sim, 'path_mode', 'markers')
         self.ace_interpolated = self.sim.ace_interpolated
         self.show_fps = self.sim.show_fps
         self.fps_cap = getattr(self.sim, 'fps_cap', 120)
         self.show_ri_effect = getattr(self.sim, 'show_ri_effect', True)
         self.show_future_path = getattr(self.sim, 'show_future_path', True)
+        self.monthly_summary = getattr(self.sim, 'monthly_summary', True)
         self.show_ace_bar = getattr(self.sim, 'show_ace_bar', True)
         self.show_ace_total = getattr(self.sim, 'show_ace_total', True)
         self.basin_filter_enabled = getattr(self.sim, 'basin_filter_enabled', True)
@@ -340,8 +357,7 @@ class Settings(DraggableDialog):
         self.fields.clear()
         self._field_offsets.clear()
         for key, val, rect, validator in self._get_fields_config():
-            field = InputField(rect, max_length=10, validator=validator,
-                               dark=self.dark_mode)
+            field = InputField(rect, max_length=10, dark=self.dark_mode)
             field.set_text(val)
             field.key = key
             self.fields.append(field)
@@ -352,6 +368,8 @@ class Settings(DraggableDialog):
         FIELD_W, FIELD_H = 80, 24
         COL_X = dialog_x + 250
         lonlat_val = self.validate_lonlat
+        lon_val = self.validate_lon
+        lat_val = self.validate_lat
         # 标签起始 Y ≈ dialog_y + 95（与 _draw_tab_* 中的 y = content_top + 5 一致）
         base_y = dialog_y + 95
         y0 = base_y + 0
@@ -382,19 +400,16 @@ class Settings(DraggableDialog):
             y1m = y0m + 30; y2m = y1m + 30; y3m = y2m + 30
             if self._map_range_mode == 0:
                 return [
-                    ("mlo", lon_to_display(self.mlo), (COL_X, y0m, FIELD_W, FIELD_H), lonlat_val),
-                    ("Mlo", lon_to_display(self.Mlo), (COL_X, y1m, FIELD_W, FIELD_H), lonlat_val),
-                    ("mla", lat_to_display(self.mla), (COL_X, y2m, FIELD_W, FIELD_H), lonlat_val),
-                    ("Mla", lat_to_display(self.Mla), (COL_X, y3m, FIELD_W, FIELD_H), lonlat_val),
+                    ("mlo", lon_to_display(self.mlo), (COL_X, y0m, FIELD_W, FIELD_H), lon_val),
+                    ("Mlo", lon_to_display(self.Mlo), (COL_X, y1m, FIELD_W, FIELD_H), lon_val),
+                    ("mla", lat_to_display(self.mla), (COL_X, y2m, FIELD_W, FIELD_H), lat_val),
+                    ("Mla", lat_to_display(self.Mla), (COL_X, y3m, FIELD_W, FIELD_H), lat_val),
                 ]
             else:
-                span_lon = self.Mlo - self.mlo
-                span_lat = self.Mla - self.mla
                 return [
-                    ("mlo", lon_to_display(self.mlo), (COL_X, y0m, FIELD_W, FIELD_H), lonlat_val),
-                    ("Mlo", f"{span_lon:.1f}", (COL_X, y1m, FIELD_W, FIELD_H), self.validate_float),
-                    ("mla", lat_to_display(self.mla), (COL_X, y2m, FIELD_W, FIELD_H), lonlat_val),
-                    ("Mla", f"{span_lat:.1f}", (COL_X, y3m, FIELD_W, FIELD_H), self.validate_float),
+                    ("mlo", lon_to_display(self.mlo), (COL_X, y0m, FIELD_W, FIELD_H), lon_val),
+                    ("Mlo", f"{self.Mlo - self.mlo:.1f}", (COL_X, y1m, FIELD_W, FIELD_H), self.validate_float),
+                    ("mla", lat_to_display(self.mla), (COL_X, y2m, FIELD_W, FIELD_H), lat_val),
                 ]
         elif self.tab_index == 4:  # ACE
             config = []
@@ -420,6 +435,14 @@ class Settings(DraggableDialog):
     @staticmethod
     def validate_lonlat(char: str) -> bool:
         return char.isdigit() or char in '.-' or char.upper() in 'EWNS'
+
+    @staticmethod
+    def validate_lon(char: str) -> bool:
+        return char.isdigit() or char in '.-' or char.upper() in 'EW'
+
+    @staticmethod
+    def validate_lat(char: str) -> bool:
+        return char.isdigit() or char in '.-' or char.upper() in 'NS'
 
     def draw(self, surface: pygame.Surface):
         if not self.active:
@@ -669,7 +692,6 @@ class Settings(DraggableDialog):
             surface.blit(self.bl_lon_label, (dx + 30, y + self._lh(self.bl_lon_label, 24)))
             surface.blit(self.bl_lat_label, (dx + 30, y + 30 + self._lh(self.bl_lat_label, 24)))
             surface.blit(self.span_lon_label, (dx + 30, y + 60 + self._lh(self.span_lon_label, 24)))
-            surface.blit(self.span_lat_label, (dx + 30, y + 90 + self._lh(self.span_lat_label, 24)))
 
     def _draw_tab_playback(self, surface, dx, dy, top_y, mx, my):
         y = top_y + 5
@@ -691,18 +713,38 @@ class Settings(DraggableDialog):
         for idx, (attr, y_off) in enumerate([
             ('disable_dpi_scaling', gap), ('ac', gap*2),
             ('show_info_box_normal', gap*3), ('show_info_box_season', gap*4),
-            ('fade_typhoon', gap*5), ('fade_path', gap*6),
+            ('fade_typhoon', gap*5),
         ]):
             surface.blit(getattr(self, {'disable_dpi_scaling': 'dpi_label', 'ac': 'auto_continue_text',
                 'show_info_box_normal': 'normal_info_text', 'show_info_box_season': 'season_info_text',
-                'fade_typhoon': 'fade_typhoon_text', 'fade_path': 'fade_path_text'}[attr]), (dx + 30, y + y_off))
+                'fade_typhoon': 'fade_typhoon_text'}[attr]), (dx + 30, y + y_off))
             self._cb(surface, dx + self.bg_rect.width - 50, y + y_off, getattr(self, attr), attr)
-        for attr, y_off in [('smooth_path', gap*7+10), ('ace_interpolated', gap*8+10), ('show_fps', gap*9+10)]:
+        for attr, y_off in [('smooth_path', gap*7+10), ('ace_interpolated', gap*8+10+22), ('show_fps', gap*9+10+22)]:
             surface.blit(getattr(self, {'smooth_path':'smooth_path_text','ace_interpolated':'ace_interp_text','show_fps':'fps_text'}[attr]), (dx + 30, y + y_off))
             self._cb(surface, dx + self.bg_rect.width - 50, y + y_off, getattr(self, attr), attr)
 
+        # 路径消失模式
+        fpm_y = y + gap * 6
+        surface.blit(self.fade_path_mode_text, (dx + 30, fpm_y - 1 + self._lh(self.fade_path_mode_text, 22)))
+        for i, (lbl, v) in enumerate(zip(self.fade_path_mode_modes, ("never", "fade", "quick"))):
+            rect = pygame.Rect(dx + 180 + i * 60, fpm_y - 1, 52, 22)
+            self._tg(surface, rect, lbl, self.fade_path_mode == v, lambda m=v: setattr(self, 'fade_path_mode', m))
+
+        # 月度总结开关
+        ms_y = y + gap * 6 + 28
+        surface.blit(self.monthly_summary_text, (dx + 30, ms_y))
+        self._cb(surface, dx + self.bg_rect.width - 50, ms_y, self.monthly_summary, 'monthly_summary')
+
+        # 插值模式选择
+        spm_y = y + gap * 7 + 32
+        surface.blit(self.smooth_path_mode_text, (dx + 30, spm_y - 1 + self._lh(self.smooth_path_mode_text, 22)))
+        for i, lbl in enumerate(self.smooth_path_mode_modes):
+            rect = pygame.Rect(dx + 180 + i * 90, spm_y - 1, 80, 22)
+            v = "monotone" if i == 0 else "catmull"
+            self._tg(surface, rect, lbl, self.smooth_path_mode == v, lambda m=v: setattr(self, 'smooth_path_mode', m))
+
         # 路径模式切换
-        pm_y = y + gap * 10 + 15
+        pm_y = y + gap * 10 + 15 + 22
         surface.blit(self.path_mode_text, (dx + 30, pm_y - 1 + self._lh(self.path_mode_text, 22)))
         for i, lbl in enumerate(self.path_mode_modes):
             rect = pygame.Rect(dx + 180 + i * 90, pm_y - 1, 80, 22)
@@ -710,17 +752,17 @@ class Settings(DraggableDialog):
             self._tg(surface, rect, lbl, self.path_mode == v, lambda m=v: setattr(self, 'path_mode', m))
 
         # ERI 设置
-        eri_y = y + gap * 11 + 20
+        eri_y = y + gap * 11 + 20 + 22
         surface.blit(self.show_ri_text, (dx + 30, eri_y))
         self._cb(surface, dx + self.bg_rect.width - 50, eri_y, self.show_ri_effect, 'show_ri_effect')
 
         # 未经过路径
-        fp_y = y + gap * 12 + 25
+        fp_y = y + gap * 12 + 25 + 22
         surface.blit(self.future_path_text, (dx + 30, fp_y))
         self._cb(surface, dx + self.bg_rect.width - 50, fp_y, self.show_future_path, 'show_future_path')
 
         # 帧率上限
-        fc_y = y + gap * 13 + 30
+        fc_y = y + gap * 13 + 30 + 22
         surface.blit(self.fps_cap_text, (dx + 30, fc_y - 1 + self._lh(self.fps_cap_text, 22)))
         for i, (lbl, v) in enumerate(zip(self.fps_cap_modes, (60, 120, 0))):
             rect = pygame.Rect(dx + 180 + i * 90, fc_y - 1, 80, 22)
@@ -1106,6 +1148,10 @@ class Settings(DraggableDialog):
         if not self.active:
             return False
 
+        # ── 快捷键面板：拦截所有事件 ──
+        if self.show_shortcuts:
+            return self._handle_shortcuts_event(e)
+
         # 洋区下拉框: ESC / 滚轮 单独处理
         if self._basin_dropdown_open:
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
@@ -1116,14 +1162,11 @@ class Settings(DraggableDialog):
                 self._basin_scroll_offset = max(0, min(self._basin_scroll_offset, len(self._basin_list) - 8))
                 return True
 
-        # ── 快捷键面板：拦截所有事件 ──
-        if self.show_shortcuts:
-            return self._handle_shortcuts_event(e)
-
         # 标题栏按钮（快捷键/重载数据）优先于拖拽检测
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             x, y = e.pos
             if self._shortcuts_btn_rect.collidepoint(x, y):
+                self._basin_dropdown_open = False
                 self.show_shortcuts = True
                 self._shortcuts_scroll_y = 0
                 self._shortcuts_scrollbar_dragging = False
@@ -1135,9 +1178,9 @@ class Settings(DraggableDialog):
                     hw, hh)
                 return True
             if self._reload_btn_rect.collidepoint(x, y):
-                self._sync_ace_settings_to_sim()
-                self.sim.reload_typhoons()
+                self._needs_save = True
                 self.deactivate()
+                self.sim.reload_typhoons()
                 return True
             # 标题栏按钮（关闭/确认）优先于拖拽
             for rect, callback in self._targets:
@@ -1194,6 +1237,7 @@ class Settings(DraggableDialog):
                 w = tab_w + (1 if i < extra_tabs else 0)
                 tab_rect = pygame.Rect(x_off, tab_y, w - 2, 40)
                 if tab_rect.collidepoint(x, y):
+                    self._basin_dropdown_open = False
                     self.tab_index = i
                     self._tab_indicator_target = tab_rect.x + 4
                     self.rebuild_fields()
@@ -1221,6 +1265,7 @@ class Settings(DraggableDialog):
         self.sim.ace_min_lat = self.ace_min_lat
         self.sim.ace_max_lat = self.ace_max_lat
         self.sim.hemisphere = self.hemisphere
+        self.sim.basin_filter_enabled = self.basin_filter_enabled
 
     def apply_settings(self):
         # 先验证所有字段再批量应用，避免部分失败导致状态不一致
@@ -1229,7 +1274,7 @@ class Settings(DraggableDialog):
             key = field.key
             val = field.get_text().strip()
             try:
-                if key in ('Mlo', 'Mla') and self._map_range_mode == 1:
+                if key == 'Mlo' and self._map_range_mode == 1:
                     validated[key] = float(val)
                 elif self._is_lon_key(key):
                     parsed = self._parse_lon(val)
@@ -1251,27 +1296,31 @@ class Settings(DraggableDialog):
                 elif key == 'volume':
                     validated[key] = int(val) / 100.0
             except ValueError:
-                pass
+                self.sim.show_error(f"无效数字: {val}")
+                return
 
         # 批量赋值到 self（settings 本地）
         for key, value in validated.items():
             setattr(self, key, value)
 
-        # 角点+大小模式：转换跨度为实际经/纬度
-        if self._map_range_mode == 1:
-            if 'Mlo' in validated:
-                self.Mlo = self.mlo + validated['Mlo']
-            if 'Mla' in validated:
-                self.Mla = self.mla + validated['Mla']
+        # 角点+大小模式：跨度转换为最大经度
+        if self._map_range_mode == 1 and 'Mlo' in validated:
+            self.Mlo = self.mlo + validated['Mlo']
 
         self.mis = max(0.1, self.mis)
         self.mas = min(20.0, self.mas)
         self.volume = max(0.0, min(1.0, self.volume))
 
+        if self.mis > self.mas:
+            self.sim.show_error("最小速度不能大于最大速度")
+            return
+        self.mas = max(self.mas, self.mis + 0.1)
+
         # 同步到 sim（先记录视图相关旧值，仅变化时重建视图）
         old_view_bounds = (self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla,
                            self.sim.screen_width, self.sim.screen_height)
         old_smooth = self.sim.smooth_path
+        old_smooth_mode = getattr(self.sim, 'smooth_path_mode', 'monotone')
         self.sim.ac = self.ac
         self.sim.mis = self.mis
         self.sim.mas = self.mas
@@ -1279,6 +1328,7 @@ class Settings(DraggableDialog):
         self.sim.Mlo = self.Mlo
         self.sim.mla = self.mla
         self.sim.Mla = self.Mla
+        self.sim.map_corner_mode = (self._map_range_mode == 1)
         self.sim.show_info_box_normal = self.show_info_box_normal
         self.sim.show_info_box_season = self.show_info_box_season
         self.sim.screen_width = self.screen_width
@@ -1305,7 +1355,9 @@ class Settings(DraggableDialog):
         self.sim.disable_dpi_scaling = self.disable_dpi_scaling
         self.sim.fade_typhoon = self.fade_typhoon
         self.sim.fade_path = self.fade_path
+        self.sim.fade_path_mode = self.fade_path_mode
         self.sim.smooth_path = self.smooth_path
+        self.sim.smooth_path_mode = self.smooth_path_mode
         self.sim.path_mode = self.path_mode
         self.sim.ace_interpolated = self.ace_interpolated
         self.sim.show_fps = self.show_fps
@@ -1316,11 +1368,12 @@ class Settings(DraggableDialog):
             self.sim._invalidate_all_path_caches()
         else:
             self.sim.show_future_path = self.show_future_path
+        self.sim.monthly_summary = self.monthly_summary
         self.sim.icon_set = self.icon_set
         self.sim.color_scheme = self.color_scheme
         self.sim.show_ace_bar = self.show_ace_bar
         self.sim.show_ace_total = self.show_ace_total
-        if old_smooth != self.smooth_path:
+        if old_smooth != self.smooth_path or old_smooth_mode != self.smooth_path_mode:
             self.sim.update_all_screen_points()
 
         self.sim.basin_filter_enabled = self.basin_filter_enabled

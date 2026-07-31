@@ -52,6 +52,15 @@ class TySimUtilsMixin:
         except ValueError:
             return "2000010100"
 
+    def refresh_typhoon_after_point_change(self, ty) -> None:
+        self._invalidate_path_cache_for_ty(ty)
+        ty._cached_landfalls = None
+        ty.recalc_simulated_times()
+
+    def _drop_season_start_cache(self, ty) -> None:
+        if hasattr(self, 'season_ctrl'):
+            self.season_ctrl._start_cache.pop(ty, None)
+
     def add_point_to_edit_typhoon(self, vals: dict, current_name: str) -> None:
         ty = self.edit_typhoon
         if not ty:
@@ -72,7 +81,7 @@ class TySimUtilsMixin:
         try:
             w = int(vals['wind']) if vals['wind'] else 15
             p = int(vals['pressure']) if vals['pressure'] else 0
-            st = vals['type'] if vals['type'] else self.dialog_mgr.point_list._infer_type(w, ty.basin)
+            st = (vals['type'] or '').strip() or self.dialog_mgr.point_list._infer_type(w, ty.basin)
             t = vals['time']
 
             cat = self.get_strength_category(w, st)
@@ -107,13 +116,15 @@ class TySimUtilsMixin:
             ty.pts.append(new_point)
             ty.recalc_ace()
             ty.update_screen_points(self.latlon_to_screen)
+            self.refresh_typhoon_after_point_change(ty)
             self._refresh_ace_data()
             self._season_info_box_cache.pop(ty, None)
             self._season_info_box_last_data.pop(ty, None)
             self.dialog_mgr.point_list.save_typhoon_to_file(ty)
 
-            if hasattr(self, '_start_cache'):
-                self._start_cache.pop(ty, None)
+            self._drop_season_start_cache(ty)
+
+            self._last_edited_point = len(ty.pts) - 1
 
         except ValueError:
             self.show_error("添加点失败：数值格式错误")
@@ -139,7 +150,7 @@ class TySimUtilsMixin:
         try:
             w = int(vals['wind']) if vals['wind'] else 15
             p = int(vals['pressure']) if vals['pressure'] else 0
-            st = vals['type'] if vals['type'] else ty.pts[point_index].get('st', '')
+            st = (vals['type'] or '').strip() or ty.pts[point_index].get('st', '')
             t = vals['time']
 
             cat = self.get_strength_category(w, st)
@@ -168,13 +179,15 @@ class TySimUtilsMixin:
 
             ty.recalc_ace()
             ty.update_screen_points(self.latlon_to_screen)
+            self.refresh_typhoon_after_point_change(ty)
             self._refresh_ace_data()
             self._season_info_box_cache.pop(ty, None)
             self._season_info_box_last_data.pop(ty, None)
             self.dialog_mgr.point_list.save_typhoon_to_file(ty)
 
-            if hasattr(self, '_start_cache'):
-                self._start_cache.pop(ty, None)
+            self._drop_season_start_cache(ty)
+
+            self._last_edited_point = point_index
 
         except ValueError:
             self.show_error("修改点失败：数值格式错误")

@@ -12,6 +12,10 @@ try:
     pygame.mixer.set_num_channels(32)
 except pygame.error:
     pass
+try:
+    pygame.key.stop_text_input()
+except Exception:
+    pass
 
 
 def _apply_dpi():
@@ -49,9 +53,6 @@ def main():
 
     sim = TySim(screen)
     clock = pygame.time.Clock()
-
-    if sim.window_topmost:
-        sim.toggle_window_topmost()
 
     running = True
     perf = pygame.time.get_ticks

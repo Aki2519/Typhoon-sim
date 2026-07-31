@@ -203,7 +203,9 @@ class DraggableDialog(Dialog):
                     self.sim._dialog_stack.append(self)
                 return True
         elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
-            self.dragging = False
+            if self.dragging:
+                self.dragging = False
+                return True
         elif e.type == pygame.MOUSEMOTION and self.dragging:
             new_x = e.pos[0] - self.drag_offset_x
             new_y = e.pos[1] - self.drag_offset_y

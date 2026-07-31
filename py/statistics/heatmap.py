@@ -76,6 +76,8 @@ class PathHeatmapDialog(DraggableDialog):
             (self.sim.screen_width - w) // 2,
             (self.sim.screen_height - h) // 2, w, h)
         self._cached_surf = None
+        self._custom_fields = []
+        self._custom_field_active = -1
 
     def _render(self):
         if self._cached_surf is not None:
@@ -139,6 +141,7 @@ class PathHeatmapDialog(DraggableDialog):
 
         # ── Phase 3: 径向累积 ACE 热力 ──
         radius_px = 2.0 / (Mlat - mlat) * bh   # 2° 纬距 → 像素
+        radius_sq = radius_px * radius_px
         heat = [0.0] * (bw * bh)
 
         for lon, lat, pace in ace_pts:
@@ -154,9 +157,9 @@ class PathHeatmapDialog(DraggableDialog):
                 row_off = y * bw
                 for x in range(x0, x1):
                     dx = x - px
-                    dist = math.sqrt(dx * dx + dy * dy)
-                    if dist <= radius_px:
-                        heat[row_off + x] += pace * (1.0 - dist / radius_px)
+                    dist_sq = dx * dx + dy * dy
+                    if dist_sq <= radius_sq:
+                        heat[row_off + x] += pace * (1.0 - math.sqrt(dist_sq) / radius_px)
 
         # ── Phase 4: 色彩映射到 Surface ──
         heat_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
@@ -228,7 +231,7 @@ class PathHeatmapDialog(DraggableDialog):
         self._mode_btns = []
         mode_names = ["自动", "设置", "自定义"]
         for i, name in enumerate(mode_names):
-            r = pygame.Rect(bx + bw - 280 + i * 85, by + 6, 75, 22)
+            r = pygame.Rect(bx + bw - 360 + i * 85, by + 6, 75, 22)
             self._mode_btns.append(r)
             is_on = self._range_mode == i
             if not dark:
@@ -254,20 +257,59 @@ class PathHeatmapDialog(DraggableDialog):
 
         # 自定义范围输入
         if self._range_mode == self.RANGE_CUSTOM:
+            if not self._custom_fields:
+                self._ensure_custom_fields()
             cy = by + 34
             labels = ["西", "东", "南", "北"]
-            vals = [f"{self._custom_mlon:.0f}", f"{self._custom_Mlon:.0f}",
-                    f"{self._custom_mlat:.0f}", f"{self._custom_Mlat:.0f}"]
-            field_bg = (40, 44, 55) if dark else (255, 255, 255)
-            field_border = (80, 110, 160) if dark else (100, 150, 200)
-            for i, (lbl, val) in enumerate(zip(labels, vals)):
-                lx = bx + bw - 280 + i * 68
+            for i, lbl in enumerate(labels):
+                lx = bx + bw - 360 + i * 68
                 surface.blit(rt(f_s, lbl, tc), (lx, cy))
-                fr = pygame.Rect(lx + 16, cy, 46, 22)
-                pygame.draw.rect(surface, field_bg, fr, 0, 3)
-                pygame.draw.rect(surface, field_border, fr, 1, 3)
-                vs = rt(f_s, val, tc)
-                surface.blit(vs, (fr.x + 3, fr.y + 3))
+            for f in self._custom_fields:
+                f.draw(surface)
+
+    def _ensure_custom_fields(self):
+        from ..input_field import InputField
+        self._custom_fields = []
+        labels = ["西", "东", "南", "北"]
+        vals = [self._custom_mlon, self._custom_Mlon, self._custom_mlat, self._custom_Mlat]
+        bx, by = self.bg_rect.x, self.bg_rect.y
+        bw = self.bg_rect.width
+        for i, (lbl, val) in enumerate(zip(labels, vals)):
+            lx = bx + bw - 360 + i * 68
+            fr = pygame.Rect(lx + 16, by + 34, 46, 22)
+            f = InputField(fr, max_length=8, dark=self.dark_mode)
+            f.set_text(f"{val:.0f}")
+            self._custom_fields.append(f)
+
+    def _commit_custom_fields(self):
+        try:
+            west = float(self._custom_fields[0].get_text())
+            east = float(self._custom_fields[1].get_text())
+            south = float(self._custom_fields[2].get_text())
+            north = float(self._custom_fields[3].get_text())
+        except ValueError:
+            self.sim.show_error("自定义范围必须为数字")
+            for f in self._custom_fields:
+                f.deactivate()
+            self._ensure_custom_fields()
+            return
+        if not (-180 <= west <= 360 and -180 <= east <= 360):
+            self.sim.show_error("经度范围 -180~360")
+            for f in self._custom_fields:
+                f.deactivate()
+            self._ensure_custom_fields()
+            return
+        if not (-90 <= south <= 90 and -90 <= north <= 90):
+            self.sim.show_error("纬度范围 -90~90")
+            for f in self._custom_fields:
+                f.deactivate()
+            self._ensure_custom_fields()
+            return
+        self._custom_mlon, self._custom_Mlon = min(west, east), max(west, east)
+        self._custom_mlat, self._custom_Mlat = min(south, north), max(south, north)
+        for f in self._custom_fields:
+            f.deactivate()
+        self._cached_surf = None
 
     def handle_event(self, e: pygame.event.Event) -> bool:
         if not self.active:
@@ -280,6 +322,23 @@ class PathHeatmapDialog(DraggableDialog):
                 if r.collidepoint(e.pos):
                     self._range_mode = i
                     self._cached_surf = None
+                    if i != self.RANGE_CUSTOM:
+                        for f in self._custom_fields:
+                            f.deactivate()
+                    return True
+        if self._range_mode == self.RANGE_CUSTOM and self._custom_fields:
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
+                if any(f.active for f in self._custom_fields):
+                    self._commit_custom_fields()
+                    return True
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                if any(f.rect.collidepoint(e.pos) for f in self._custom_fields):
+                    return True
+                if any(f.active for f in self._custom_fields):
+                    self._commit_custom_fields()
+                    return True
+            for f in self._custom_fields:
+                if f.handle_event(e):
                     return True
         if self.handle_drag_event(e):
             return True

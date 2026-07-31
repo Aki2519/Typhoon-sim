@@ -10,7 +10,7 @@ from .landfall_effect import LandfallEffect, LandfallEffectSMCY, LandedEffect
 from .particle_effect import RIEffect, TSNoteEffect, play_eri_sound, play_note_ts_sound
 from .ace_engine import _ace_eligible
 from .utils import get_tropical_points, play_sound
-from .constants import FADE_DURATION, ICON_SET_SMCY, MODE_NORMAL, MODE_SEASON, MODE_EDIT
+from .constants import FADE_DURATION, FADE_DURATION_QUICK, ICON_SET_SMCY, MODE_NORMAL, MODE_SEASON, MODE_EDIT
 
 if TYPE_CHECKING:
     from .data_repo import DataRepository
@@ -96,18 +96,23 @@ class PlaybackController:
             return
         elapsed = (ct - typhoon.finish_time) / 1000.0
         v = typhoon.v
+        ratio = 1.0 - elapsed / FADE_DURATION
         if self.cfg.fade_typhoon:
-            v.icon_alpha = max(0, int(255 * (1.0 - elapsed / FADE_DURATION)))
+            v.icon_alpha = max(0, int(255 * ratio))
         else:
             v.icon_alpha = 255
-        if self.cfg.fade_path:
-            v.path_alpha = max(0, int(255 * (1.0 - elapsed / FADE_DURATION)))
+        mode = getattr(self.cfg, 'fade_path_mode', 'fade')
+        if mode == 'never':
+            v.path_alpha = 255
+        elif mode == 'quick':
+            v.path_alpha = max(0, int(255 * (1.0 - elapsed / FADE_DURATION_QUICK)))
         else:
-            v.path_alpha = 0
+            v.path_alpha = max(0, int(255 * ratio))
 
     def _update_normal(self, typhoon: Typhoon, ct: float, paused: bool) -> None:
         pts = typhoon.pts
-        if len(pts) == 1:
+        n_pts = len(pts)
+        if n_pts == 1:
             typhoon._mark_finished(ct)
         elif typhoon.fin:
             if ct - typhoon.ft >= FADE_COOLDOWN_MS:
@@ -118,29 +123,33 @@ class PlaybackController:
                         self.repo.current_typhoon().rst()
         else:
             prev_ci = typhoon.ci
-            if not typhoon.v.ipos and typhoon.ci < len(pts) - 1:
+            if not typhoon.v.ipos and typhoon.ci < n_pts - 1:
                 typhoon.sm(ct)
             typhoon.um(ct, self.cfg.sp, paused)
             if typhoon.ci != prev_ci:
                 self._check_particle_effects(typhoon, prev_ci, ct)
         typhoon.cace = (typhoon.interpolated_cace() if self.cfg.ace_interpolated
-                   else (pts[typhoon.ci]['ace'] if pts and typhoon.ci < len(pts) else 0.0))
+                   else (pts[typhoon.ci]['ace'] if pts and typhoon.ci < n_pts else 0.0))
 
     def _update_season(self, typhoon: Typhoon, ct: float, paused: bool,
                        season_ctrl: Optional[SeasonController] = None) -> None:
         pts = typhoon.pts
+        n_pts = len(pts)
+        if not pts:
+            typhoon.cace = 0.0
+            return
         if season_ctrl and typhoon.ci == 0 and typhoon.last_ace_ci == -1:
             pt = pts[0]
             if pt.get('pace', 0) > 0 and pt.get('ace_year', 0) == season_ctrl.current_ace_year:
                 if self.ace_engine.point_in_limit(pt['la'], pt['lo']):
                     season_ctrl.add_csa(pt['pace'])
             typhoon.last_ace_ci = 0
-        if len(pts) == 1:
+        if n_pts == 1:
             typhoon._mark_finished(ct)
             typhoon.sf = True
         elif not typhoon.fin:
             prev_ci = typhoon.ci
-            if not typhoon.v.ipos and typhoon.ci < len(pts) - 1:
+            if not typhoon.v.ipos and typhoon.ci < n_pts - 1:
                 typhoon.sm(ct)
             typhoon.um(ct, self.cfg.sp, paused)
             if typhoon.ci != prev_ci:
@@ -161,7 +170,8 @@ class PlaybackController:
                         self.effects.append(TyphoonSummary(typhoon, ct))
 
         typhoon.cace = (typhoon.interpolated_cace() if self.cfg.ace_interpolated
-                   else (pts[typhoon.ci]['ace'] if pts else 0.0))
+                   else (pts[typhoon.ci]['ace']
+                         if pts and 0 <= typhoon.ci < len(pts) else 0.0))
 
     def _compute_interpolated_csa(self,
                                     season_ctrl: SeasonController) -> float:
@@ -186,19 +196,22 @@ class PlaybackController:
 
     def _update_edit(self, typhoon: Typhoon, ct: float, paused: bool) -> None:
         pts = typhoon.pts
-        if len(pts) == 1:
+        n_pts = len(pts)
+        if n_pts == 1:
             typhoon._mark_finished(ct)
         elif typhoon.fin:
             if ct - typhoon.ft >= FADE_COOLDOWN_MS:
                 typhoon.fin = False
                 self._pl = False
                 typhoon.rst()
+                if self.repo._sim:
+                    self.repo._sim._edit_selected_point = None
         else:
-            if not typhoon.v.ipos and typhoon.ci < len(pts) - 1:
+            if not typhoon.v.ipos and typhoon.ci < n_pts - 1:
                 typhoon.sm(ct)
             typhoon.um(ct, self.cfg.sp, paused)
         typhoon.cace = (typhoon.interpolated_cace() if self.cfg.ace_interpolated
-                   else (pts[typhoon.ci]['ace'] if pts and typhoon.ci < len(pts) else 0.0))
+                   else (pts[typhoon.ci]['ace'] if pts and typhoon.ci < n_pts else 0.0))
 
     def _check_landfall(self, typhoon: Typhoon, ct: float,
                         season_ctrl: Optional[SeasonController] = None) -> None:

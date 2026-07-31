@@ -7,7 +7,7 @@ import logging
 import pygame
 from datetime import datetime
 
-from ..constants import f_s, rt, HEMISPHERE_SOUTH
+from ..constants import f_s, rt, HEMISPHERE_SOUTH, CONFIG_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,11 @@ class TySimKeyboardMixin:
         saved_mlo, saved_Mlo = self.mlo, self.Mlo
         saved_mla, saved_Mla = self.mla, self.Mla
 
+        saved_basin = saved_num = None
+        if self.edit_typhoon:
+            saved_basin = self.edit_typhoon.basin
+            saved_num = self.edit_typhoon.n
+
         self.repo.reload_typhoons()
         self.cti = self.repo.cti
         self.edit_typhoon = self.repo.edit_typhoon
@@ -28,11 +33,21 @@ class TySimKeyboardMixin:
         self._info_box_last_data.clear()
         self._season_info_box_cache.clear()
         self._season_info_box_last_data.clear()
+        if hasattr(self, '_name_anim'):
+            self._name_anim.clear()
+        if hasattr(self, '_name_shadow_cache'):
+            self._name_shadow_cache.clear()
         if hasattr(self, 'playback_ctrl'):
             self.playback_ctrl._was_fin.clear()
             self.playback_ctrl._lf_last.clear()
         if self.md == self.MODE_EDIT and self.tys:
-            self.edit_typhoon = self.tys[0]
+            found = None
+            if saved_basin and saved_num:
+                for ty in self.tys:
+                    if ty.basin == saved_basin and ty.n == saved_num:
+                        found = ty
+                        break
+            self.edit_typhoon = found if found else self.tys[0]
 
         if hasattr(self, 'season_ctrl') and self.md == self.MODE_SEASON:
             sc = self.season_ctrl
@@ -60,6 +75,7 @@ class TySimKeyboardMixin:
             self._refresh_ace_data()
             self._season_info_box_cache.pop(self.edit_typhoon, None)
             self._season_info_box_last_data.pop(self.edit_typhoon, None)
+            self._last_edited_point = None
             if self.dialog_mgr.point_list.active:
                 self.dialog_mgr.point_list._clear_row_cache()
                 self.dialog_mgr.point_list._needs_save = True
@@ -90,17 +106,19 @@ class TySimKeyboardMixin:
         return True
 
     def restore_map_region_from_config(self):
-        config_file = getattr(self, 'CONFIG_FILE', 'config.json')
-        if os.path.exists(config_file):
+        if os.path.exists(CONFIG_FILE):
             try:
-                with open(config_file, 'r', encoding='utf-8') as f:
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                     cfg = json.load(f)
-                self.mlo = cfg.get("mlo", self.mlo)
-                self.Mlo = cfg.get("Mlo", self.Mlo)
-                self.mla = cfg.get("mla", self.mla)
-                self.Mla = cfg.get("Mla", self.Mla)
-                self.map_mgr.update_view()
-                self.update_all_screen_points()
+                changed = False
+                for key in ('mlo', 'Mlo', 'mla', 'Mla'):
+                    val = cfg.get(key, getattr(self, key))
+                    if val != getattr(self, key):
+                        setattr(self, key, val)
+                        changed = True
+                if changed:
+                    self.map_mgr.update_view()
+                    self.update_all_screen_points()
             except Exception:
                 logger.debug("restore_map_region_from_config failed", exc_info=True)
 
@@ -141,6 +159,10 @@ class TySimKeyboardMixin:
     def _key_space(self) -> bool:
         self.pl = not self.pl
         self.play_text = rt(f_s, "播放" if not self.pl else "暂停", (255, 255, 255))
+        return True
+
+    def _key_f1(self) -> bool:
+        self._ui_hidden = not self._ui_hidden
         return True
 
     def _key_f12(self) -> bool:
@@ -215,6 +237,9 @@ class TySimKeyboardMixin:
                     top._layout_valid = False
                 if hasattr(top, '_compute_layout'):
                     top._compute_layout()
+            elif self._ui_hidden:
+                tmp = pygame.Surface((self.screen_width, self.map_height))
+                self.renderer._draw_scene(tmp, hidden=True)
             else:
                 tmp = pygame.Surface((self.screen_width, self.screen_height))
                 self.draw(tmp)
@@ -236,28 +261,31 @@ class TySimKeyboardMixin:
         self.script_dialog.activate()
         return True
 
-    def toggle_window_topmost(self) -> bool:
+    def set_window_topmost(self, state: bool) -> bool:
         if os.name == 'nt':
             try:
-                import ctypes
                 import win32gui, win32con
                 hwnd = win32gui.FindWindow(None, "台风路径模拟系统")
                 if hwnd:
-                    if not self.window_topmost:
-                        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
-                                              win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-                    else:
-                        win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0,
-                                              win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-                    self.window_topmost = not self.window_topmost
-                    self.save_config()
+                    win32gui.SetWindowPos(hwnd,
+                                          win32con.HWND_TOPMOST if state else win32con.HWND_NOTOPMOST,
+                                          0, 0, 0, 0,
+                                          win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
                     return True
                 return False
             except ImportError:
                 return False
             except Exception:
-                logger.debug("toggle_window_topmost failed", exc_info=True)
+                logger.debug("set_window_topmost failed", exc_info=True)
                 return False
+        return False
+
+    def toggle_window_topmost(self) -> bool:
+        new_state = not self.window_topmost
+        if self.set_window_topmost(new_state):
+            self.window_topmost = new_state
+            self.save_config()
+            return True
         return False
 
     def switch_mode(self) -> None:
@@ -313,8 +341,9 @@ class TySimKeyboardMixin:
         elif self.md == self.MODE_EDIT:
             if not self.edit_typhoon and self.tys:
                 self.edit_typhoon = self.tys[0]
+            self._edit_selected_point = self._last_edited_point if self._last_edited_point is not None else 0
         else:
-            self.edit_typhoon = None
+            pass
 
         self._config_needs_save = True
         self.save_config()
@@ -344,16 +373,9 @@ class TySimKeyboardMixin:
         if self.md == self.MODE_NORMAL:
             self.current_typhoon().rst()
         elif self.md == self.MODE_SEASON:
-            for ty in self.tys:
-                ty.rst()
-            self.st = "010100"
-            self.ste = 0
-            self.csa = 0.0
-            self.sy = self.sty
-            current_dt = datetime(self.sy, 1, 1, 0)
-            self.current_ace_year = self.get_ace_year(current_dt)
-            self.csa = self.calc_accumulated_ace_up_to(
-                self.sy, int(self.st[0:2]), int(self.st[2:4]), int(self.st[4:6]))
+            self.season_ctrl.reset_to_first_year()
+            self._sync_season_state()
+            self.update_all_screen_points()
         elif self.md == self.MODE_EDIT and self.edit_typhoon:
             self.edit_typhoon.rst()
         return True

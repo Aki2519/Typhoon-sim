@@ -234,7 +234,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         # 月度交替背景（覆盖曲线图到活跃数图的整个时间轴区域）
         bands_h = self._month_line_bottom - self._month_line_top
         bands = self._month_bands(
-            self.daily_bar_rect.width, bands_h, cd.year_range, dark)
+            self.daily_bar_rect.width, bands_h, cd.year_range, dark, self.sim.hemisphere)
         surface.blit(bands, (box_x + self.padding_left, self._month_line_top + dialog_y))
 
         # 月份线
@@ -363,11 +363,6 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             surface.blit(prompt,
                          (self._jump_field.rect.x, self._jump_field.rect.y - 22))
 
-        if self._jump_active and self._jump_field:
-            self._jump_field.draw(surface)
-            surface.blit(self._jump_prompt_text,
-                         (self._jump_field.rect.x, self._jump_field.rect.y - 22))
-
     def _draw_hover(self, surface):
         if self._hover_info and self._hover_pos:
             draw_tooltip(surface, self._hover_info,
@@ -423,6 +418,8 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         # 优先检测关闭按钮（禁止事件穿透）
         if self._close_btn_rect.collidepoint(x, y):
             self.deactivate()
+            return True
+        if not self._available_years or self._selected_year_index < 0:
             return True
         # 活跃时间图点击 → 跳转到台风生成时间
         for br_screen, period in self._active_period_click_targets:
@@ -528,8 +525,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
     def _start_jump(self):
         self._jump_active = True
         r = pygame.Rect(self.bg_rect.x + self.bg_rect.width // 2 - 50, self.bg_rect.y + 35, 100, 24)
-        self._jump_field = InputField(r, max_length=4, validator=lambda c: c.isdigit(),
-                                       dark=self.dark_mode)
+        self._jump_field = InputField(r, max_length=4, dark=self.dark_mode)
         self._jump_field.activate()
 
     def _do_jump(self):
@@ -730,8 +726,8 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
     _month_bands_cache: dict = {}
 
     @classmethod
-    def _month_bands(cls, w, h, year_range, dark) -> pygame.Surface:
-        key = (w, h, year_range[0].year, dark)
+    def _month_bands(cls, w, h, year_range, dark, hemisphere) -> pygame.Surface:
+        key = (w, h, year_range[0].year, dark, hemisphere)
         surf = cls._month_bands_cache.get(key)
         if surf is None:
             surf = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -739,14 +735,18 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             band_a = (255, 255, 255, 27) if dark else (160, 170, 200, 16)
             band_b = (255, 255, 255, 10) if dark else (190, 200, 220, 8)
             for m in range(1, 13):
-                ms = datetime(sd.year, m, 1, 0)
+                if hemisphere == HEMISPHERE_NORTH:
+                    yr = sd.year
+                else:
+                    yr = sd.year + (1 if m < 7 else 0)
+                ms = datetime(yr, m, 1, 0)
                 if ms < sd:
                     continue
                 ho = (ms - sd).total_seconds() / 3600
                 if ho >= total_h:
                     break
                 x = int(ho / total_h * w)
-                me = datetime(sd.year, m + 1, 1, 0) if m < 12 else datetime(sd.year + 1, 1, 1, 0)
+                me = datetime(yr, m + 1, 1, 0) if m < 12 else datetime(yr + 1, 1, 1, 0)
                 he = min((me - sd).total_seconds() / 3600, total_h)
                 xe = int(he / total_h * w) if total_h > 0 else w
                 color = band_a if m % 2 == 1 else band_b

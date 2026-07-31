@@ -28,10 +28,10 @@ EDIT_W = 660
 EDIT_H = 560
 
 _TEMPLATE = """#新脚本
->2026-08-01-00z
-/120E 10;60
-\t[[2026-08-01-00z
-\t==2026-08-05-00z
+jump 2026-08-01 00:00
+target 120E 10N w=60:
+    arrive 2026-08-01 00:00
+    depart 2026-08-05 00:00
 """
 
 
@@ -168,16 +168,20 @@ class _TextArea:
 
     def _cut(self):
         self._copy()
-        self.lines = ['']
-        self.row = self.col = self.scroll = 0
-        self._undo_stack.clear()
-        self._undo_pos = -1
+        self.lines.pop(self.row)
+        if not self.lines:
+            self.lines = ['']
+        self.row = min(self.row, len(self.lines) - 1)
+        self.col = 0
+        self.scroll = max(0, min(self.scroll, max(0, len(self.lines) - self.visible_rows)))
+        self._ensure_visible()
         self._notify()
 
     def _undo(self):
-        if self._undo_pos > 0:
-            self._undo_pos -= 1
+        if self._undo_pos >= 0:
             text = self._undo_stack[self._undo_pos]
+            if self._undo_pos > 0:
+                self._undo_pos -= 1
             self.lines = text.split('\n') or ['']
             if not self.lines:
                 self.lines = ['']
@@ -195,8 +199,17 @@ class _TextArea:
             if self.rect.collidepoint(e.pos):
                 self.active = True
                 self.row, self.col = self._index_at(e.pos)
+                try:
+                    pygame.key.start_text_input()
+                    pygame.key.set_text_input_rect(self.rect)
+                except Exception:
+                    pass
                 return True
             self.active = False
+            try:
+                pygame.key.stop_text_input()
+            except Exception:
+                pass
             return False
 
         if e.type == pygame.MOUSEWHEEL:
@@ -466,15 +479,16 @@ class ScriptDialog(DraggableDialog):
         text = self._editor.get_text()
         try:
             script = Script.parse(text, self._editor_name or "editor")
-            n = len(script.targets)
+            n = sum(1 for c in script.commands if c.target is not None)
             if n == 0:
                 self._parse_ok = False
-                self._parse_status = "无有效目标 (需要至少一行 /经度 纬度;宽度)"
+                self._parse_status = "无有效目标 (需要 target ...)"
             else:
                 self._parse_ok = True
                 jump = ""
-                if script.start_jump_date is not None:
-                    jump = f"  起始跳跃 {script.start_jump_date.strftime('%Y-%m-%d %Hz')}"
+                first = script.commands[0]
+                if first.type == 'jump' and first.jump_date is not None:
+                    jump = f"  起始跳跃 {first.jump_date.strftime('%Y-%m-%d %H:%M')}"
                 self._parse_status = f"解析成功: {n} 个目标{jump}"
         except Exception as ex:
             self._parse_ok = False
@@ -496,7 +510,7 @@ class ScriptDialog(DraggableDialog):
             return
         name = (self._editor_name or "").strip()
         if not name:
-            name = "未命名脚本"
+            name = "script.txt"
         if not name.endswith('.json'):
             name += '.json'
         self._editor_name = name

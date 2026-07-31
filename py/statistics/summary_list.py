@@ -157,12 +157,12 @@ class SummaryListDialog(Dialog):
         for ty in storms:
             cat = TyphoonSummary._find_peak(ty)
             pool = get_tropical_points(ty.pts) or ty.pts
-            max_wind = max((p['w'] for p in pool), default=0)
-            pres = [p['p'] for p in pool if p['w'] == max_wind and p['p']]
+            max_wind = max((p.get('w', 0) for p in pool), default=0)
+            pres = [p.get('p', 0) for p in pool if p.get('w', 0) == max_wind and p.get('p')]
             peak_pres = min(pres) if pres else 0
             peak_date = ""
             for p in pool:
-                if p['w'] == max_wind and len(p.get('t', '')) >= 8:
+                if p.get('w', 0) == max_wind and len(p.get('t', '')) >= 8:
                     peak_date = f"{p['t'][4:6]}/{p['t'][6:8]}"
                     break
             hours = 0.0
@@ -208,10 +208,10 @@ class SummaryListDialog(Dialog):
             ypts = [p for p in ty.pts if p.get('ace_year') == year]
             if basin_area is not None:
                 ypts = [p for p in ypts if basin_area.contains(p['la'], p['lo'])]
-            tp = [p for p in ypts if p['st'].upper() not in _NON_TROPICAL]
-            if any(p['w'] >= _WIND_C2_MIN for p in tp):
+            tp = [p for p in ypts if (p.get('st') or '').upper() not in _NON_TROPICAL]
+            if any(p.get('w', 0) >= _WIND_C2_MIN for p in tp):
                 c2 += 1
-            if any(p['w'] >= _WIND_C4_ST_MIN for p in tp):
+            if any(p.get('w', 0) >= _WIND_C4_ST_MIN for p in tp):
                 c4st += 1
 
         def stat(cat, label, value):

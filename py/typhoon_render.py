@@ -27,13 +27,16 @@ class TyphoonRenderMixin:
             v.screen_points.append((x, y))
             xs.append(x)
             ys.append(y)
-        v.bbox = pygame.Rect(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+        x0, y0 = min(xs), min(ys)
+        x1, y1 = max(xs), max(ys)
+        v.bbox = pygame.Rect(x0, y0, x1 - x0, y1 - y0)
         if view_rect and not v.bbox.colliderect(view_rect):
             return
         if self.sim and self.sim.cfg.smooth_path:
-            segs = self.sim.cfg.smooth_path_segments
+            segs = max(1, int(self.sim.cfg.smooth_path_segments))
+            mode = getattr(self.sim.cfg, 'smooth_path_mode', 'monotone')
             geo_pts = [(p['lo'], p['la']) for p in self.pts]
-            smooth_geo = build_spline(geo_pts, segs)
+            smooth_geo = build_spline(geo_pts, segs, mode)
             f = latlon_to_screen_func
             smooth_sc = [f(lat, lon) for lon, lat in smooth_geo]
             v.smooth_screen_points = smooth_sc
@@ -70,7 +73,9 @@ class TyphoonRenderMixin:
         mf = self.sim.main_rotation_speed if self.sim else 1.0
         lf = self.sim.level3_rotation_speed if self.sim else 1.5
         v = self.v
-        v.sa = (v.sa + 180 * dt * mf) % 360
-        v.sa3 = (v.sa3 + 180 * dt * lf) % 360
-        v.sa4 = (v.sa4 + 180 * dt * lf) % 360
-        v.sa5 = (v.sa5 + 180 * dt * lf) % 360
+        step_main = 180.0 * dt * mf
+        step_level3 = 180.0 * dt * lf
+        v.sa = (v.sa + step_main) % 360
+        v.sa3 = (v.sa3 + step_level3) % 360
+        v.sa4 = (v.sa4 + step_level3) % 360
+        v.sa5 = (v.sa5 + step_level3) % 360

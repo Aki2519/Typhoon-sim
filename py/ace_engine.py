@@ -205,6 +205,7 @@ class ACEEngine:
             t1, t2 = _parse_dt(first_pt['t']), _parse_dt(next_pt['t'])
             if not t1 or not t2:
                 continue
+            t2 = max(t1, t2)
 
             cand: List[Tuple[int, datetime]] = []
             if first_idx != next_idx:
@@ -277,9 +278,9 @@ class ACEEngine:
         sim.tsa = sum(ty.tace for ty in self._tys)
         sty, edy = self.season_years()
         sim.sty, sim.edy = sty, edy
-        # 仅在 sim.sy 未初始化或早于有效区间时才用 sty 初始化，
+        # 仅在 sim.sy 未初始化或超出有效区间时才用 sty 初始化，
         # 避免切换 ACE 设置时把当前模拟年份重置为最早台风年份
-        if sim.sy < sty:
+        if not (sty <= sim.sy <= edy):
             sim.sy = sty
         sim.yad = self.yearly_ace()
         sim._ace_timeline_cache.clear()
@@ -288,3 +289,5 @@ class ACEEngine:
             if ace > 0:
                 sim._ace_timeline_cache[year] = self.build_timeline_cache(year)
                 sim._ace_typhoon_cache[year] = self.typhoon_ace_list(year)
+        if hasattr(sim, '_sync_to_season_ctrl'):
+            sim._sync_to_season_ctrl()

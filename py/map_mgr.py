@@ -20,6 +20,8 @@ class MapView:
         self.lat_min, self.lat_max = lat_min, lat_max
         self.width_deg = lon_max - lon_min
         self.height_deg = lat_max - lat_min
+        self._scale_x = self.img_w / self.width_deg
+        self._scale_y = self.img_h / self.height_deg
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.view_x = self.view_y = 0.0
@@ -27,7 +29,9 @@ class MapView:
         self.min_scale = min(screen_width / self.img_w, screen_height / self.img_h)
         self._cached_scale = -1.0
         self._cached_sw = -1
+        self._cached_ba = False
         self._cached_offset = (0, 0)
+        self._bottom_align = False
 
     @property
     def _max_view_y(self):
@@ -40,20 +44,22 @@ class MapView:
         return max(0.0, min(self.view_y, self.img_h - view_h))
 
     def geo_to_screen(self, lon, lat):
-        px = (lon - self.lon_min) / self.width_deg * self.img_w
-        py = (self.lat_max - lat) / self.height_deg * self.img_h
-        cx = self.view_x + self.screen_width / (2.0 * self.scale)
+        px = (lon - self.lon_min) * self._scale_x
+        py = (self.lat_max - lat) * self._scale_y
+        half_sw = self.screen_width / (2.0 * self.scale)
+        cx = self.view_x + half_sw
         dx = px - cx
         if dx > self.img_w / 2.0: dx -= self.img_w
         elif dx < -self.img_w / 2.0: dx += self.img_w
         ox, oy = self._draw_offset()
-        return int(dx * self.scale + self.screen_width / 2.0) + ox, \
+        return int(dx * self.scale + half_sw * self.scale) + ox, \
                int((py - self.view_y) * self.scale) + oy
 
     def screen_to_geo(self, sx, sy):
         ox, oy = self._draw_offset()
         sx, sy = sx - ox, sy - oy
-        cx = self.view_x + self.screen_width / (2.0 * self.scale)
+        half_sw = self.screen_width / (2.0 * self.scale)
+        cx = self.view_x + half_sw
         px = cx + (sx - self.screen_width / 2.0) / self.scale
         py = self.view_y + sy / self.scale
         lon = self.lon_min + (px / self.img_w) * self.width_deg
@@ -94,17 +100,32 @@ class MapView:
         self.view_y = (self.lat_max - clat) / self.height_deg * self.img_h \
                       - self.screen_height / (2.0 * self.scale)
         self._clamp_view_y()
+        self._bottom_align = False
+
+    def set_view_corner(self, lon_bl, lat_bl, span_lon):
+        if span_lon <= 0:
+            return
+        scale_x = self.screen_width / (span_lon / self.width_deg * self.img_w)
+        self.scale = max(self.min_scale, min(scale_x, 8.0))
+        px_bl = (lon_bl - self.lon_min) / self.width_deg * self.img_w
+        self.view_x = px_bl % self.img_w
+        py_bl = (self.lat_max - lat_bl) / self.height_deg * self.img_h
+        self.view_y = py_bl - self.screen_height / self.scale
+        self._clamp_view_y()
+        self._bottom_align = True
 
     def _draw_offset(self):
-        if self._cached_scale != self.scale or self._cached_sw != self.screen_width:
+        if self._cached_scale != self.scale or self._cached_sw != self.screen_width or self._cached_ba != self._bottom_align:
             vw = min(self.screen_width / self.scale, self.img_w)
             vh = min(self.screen_height / self.scale, self.img_h)
             self._cached_offset = (
                 int((self.screen_width - vw * self.scale) / 2),
-                int((self.screen_height - vh * self.scale) / 2),
+                int(self.screen_height - vh * self.scale) if self._bottom_align
+                else int((self.screen_height - vh * self.scale) / 2),
             )
             self._cached_scale = self.scale
             self._cached_sw = self.screen_width
+            self._cached_ba = self._bottom_align
         return self._cached_offset
 
     def draw(self, screen, dest_rect=None):
@@ -162,7 +183,14 @@ class MapManager:
         path = self.cmp if self.cmp and os.path.exists(self.cmp) else DEFAULT_MAP
         self.map_view = MapView(path, 0.0, 360.0, -90.0, 90.0,
                                 self.sim.screen_width, self.sim.map_height)
-        self.map_view.set_view_region(self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla)
+        self._fit_view()
+
+    def _fit_view(self):
+        if getattr(self.sim, 'map_corner_mode', False):
+            span_lon = self.sim.Mlo - self.sim.mlo
+            self.map_view.set_view_corner(self.sim.mlo, self.sim.mla, span_lon)
+        else:
+            self.map_view.set_view_region(self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla)
 
     def _load_land_orig(self):
         if self._land_orig is None and os.path.exists(LAND_MASK):
@@ -269,7 +297,7 @@ class MapManager:
         if self.map_view is None:
             self._init_map_view()
         else:
-            self.map_view.set_view_region(self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla)
+            self._fit_view()
         self.update_land_mask()
 
     update_map_image = update_view
@@ -290,9 +318,15 @@ class MapManager:
         if os.path.exists(path):
             self.cmp = path
             self._init_map_view()
+            self._cached_render_hash = None
+            self._land_pending = False
+            self._cached_map_render = None
             self.sim._config_needs_save = True
 
     def reset_map(self):
         self.cmp = None
         self._init_map_view()
+        self._cached_render_hash = None
+        self._land_pending = False
+        self._cached_map_render = None
         self.sim._config_needs_save = True

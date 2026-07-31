@@ -2,7 +2,7 @@
 """多年度 ACE 统计图表对话框：年度柱状图 + 多年曲线叠加。"""
 from __future__ import annotations
 import pygame
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
 from ..constants import (f_s, f_m, rt, TXT, DIALOG_TITLE_BAR_HEIGHT,
@@ -63,12 +63,29 @@ class MultiYearDialog(DraggableDialog):
                 th = int((ed - sd).total_seconds() / 3600)
                 curves.append((y, cached, yad[y], (sd, ed, th)))
 
-        # 当前年份的月度 ACE 数据
+        # 当前年份的月度 ACE 数据（按自然月分组，从 ACE 年起始日算起；当年含当前时间 cutoff）
         monthly_ace = []
         if current in available:
-            dc = engine.daily_ace(current, None)
+            sd, _ = engine.ace_year_range(current)
+            cutoff = None
+            if current == getattr(self.sim, 'current_ace_year', None):
+                try:
+                    cutoff = datetime(int(self.sim.sy), int(self.sim.st[0:2]),
+                                      int(self.sim.st[2:4]), int(self.sim.st[4:6]))
+                except (ValueError, IndexError):
+                    cutoff = None
+            dc = engine.daily_ace(current, cutoff)
             for m in range(1, 13):
-                monthly_ace.append((m, sum(dc[max(0, (m - 1) * 30):min(m * 30, len(dc))])))
+                if self.sim.hemisphere == HEMISPHERE_NORTH:
+                    cal = m
+                else:
+                    cal = m + 6 if m <= 6 else m - 6
+                total = 0.0
+                for di, val in enumerate(dc):
+                    day = sd + timedelta(days=di)
+                    if day.month == cal:
+                        total += val
+                monthly_ace.append((cal, total))
 
         # 当前年份的洋区 ACE
         basin_stats = []

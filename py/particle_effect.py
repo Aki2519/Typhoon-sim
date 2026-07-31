@@ -9,7 +9,7 @@ import cv2
 import pygame
 from PIL import Image as PILImage
 
-from .constants import SUCAI_DIR, ICON_SET_SMCY
+from .constants import SUCAI_DIR, ICON_SET_SMCY, SOUND_DIR
 from .utils import play_sound
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def preload_particles() -> None:
 def _load_eri_sound():
     global _eri_sound
     if _eri_sound is None:
-        path = os.path.join('./sound/', 'ERI-1.ogg')
+        path = os.path.join(SOUND_DIR, 'ERI-1.ogg')
         if os.path.exists(path):
             try:
                 _eri_sound = pygame.mixer.Sound(path)
@@ -46,7 +46,7 @@ def _load_eri_sound():
 def _load_note_ts_sound():
     global _note_ts_sound
     if _note_ts_sound is None:
-        path = os.path.join('./sound/', 'note_ts.ogg')
+        path = os.path.join(SOUND_DIR, 'note_ts.ogg')
         if os.path.exists(path):
             try:
                 _note_ts_sound = pygame.mixer.Sound(path)
@@ -135,6 +135,9 @@ class RIEffect:
             if len(cache) >= self._SCALED_CACHE_MAX:
                 cache.pop(next(iter(cache)))
             cache[key] = scaled
+        # 75% 不透明度
+        scaled = scaled.copy()
+        scaled.set_alpha(191)   # 255 * 0.75
         r = scaled.get_rect(center=(x, y))
         surface.blit(scaled, r)
 
@@ -194,17 +197,13 @@ class TSNoteEffect:
         self._angle = (base_angle + self._ROT_FIX_DEG) % 360.0
         self._mirror = v.mirror
         self._cur_idx = 0
-        self._played = 0           # SMCY 模式下已播放帧数（防图标帧号回绕导致残影）
         self._img_cache: Dict[Tuple[int, int], pygame.Surface] = {}
 
     def _frame_idx(self, current_time: float) -> int:
         if self._smcy:
-            from .smcy_icon import _TOTAL_FRAMES
-            rel = (self.typhoon.v._smcy_frame - self._start_icon_frame) % _TOTAL_FRAMES
-            # 检测回绕：rel 突然变小说明 _smcy_frame 绕了一圈
-            if self._played > 0 and rel < self._played:
+            rel = self.typhoon.v._smcy_frame - self._start_icon_frame
+            if rel < 0:
                 return self._frame_count    # 越界值，触发 update→False
-            self._played = max(self._played, rel)
             return rel
         return int((current_time - self.start_time) / 1000.0 * 60.0)
 

@@ -39,6 +39,10 @@ class MonthlySummary:
     def active(self):
         return self.state != self.HIDDEN
 
+    def dismiss(self):
+        if self.state in (self.SLIDING_IN, self.VISIBLE):
+            self.state = self.SLIDING_OUT
+
     def _month_str(self):
         m = self._data.get('month', 1)
         return _MONTH_NAMES.get(m, f"{m}月")

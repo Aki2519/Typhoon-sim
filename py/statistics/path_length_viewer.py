@@ -11,7 +11,7 @@ from .chart_helpers import _haversine, build_basin_order, draw_vscrollbar
 
 
 def _ts_eligible(pt: dict) -> bool:
-    return pt['st'].upper() in ('TS', 'TY', 'ST', 'HU', '') and pt.get('w', 0) >= 34
+    return (pt.get('st') or '').upper() in ('TS', 'TY', 'ST', 'HU', '') and pt.get('w', 0) >= 34
 
 
 class PathLengthViewer(DraggableDialog):

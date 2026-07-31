@@ -63,22 +63,34 @@ class SeasonController:
         time_delta = dt * self.cfg.sp * self.ssf
         self.ste += time_delta
         self.yf = False
+        wrapped = False
 
         while True:
             year_seconds = (366 if self._is_leap_year(self.sy) else 365) * 86400
             if self.ste >= year_seconds:
                 self.ste -= year_seconds
                 self.sy += 1
-                new_dt = datetime(self.sy, 1, 1, 0)
-                new_ace_year = self.ace_engine.ace_year(new_dt)
-                if new_ace_year != self.current_ace_year:
+                if self.sy > self.edy:
+                    self.sy = self.sty
+                    wrapped = True
+                    if self.cfg.hemisphere == HEMISPHERE_SOUTH:
+                        new_ace_year = self.ace_engine.ace_year(datetime(self.sy, 7, 1, 0))
+                    else:
+                        new_ace_year = self.ace_engine.ace_year(datetime(self.sy, 1, 1, 0))
                     self.csa = 0.0
                     self._csa_base = 0.0
                     self.current_ace_year = new_ace_year
                     if self._dialog_mgr and self._dialog_mgr.ace_chart.active:
                         self._dialog_mgr.ace_chart.needs_update = True
-                if self.sy > self.edy:
-                    self.sy = self.sty
+                else:
+                    new_dt = datetime(self.sy, 1, 1, 0)
+                    new_ace_year = self.ace_engine.ace_year(new_dt)
+                    if new_ace_year != self.current_ace_year:
+                        self.csa = 0.0
+                        self._csa_base = 0.0
+                        self.current_ace_year = new_ace_year
+                        if self._dialog_mgr and self._dialog_mgr.ace_chart.active:
+                            self._dialog_mgr.ace_chart.needs_update = True
                 if self.sy == self.sty:
                     for ty in self.repo.tys:
                         ty.rst()
@@ -94,7 +106,8 @@ class SeasonController:
         hours = total_hours % 24
         current_dt = datetime(self.sy, 1, 1, 0) + timedelta(days=days, hours=hours)
         self.st = current_dt.strftime("%m%d%H")
-        self.current_ace_year = self.ace_engine.ace_year(current_dt)
+        if not wrapped:
+            self.current_ace_year = self.ace_engine.ace_year(current_dt)
 
         # ── 待激活列表：只扫描未开始的台风，激活后移除 ──
         src = (id(self.repo.tys), len(self.repo.tys))
@@ -143,11 +156,16 @@ class SeasonController:
         return self.ace_engine.ace_year(dt)
 
     def set_jump(self, y: int, simulated_seconds: float, time_str: str) -> None:
+        if len(time_str) < 6:
+            return
+        try:
+            m, d, h = int(time_str[:2]), int(time_str[2:4]), int(time_str[4:6])
+        except (ValueError, IndexError):
+            return
         self.sy = y
         self.ste = simulated_seconds
         self.st = time_str
-        self.current_ace_year = self.get_ace_year(
-            datetime(y, int(time_str[:2]), int(time_str[2:4]), int(time_str[4:6])))
+        self.current_ace_year = self.get_ace_year(datetime(y, m, d, h))
 
     def jump_to(self, dt: datetime) -> None:
         """统一时间跳转：设置时间 + 重置全部台风 + 计算ACE + 同步 TySim。"""
@@ -168,6 +186,8 @@ class SeasonController:
                 st = datetime.strptime(ty.pts[0]['t'][:10], "%Y%m%d%H")
                 et = datetime.strptime(ty.pts[-1]['t'][:10], "%Y%m%d%H")
             except Exception:
+                ty.sf = True
+                ty.act = ty.ss = False
                 continue
             if dt < st:
                 ty.ss = ty.act = ty.sf = False
@@ -199,6 +219,8 @@ class SeasonController:
         # 年循环：清空 finish note 记录让台风重新触发
         if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
             self._dialog_mgr.sim.playback_ctrl._was_fin.clear()
+            self._dialog_mgr.sim.playback_ctrl._finale_until = 0.0
+            self._dialog_mgr.sim.playback_ctrl._finale_triggered = False
         for ty in self.repo.tys:
             ty.rst()
             ty.ss = False

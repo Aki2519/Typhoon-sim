@@ -87,7 +87,7 @@ class TySimDrawIconMixin:
             return
         # 拖拽期间使用与路径相同的坐标系：stale screen_points + drag_offset
         # 用 ty.cpos() 的进度在 screen_points[ci] 和 [ci+1] 之间插值，保证平滑运动
-        if self.right_button_dragging:
+        if self.right_button_dragging and (self._drag_offset_x or self._drag_offset_y):
             screen_points = getattr(ty, 'screen_points', None)
             cur_idx = ty.ci
             if not screen_points or cur_idx < 0 or cur_idx >= len(screen_points):
@@ -111,32 +111,40 @@ class TySimDrawIconMixin:
 
         show_icon = not (self.md == self.MODE_EDIT and not self.pl)
         icon_factor = self.icon_size / 100.0
-        if self.fix_icon_point_size and self.map_mgr.map_view.min_scale > 0:
-            icon_factor *= self.map_mgr.map_view.scale / (self.map_mgr.map_view.min_scale * 2.5)
+        if self.fix_icon_point_size:
+            mv = self.map_mgr.map_view
+            if mv.min_scale > 0:
+                icon_factor *= mv.scale / (mv.min_scale * 2.5)
         icon_alpha = 255
 
         if show_icon and self.fade_typhoon:
-            if ty.ci >= len(ty.pts) - 2 and ty.ci + 1 < len(ty.pts) and len(ty.pts) >= 2:
-                if ty.ipos:
+            n_pts = len(ty.pts)
+            if ty.ci >= n_pts - 2 and n_pts >= 2:
+                if ty.ipos and ty.ci + 1 < n_pts:
                     total = ty.points_time[ty.ci + 1] - ty.points_time[ty.ci]
                     progress = (ty.at - ty.points_time[ty.ci]) / total if total > 0 else 0.0
                 else:
-                    progress = 1.0 if ty.ci >= len(ty.pts) - 1 else 0.0
+                    progress = 1.0 if ty.ci >= n_pts - 1 else 0.0
                 icon_alpha = max(0, int(255 * (1.0 - progress)))
 
         # 刚生成时的渐入效果（生成后 800ms 内 alpha 从 0 线性至 255）
         if ty.v._spawn_time:
-            elapsed = pygame.time.get_ticks() - ty.v._spawn_time
+            now = pygame.time.get_ticks()
+            elapsed = now - ty.v._spawn_time
             if elapsed < 800:
                 icon_alpha = icon_alpha * min(255, int(elapsed * 255 / 800)) // 255
+
+        icon_alpha = icon_alpha * getattr(ty.v, 'icon_alpha', 255) // 255
 
         if show_icon and icon_alpha > 0:
             cat = cp.get('cat', self.get_strength_category(cp['w'], cp['st']))
             trans = self._get_transition(ty)
 
             if self.cfg.icon_set == ICON_SET_SMCY:
-                now = pygame.time.get_ticks()
-                self._advance_smcy_frame(ty, cat, now, self.sp)
+                if ty.v._spawn_time:
+                    self._advance_smcy_frame(ty, cat, now, self.sp)
+                else:
+                    self._advance_smcy_frame(ty, cat, pygame.time.get_ticks(), self.sp)
 
                 if trans:
                     old_cat, old_a, new_cat, new_a = trans
@@ -168,7 +176,14 @@ class TySimDrawIconMixin:
         if self.md == self.MODE_NORMAL and self.show_info_box_normal:
             self._draw_info_box(surface, ty, cp)
         elif self.md == self.MODE_EDIT:
-            self._draw_info_box(surface, ty, cp)
+            display_pt = cp
+            if not self.pl:
+                sel = getattr(self, '_edit_selected_point', None)
+                if sel is not None and 0 <= sel < len(ty.pts):
+                    display_pt = ty.pts[sel]
+                elif 0 <= ty.ci < len(ty.pts):
+                    display_pt = ty.pts[ty.ci]
+            self._draw_info_box(surface, ty, display_pt)
 
     # ── 类别渐变过渡 ──
     def _get_transition(self, ty):
@@ -359,6 +374,7 @@ class TySimDrawIconMixin:
         frame.set_alpha(icon_alpha)
         rect = frame.get_rect(center=(x, y))
         surface.blit(frame, rect)
+        frame.set_alpha(255)
 
     # ── fallback 图标 ──
     _fallback_ring_cache = None
@@ -463,7 +479,8 @@ class TySimDrawIconMixin:
 
     def _get_peaks(self, ty) -> list:
         """巅峰列表：风速高于前后两个合格报（可计算 ACE 的报 + 性质与风速合格的非正式报）。
-        平顶（连续持平报）取第一报：向后跳过持平报后再与首个不同强度的报比较。"""
+        平顶（连续持平报）取第一报：向后跳过持平报后再与首个不同强度的报比较。
+        合格报之间如有非合格报（风速回落），仍视为独立巅峰。"""
         cached = getattr(ty, '_cached_peaks', None)
         if cached is not None:
             return cached
@@ -477,7 +494,14 @@ class TySimDrawIconMixin:
             while m < len(qual) and self._pt_tied(p, qual[m][1]):
                 m += 1
             if m < len(qual) and not self._pt_stronger(p, qual[m][1]):
-                continue
+                # 下一个合格报更强 — 检查两者间是否存在非合格低谷（风速回落）
+                valley = False
+                for j in range(i + 1, qual[m][0]):
+                    if ty.pts[j]['w'] < p['w']:
+                        valley = True
+                        break
+                if not valley:
+                    continue
             color = p.get('color', None) or self.get_point_color(p['w'], p['st'])
             peaks.append({'idx': i, 'w': p['w'], 'p': p['p'] or 0,
                           'color': tuple(color), 'strongest': False})
@@ -491,8 +515,8 @@ class TySimDrawIconMixin:
         key = ('peak', label, color, name_factor)
         surf = self._name_shadow_cache.get(key)
         if surf is None:
-            fg = _peak_font.render(label, True, color)
-            bk = _peak_font.render(label, True, (0, 0, 0))
+            fg = _peak_font.render(label, True, (255, 255, 255))
+            bk = _peak_font.render(label, True, color)
             w, h = fg.get_size()
             surf = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
             for dx, dy in _OUTLINE8:
@@ -526,8 +550,8 @@ class TySimDrawIconMixin:
         key = (name, color, name_factor)
         surf = self._name_shadow_cache.get(key)
         if surf is None:
-            fg = _name_font.render(name, True, color)
-            bk = _name_font.render(name, True, (0, 0, 0))
+            fg = _name_font.render(name, True, (255, 255, 255))
+            bk = _name_font.render(name, True, color)
             w, h = fg.get_size()
             surf = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
             for dx, dy in _OUTLINE8:

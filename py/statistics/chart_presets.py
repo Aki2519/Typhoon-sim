@@ -234,10 +234,11 @@ def draw_active_periods_chart(
     if cached is None or cached.get('src') is not active_periods:
         cached = {'src': active_periods}
         w, h = rect.width, rect.height
-        n_mid = 25
-        zone_h = 18
+        n_periods = len(active_periods)
+        n_mid = max(25, n_periods)
         pad_edge = 15
-        bar_h = 14
+        zone_h = (h - 2 * pad_edge) / n_mid
+        bar_h = max(2.0, min(14.0, zone_h - 2))
         bar_pad = 2
 
         start_dt, _, total_hours = year_range
@@ -545,7 +546,9 @@ def draw_multi_year_curve_chart(
     if cached is None or cached.get('src') is not curves:
         cached = {'src': curves}
 
-        all_max = max(max(p[1] for p in cv[1]) for cv in curves if cv[1])
+        all_max = max((max(p[1] for p in cv[1]) for cv in curves if cv[1]), default=0.0)
+        if all_max <= 0:
+            return None
         y_max_val = all_max * 1.1
         if y_max_val < 10:
             y_max_val = 10.0
@@ -635,8 +638,12 @@ def draw_multi_year_curve_chart(
     # 月份线
     global_start = cached['global_start']
     max_th = cached['max_total_hours']
-    for m in range(13):
-        ms = datetime(global_start.year, m, 1, 0) if m >= 1 else global_start
+    first = global_start.year * 12 + (global_start.month - 1)
+    last = first + int(max_th / (24 * 28)) + 3
+    for k in range(first, last + 1):
+        yr, mo = divmod(k, 12)
+        mo += 1
+        ms = datetime(yr, mo, 1, 0)
         if ms < global_start:
             continue
         ho = (ms - global_start).total_seconds() / 3600
@@ -644,8 +651,7 @@ def draw_multi_year_curve_chart(
             break
         x_px = rect.x + (ho / max_th) * rect.width
         draw_dashed_v(surface, x_px, rect.top, rect.bottom, chart_dash(), 4, 4)
-        ml = rt(f_s, f"{m:02d}/01" if m >= 1 else global_start.strftime("%m/%d"),
-                chart_axis())
+        ml = rt(f_s, f"{mo:02d}/01", chart_axis())
         surface.blit(ml, (x_px - ml.get_width() // 2, rect.bottom + 2))
 
     mx, my = pygame.mouse.get_pos()

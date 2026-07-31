@@ -44,6 +44,12 @@ class PointList(DraggableDialog):
 
         # 按钮文字缓存（不再每帧 rt()）
         W = (255, 255, 255)
+
+        self._key_held_timer = 0
+        self._key_held_key = 0
+        self._KEY_REPEAT_DELAY = 500
+        self._KEY_REPEAT_INTERVAL = 120
+
         self._btn_texts = {
             'undo': rt(f_s, "撤销", W), 'redo': rt(f_s, "重做", W),
             'edit': rt(f_s, "编辑", W), 'delete': rt(f_s, "删除", W),
@@ -71,12 +77,22 @@ class PointList(DraggableDialog):
         self._update_bg_rect()
         self.last_click_time = 0
         self.last_click_index = -1
+        self._key_held_key = 0
+        self._lr_tick = 0
+        self._key_held_timer = 0
 
     def deactivate(self):
         if self.typhoon:
             self.sim.dialog_page_cache[f"point_list_{id(self.typhoon)}"] = self.current_page
         if not self.readonly and self._needs_save:
             self._save(self.typhoon)
+        if self.jump_field is not None:
+            self.jump_field.deactivate()
+            self.jump_field = None
+        self.jump_active = False
+        self._key_held_key = 0
+        self._lr_tick = 0
+        self._key_held_timer = 0
         super().deactivate()
         self.dragging = False
 
@@ -169,6 +185,10 @@ class PointList(DraggableDialog):
 
         if e.type == pygame.KEYDOWN:
             return self._keydown(e)
+        if e.type == pygame.KEYUP and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            if self._key_held_key == e.key:
+                self._key_held_key = 0
+            return True
         return False
 
     def _keydown(self, e):
@@ -183,12 +203,14 @@ class PointList(DraggableDialog):
         if e.key == pygame.K_DOWN and self.selected_index < len(self.typhoon.pts) - 1:
             self._move_cursor(1)
             return True
-        if e.key == pygame.K_LEFT and self.current_page > 0:
-            self.current_page -= 1
-            self.selected_index = self.get_page_start()
-            return True
-        if e.key == pygame.K_RIGHT and self.current_page < self.get_total_pages() - 1:
-            self.current_page += 1
+        if e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            self._key_held_timer = pygame.time.get_ticks()
+            self._key_held_key = e.key
+            self._lr_tick = 0
+            if e.key == pygame.K_LEFT:
+                self.current_page = (self.current_page - 1) % self.get_total_pages()
+            else:
+                self.current_page = (self.current_page + 1) % self.get_total_pages()
             self.selected_index = self.get_page_start()
             return True
         if e.key == pygame.K_DELETE and self.selected_index >= 0 and not self.readonly:
@@ -209,18 +231,38 @@ class PointList(DraggableDialog):
 
     # ── 跳页 ──
 
+    def _handle_key_repeat(self):
+        if not self._key_held_key:
+            return
+        now = pygame.time.get_ticks()
+        elapsed = now - self._key_held_timer
+        if elapsed < self._KEY_REPEAT_DELAY:
+            return
+        ticks_from_start = elapsed - self._KEY_REPEAT_DELAY
+        expected = int(ticks_from_start / self._KEY_REPEAT_INTERVAL)
+        if expected > getattr(self, '_lr_tick', 0):
+            count = expected - getattr(self, '_lr_tick', 0)
+            for _ in range(count):
+                if self._key_held_key == pygame.K_LEFT:
+                    self.current_page = (self.current_page - 1) % self.get_total_pages()
+                else:
+                    self.current_page = (self.current_page + 1) % self.get_total_pages()
+                self.selected_index = self.get_page_start()
+            self._lr_tick = expected
+
     def _jump_event(self, e):
         if self.jump_field is None:
             r = pygame.Rect(self.bg_rect.centerx - 100, self.bg_rect.centery - 20, 200, 40)
-            self.jump_field = InputField(r, max_length=3, validator=str.isdigit,
-                                         dark=self.dark_mode)
+            self.jump_field = InputField(r, max_length=3, dark=self.dark_mode)
             self.jump_field.activate()
         elif self.jump_field.handle_event(e):
             return True
         if e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
                 self.jump_active = False
-                self.jump_field = None
+                if self.jump_field is not None:
+                    self.jump_field.deactivate()
+                    self.jump_field = None
             elif e.key == pygame.K_RETURN:
                 self._do_jump()
             return True
@@ -230,7 +272,9 @@ class PointList(DraggableDialog):
                 self._do_jump()
             elif self.jump_cancel_btn.collidepoint(x, y) if hasattr(self, 'jump_cancel_btn') else False:
                 self.jump_active = False
-                self.jump_field = None
+                if self.jump_field is not None:
+                    self.jump_field.deactivate()
+                    self.jump_field = None
             return True
         return True
 
@@ -243,12 +287,14 @@ class PointList(DraggableDialog):
                 self.current_page = page - 1
                 self.selected_index = self.get_page_start()
                 self.jump_active = False
+                self.jump_field.deactivate()
                 self.jump_field = None
             else:
                 self.jump_field.set_text("")
         except ValueError:
             self.jump_field.set_text("")
             self.jump_active = False
+            self.jump_field.deactivate()
             self.jump_field = None
 
     # ── 操作 ──
@@ -278,6 +324,7 @@ class PointList(DraggableDialog):
             self.typhoon.update_screen_points(self.sim.latlon_to_screen)
             self._needs_save = True
             self.sim._refresh_ace_data()
+            self.sim._last_edited_point = None
         return True
 
     # ── 编辑/删除/插入 ──
@@ -292,6 +339,7 @@ class PointList(DraggableDialog):
     def _update_point(self, idx, vals):
         try:
             self._apply_point_change(idx, vals, is_new=False)
+            self.sim._last_edited_point = idx
         except (ValueError, Exception) as e:
             self.typhoon.undo()
             self.sim.show_error(f"编辑点出错: {e}")
@@ -305,6 +353,7 @@ class PointList(DraggableDialog):
         if self.selected_index >= len(self.typhoon.pts):
             self.selected_index = len(self.typhoon.pts) - 1
         self.current_page = min(self.current_page, self.get_total_pages() - 1)
+        self.sim._last_edited_point = None
         self._after_point_change()
 
     def _insert_point(self, idx, before):
@@ -317,6 +366,13 @@ class PointList(DraggableDialog):
     def _add_point(self, idx, before, vals, name):
         try:
             self._apply_point_change(idx, vals, is_new=True, before=before, name=name)
+            last = len(self.typhoon.pts) - 1
+            if before:
+                self.sim._last_edited_point = idx
+            elif idx >= last:
+                self.sim._last_edited_point = last
+            else:
+                self.sim._last_edited_point = idx + 1
         except (ValueError, Exception) as e:
             self.typhoon.undo()
             self.sim.show_error(f"插入点出错: {e}")
@@ -324,7 +380,7 @@ class PointList(DraggableDialog):
     def _apply_point_change(self, idx, vals, is_new, before=True, name=""):
         w = int(vals['wind']) if vals['wind'] else 15
         p = int(vals['pressure']) if vals['pressure'] else 0
-        st = vals['type'] if vals['type'] else self._infer_type(w, self.typhoon.basin if self.typhoon else None)
+        st = (vals['type'] or '').strip() or self._infer_type(w, self.typhoon.basin if self.typhoon else None)
         la, lo = float(vals['lat']), float(vals['lon'])
         t = vals['time']
 
@@ -369,6 +425,7 @@ class PointList(DraggableDialog):
         self.typhoon.recalc_simulated_times()
         self._clear_row_cache()
         self.typhoon.update_screen_points(self.sim.latlon_to_screen)
+        self.sim.refresh_typhoon_after_point_change(self.typhoon)
         self._needs_save = True
         self.sim._refresh_ace_data()
 
@@ -390,6 +447,7 @@ class PointList(DraggableDialog):
 
     def _save(self, ty):
         if not ty.filepath:
+            self.sim.show_error("台风无文件路径,无法保存")
             return
         self.sim.repo.ensure_simple_bdeck_copy(ty)
         lines = []
@@ -425,9 +483,10 @@ class PointList(DraggableDialog):
                 self.deactivate()
             return
 
+        self._handle_key_repeat()
         dark = self.dark_mode
         tc = SETTINGS_TEXT_LIGHT if dark else TXT
-        hl_color = (255, 255, 255, 25) if dark else LIST_HL
+        hl_color = (65, 90, 140, 130) if dark else LIST_HL
         lx, ly, lw, lh = self.bg_rect
 
         if dark:

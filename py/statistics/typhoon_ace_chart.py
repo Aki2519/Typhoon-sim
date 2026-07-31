@@ -60,7 +60,7 @@ def draw_typhoon_ace_chart(
         cached = {'src': typhoon_sort_data}
         w, h = rect.width, rect.height
         n = len(page_data)
-        max_ace = max((d[1] for d in page_data), default=1.0)
+        max_ace = max((d[1] for d in sorted_data), default=1.0)
         y_max_val = max_ace * 1.15
         if y_max_val <= 0:
             y_max_val = 10.0

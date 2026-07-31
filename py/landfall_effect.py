@@ -20,8 +20,9 @@ def _get_label_surf(label: str, color, scale: float = 1.0) -> pygame.Surface:
     key = (label, color, round(scale, 2))
     surf = _label_cache.get(key)
     if surf is None:
-        fg = _label_font.render(label, True, color)
-        bk = _label_font.render(label, True, (0, 0, 0))
+        # 白字 + 强度色描边
+        fg = _label_font.render(label, True, (255, 255, 255))
+        bk = _label_font.render(label, True, color)
         surf = pygame.Surface((fg.get_width() + 2, fg.get_height() + 2), pygame.SRCALPHA)
         for dx, dy in _OUTLINE:
             surf.blit(bk, (dx + 1, dy + 1))
@@ -90,7 +91,7 @@ class LandedEffect:
         self.start_time = start_time
         self.latlon_to_screen = latlon_to_screen_func
         self.size = max(8, size)
-        self._count = landed_frame_count(cat)
+        self._count = min(landed_frame_count(cat), 60)
 
     def update(self, current_time: float) -> bool:
         if self._count <= 0:
@@ -102,6 +103,8 @@ class LandedEffect:
         from .smcy_icon import get_landed_frame
         elapsed = (current_time - self.start_time) / 1000.0
         idx = int(elapsed * 60)
+        if idx >= self._count:
+            return
         frame = get_landed_frame(self.cat, idx, (self.size, self.size))
         if frame is None:
             return
@@ -140,6 +143,7 @@ class LandfallEffect:
 
     def draw(self, surface: pygame.Surface, current_time: float) -> None:
         x, y = self.latlon_to_screen(self.lat, self.lon)
+        elapsed = (current_time - self.start_time) / 1000.0
         if self._flash_alpha > 0 and self.img2:
             flash = self.img2.copy()
             flash.set_alpha(self._flash_alpha)
@@ -148,12 +152,10 @@ class LandfallEffect:
         if self._ring_alpha > 0 and self.img1:
             ring = self.img1.copy()
             ring.set_alpha(self._ring_alpha)
-            elapsed = (current_time - self.start_time) / 1000.0
             angle = elapsed * 360 % 360
             rotated = pygame.transform.rotate(ring, angle)
             r = rotated.get_rect(center=(x, y))
             surface.blit(rotated, r)
-        elapsed = (current_time - self.start_time) / 1000.0
         _draw_strength_label(surface, self.label, self.label_color, x, y + 14,
                              elapsed, self.label_scale)
 

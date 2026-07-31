@@ -73,10 +73,10 @@ class ResourceManager:
             self.images[f"{cat}_ring"] = ring_img or self._create_ring_icon(cat)
             self.images[f"{cat}_center"] = center_img or self._create_center_icon(cat)
 
-        for sub, base, color, mult in [('C2-', 'C2', C2_MINUS, False), ('C3-', 'C3', C3_MINUS, False), ('C4-ST', 'C4', C4_ST, False)]:
+        for sub, base, color in [('C2-', 'C2', C2_MINUS), ('C3-', 'C3', C3_MINUS), ('C4-ST', 'C4', C4_ST)]:
             ring_img = self.images.get(f"{base}_ring")
             if ring_img:
-                self.images[f"{sub}_ring"] = self._recolor_icon(ring_img, color, mult)
+                self.images[f"{sub}_ring"] = self._recolor_icon(ring_img, color)
             center_img = self.images.get(f"{base}_center")
             if center_img:
                 self.images[f"{sub}_center"] = center_img
@@ -125,8 +125,10 @@ class ResourceManager:
               (50, 100, 200, 220) if cat != 'C5' else (*C5_L, 220))
         for i in range(0, 360, 45):
             a = math.radians(i)
-            x1, y1 = 40 + 30 * math.cos(a), 40 + 30 * math.sin(a)
-            x2, y2 = 40 + 25 * math.cos(a), 40 + 25 * math.sin(a)
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            x1, y1 = 40 + 30 * cos_a, 40 + 30 * sin_a
+            x2, y2 = 40 + 25 * cos_a, 40 + 25 * sin_a
             pygame.draw.line(s, lc, (x1, y1), (x2, y2), 2)
         return s
 
@@ -138,17 +140,23 @@ class ResourceManager:
         return s
 
     @staticmethod
-    def _recolor_icon(surface, target_color, mult=False):
-        if mult:
-            fill_color = tuple(255 if c == 0 else c for c in target_color)
-            tinted = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-            tinted.fill((*fill_color, 255))
-            tinted.blit(surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            return tinted
-        tinted = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        tinted.fill((*target_color, 0))
-        tinted.blit(surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-        return tinted
+    def _recolor_icon(surface, target_color):
+        target = target_color[:3]
+        out = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        w, h = surface.get_size()
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = surface.get_at((x, y))
+                if a == 0:
+                    continue
+                lum = max(r, g, b)
+                if lum == 0:
+                    out.set_at((x, y), (0, 0, 0, a))
+                else:
+                    k = lum / 255.0
+                    out.set_at((x, y), (int(target[0] * k), int(target[1] * k),
+                                        int(target[2] * k), a))
+        return out
 
     def get_image(self, name): return self.images.get(name)
     def get_sound(self, name): return self.sounds.get(name)

@@ -10,7 +10,7 @@ from .chart_helpers import _haversine
 def _ace_eligible(pt: dict) -> bool:
     """判断报点是否可计算 ACE：TS+ 且正式报"""
 
-    st = pt['st'].upper()
+    st = (pt.get('st') or '').upper()
     return st in ('TS', 'TY', 'ST', 'HU', '') and pt.get('w', 0) >= 35 and pt.get('official', True)
 
 
@@ -71,16 +71,16 @@ def calculate_season_stats(
             basin_pts = year_pts
 
         # 系统整体数据（仅洋区内报点）
-        max_wind = max(p['w'] for p in basin_pts)
-        ace = sum(p['pace'] for p in basin_pts)
+        max_wind = max(p.get('w', 0) for p in basin_pts)
+        ace = sum(p.get('pace', 0.0) for p in basin_pts)
         name = sim.get_display_name(ty)
 
         # 风暴数统计（仅洋区内报点）
-        has_td = any(p['w'] >= 29 and p['st'].upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
-        has_ts = any(p['w'] >= 34 and p['st'].upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
-        has_ty = any(p['w'] >= 64 and p['st'].upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
-        has_mh = any(p['w'] >= 113 and p['st'].upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
-        has_c5 = any(p['w'] >= 137 and p['st'].upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
+        has_td = any(p.get('w', 0) >= 29 and (p.get('st') or '').upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
+        has_ts = any(p.get('w', 0) >= 34 and (p.get('st') or '').upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
+        has_ty = any(p.get('w', 0) >= 64 and (p.get('st') or '').upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
+        has_mh = any(p.get('w', 0) >= 113 and (p.get('st') or '').upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
+        has_c5 = any(p.get('w', 0) >= 137 and (p.get('st') or '').upper() not in ('MD','SS','SD','EX','LO') for p in basin_pts)
 
         stats['total_systems'] += 1
         if has_td: stats['total_td'] += 1

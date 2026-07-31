@@ -29,6 +29,7 @@ class InputController:
             pygame.K_EQUALS:        sim._key_plus,
             pygame.K_MINUS:         sim._key_minus,
             pygame.K_SPACE:         sim._key_space,
+            pygame.K_F1:            sim._key_f1,
             pygame.K_F12:           sim._key_f12,
             pygame.K_i:             sim._key_i,
             pygame.K_LEFTBRACKET:   sim._key_left_bracket,

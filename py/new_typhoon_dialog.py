@@ -49,8 +49,8 @@ class NewTyphoonDialog(Dialog):
             x, y = e.pos
             dy = self.sim.screen_height - 150
             if pygame.Rect(self.sim.screen_width // 2 - 90, dy + 70, 80, 30).collidepoint(x, y):
-                self._create()
-                self.deactivate()
+                if self._create():
+                    self.deactivate()
                 return True
             if pygame.Rect(self.sim.screen_width // 2 + 10, dy + 70, 80, 30).collidepoint(x, y):
                 self.deactivate()
@@ -68,8 +68,8 @@ class NewTyphoonDialog(Dialog):
                 self.deactivate()
                 return True
             if e.key == pygame.K_RETURN:
-                self._create()
-                self.deactivate()
+                if self._create():
+                    self.deactivate()
                 return True
             if e.key in (pygame.K_TAB, pygame.K_KP_ENTER):
                 idx = next((i for i, f in enumerate(self.fields) if f.active), -1)
@@ -88,7 +88,7 @@ class NewTyphoonDialog(Dialog):
                 return True
         return False
 
-    def _create(self):
+    def _create(self) -> bool:
         name = self.fields[0].get_text().strip()
         number = self.fields[1].get_text().strip()
         start_time = self.fields[2].get_text().strip()
@@ -97,9 +97,13 @@ class NewTyphoonDialog(Dialog):
 
         if not name or not number or not start_time:
             self.sim.show_error("请填写台风名称、编号和起始时间")
-            return
+            return False
 
-        year = start_time[:4] if len(start_time) >= 4 else "2000"
+        if not re.fullmatch(r'\d{10}', start_time):
+            self.sim.show_error("起始时间格式必须为 YYYYMMDDHH")
+            return False
+
+        year = start_time[:4]
 
         if not filename:
             if basin.upper() == "WP":
@@ -118,7 +122,7 @@ class NewTyphoonDialog(Dialog):
             open(filepath, 'w', encoding='utf-8').close()
         except Exception as e:
             self.sim.show_error(f"创建文件失败: {e}")
-            return
+            return False
 
         ty = Typhoon(basin, number)
         ty.cust = ty.sname = name
@@ -127,9 +131,12 @@ class NewTyphoonDialog(Dialog):
         ty.sim = self.sim
         ty.start_time = start_time
         self.sim.tys.append(ty)
+        if self.sim.repo._all_tys_backup:
+            self.sim.repo._all_tys_backup.append(ty)
         self.sim.cti = len(self.sim.tys) - 1
         self.sim.edit_typhoon = ty
         self.sim.md = "edit"
+        return True
 
     def draw(self, surface: pygame.Surface):
         if not self.active:

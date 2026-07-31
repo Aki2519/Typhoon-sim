@@ -1,27 +1,38 @@
 ﻿# py/script_engine.py
-"""镜头运动与时间变速脚本引擎。
+"""脚本引擎：镜头运动、时间跳跃、速度控制。
 
-状态机模型:
-  DWELL  — 镜头静止在目标N，等待模拟时间推进到目标N的 == 日期
-  MOVING — 镜头从目标N插值到目标N+1，等待模拟时间推进到目标N+1的 [[ 日期
+状态机:
+  IDLE       — 空闲/命令间过渡
+  DWELL      — 镜头静止在目标，等待模拟时间到 depart
+  MOVING     — 镜头从 prev 插值到 current，等待模拟时间到 arrive
+  WAIT_REAL  — 真实时间等待
+  WAIT_USER  — 等待用户交互
 
-语义:
-  [[日期  — 到达目标N的日期（MOVING结束，DWELL开始）
-  ==日期  — 离开目标N的日期（DWELL结束，开始向N+1 MOVING）
-  *  (在==之前) — 到达目标N的速度（也即 DWELL 期间的速度）
-  *  (在==之后) — 离开目标N的速度（也即向N+1 MOVING 的速度）
-  >  (在==之后) — DWELL结束时的跳跃日期（先跳再开始MOVING）
-  >  (在[[之前) — 到达目标N时的跳跃日期（先跳再开始DWELL）
-  //  — 移入该目标时匀速（线性插值）
-   /   — 移入该目标时变速（缓入缓出）
+ 语法 (.txt):
+   # 注释 (首行作为描述)
+   jump <datetime>           顶层时间跳转
+   target <lon> <lat> w=<deg> [-smooth|-s]:
+       [*<speed>]            到达速度 (arrive 之前)
+       arrive <datetime>
+       [*<speed>]            停留速度
+       depart <datetime>
+       [*<speed>]            离开速度
+       [jump <datetime>]     depart 后时间跳转
+   repeat <N>:               循环 (缩进下面的命令)
+       ...
+   wait <N>s|<N>m            真实时间等待
+   wait / pause              用户交互等待
+   *<speed>                  顶层速度变更
 """
 
-
 from __future__ import annotations
+
 import os
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -43,25 +54,36 @@ def _parse_lat(s: str) -> float:
         return float(s[:-1])
     return float(s)
 
+_DATE_RE = re.compile(r'(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}))?\s*:?\s*(\d{2})?$')
+
 def _parse_date(s: str) -> Optional[datetime]:
-    """解析日期字符串: 2026-04-12-00z → datetime.
-    小时可选，'z'后缀可选。空字符串返回默认值 2000-01-01 00z."""
+    """解析: 2026-04-12 06:00 或 2026-04-12-06z (旧格式兼容)。"""
     s = s.strip()
     if not s:
-        return datetime(2000, 1, 1, 0)
-    s = s.rstrip('zZ')
-    parts = s.split('-')
-    if len(parts) < 3:
         return None
-    y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
-    h = int(parts[3]) if len(parts) >= 4 else 0
-    try:
-        return datetime(y, m, d, h)
-    except ValueError:
-        return None
+    # 新格式: 2026-04-12 06:00
+    m = _DATE_RE.match(s)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        h = int(m.group(4)) if m.group(4) else 0
+        mi = int(m.group(5)) if m.group(5) else 0
+        try:
+            return datetime(y, mo, d, h, mi)
+        except ValueError:
+            return None
+    # 旧格式兼容: 2026-04-12-06z
+    s2 = s.rstrip('zZ')
+    parts = s2.split('-')
+    if len(parts) >= 3:
+        try:
+            y, mo, d = int(parts[0]), int(parts[1]), int(parts[2])
+            h = int(parts[3]) if len(parts) >= 4 else 0
+            return datetime(y, mo, d, h)
+        except (ValueError, IndexError):
+            pass
+    return None
 
 def _parse_date_required(s: str) -> datetime:
-    """解析日期，失败或为空返回默认值 2000-01-01."""
     d = _parse_date(s)
     return d if d is not None else datetime(2000, 1, 1, 0)
 
@@ -71,32 +93,36 @@ def _parse_speed(s: str) -> float:
         return 1.0
     return float(s)
 
+def _parse_duration(s: str) -> Optional[float]:
+    """解析真实时间: 5s → 5.0, 2m → 120.0。"""
+    s = s.strip().lower()
+    if s.endswith('s'):
+        return float(s[:-1])
+    if s.endswith('m'):
+        return float(s[:-1]) * 60.0
+    return None
 
-# ── 脚本数据结构 ──
 
+# ── 数据结构 ──
+
+@dataclass
 class TargetRegion:
-    """脚本中定义的镜头目标区域及关联参数。"""
-    def __init__(self, lon: float, lat: float, width_deg: float, index: int,
-                 constant_speed: bool = False):
-        self.lon = lon
-        self.lat = lat
-        self.width_deg = width_deg
-        self.index = index
-        self.constant_speed = constant_speed          # // → True (匀速), / → False (变速)
+    """一个镜头目标及其时间/速度参数。"""
+    lon: float
+    lat: float
+    width_deg: float
+    index: int
+    constant_speed: bool = False
 
-        # 由缩进行解析得到
-        self.move_to_date: Optional[datetime] = None   # [[ 到达日期
-        self.move_from_date: Optional[datetime] = None  # == 离开日期
-        self.approach_speed: float = 1.0               # * 在 == 之前：到达/停留速度
-        self.departure_speed: float = 1.0              # * 在 == 之后：离开速度
-        self.jump_on_arrival: Optional[datetime] = None # > 在 [[ 之前：到达时跳跃
-        self.jump_on_depart: Optional[datetime] = None  # > 在 == 之后：离开时跳跃
-        self._has_departure_speed: bool = False         # 是否有显式 * after ==
+    move_to_date: Optional[datetime] = None
+    move_from_date: Optional[datetime] = None
+    approach_speed: float = 1.0
+    departure_speed: float = 1.0
+    jump_on_depart: Optional[datetime] = None
+    _has_departure_speed: bool = False
+    _has_arrive_speed: bool = False
 
     def compute_bounds(self, screen_width: int, map_height: int) -> Tuple[float, float, float, float]:
-        """根据屏幕宽高比计算实际经纬度四至。
-        用户指定宽度(纬距)，高度 = 宽度 / 宽高比。
-        返回 (mlo, Mlo, mla, Mla)。"""
         if map_height <= 0:
             map_height = 1
         aspect = screen_width / map_height
@@ -108,163 +134,262 @@ class TargetRegion:
         Mla = self.lat + lat_span
         return mlo, Mlo, mla, Mla
 
-    def get_move_speed(self, prev_target: Optional['TargetRegion']) -> float:
-        """返回移入本目标时应使用的速度。
-        == 之后的 * 优先（离开速度），否则使用 == 之前的 *（到达速度）。"""
-        if prev_target is not None and prev_target._has_departure_speed:
-            return prev_target.departure_speed
+    def get_move_speed(self, prev: Optional['TargetRegion']) -> float:
+        if prev is not None and prev._has_departure_speed:
+            return prev.departure_speed
+        if self._has_arrive_speed:
+            return self.approach_speed
         return self.approach_speed
 
     def __repr__(self):
         return (f"<Target[{self.index}] lon={self.lon} lat={self.lat} w={self.width_deg} "
-                f"arr={self.move_to_date} dep={self.move_from_date} "
-                f"asp={self.approach_speed} dsp={self.departure_speed} "
-                f"cs={self.constant_speed}>")
+                f"arr={self.move_to_date} dep={self.move_from_date}>")
+
+
+CMD_TARGET = 'target'
+CMD_JUMP = 'jump'
+CMD_WAIT_REAL = 'wait_real'
+CMD_WAIT_USER = 'wait_user'
+CMD_SPEED = 'speed'
+
+
+@dataclass
+class Command:
+    type: str
+    target: Optional[TargetRegion] = None
+    jump_date: Optional[datetime] = None
+    wait_seconds: float = 0.0
+    speed: float = 1.0
 
 
 class Script:
-    """解析后的脚本。"""
     def __init__(self):
         self.description: str = ""
-        self.start_jump_date: Optional[datetime] = None
-        self.targets: List[TargetRegion] = []
+        self.commands: List[Command] = []
         self.filename: str = ""
 
     @classmethod
     def parse(cls, text: str, filename: str = "") -> "Script":
-        script = cls()
-        script.filename = filename
+        return _Parser(text, filename).parse()
 
-        lines = text.split('\n')
-        current_target_idx = -1
-        past_eq = False          # 当前目标是否已经遇到了 ==
 
-        for raw_line in lines:
-            line = raw_line.strip()
-            if not line:
+class _Parser:
+    def __init__(self, text: str, filename: str, base_target_idx: int = 0):
+        self._lines = text.split('\n')
+        self._filename = filename
+        self._pos = 0
+        self._script = Script()
+        self._script.filename = filename
+        self._base_target_idx = base_target_idx
+
+    def parse(self) -> Script:
+        while self._pos < len(self._lines):
+            line = self._lines[self._pos]
+            stripped = line.strip()
+            self._pos += 1
+
+            if not stripped or stripped.startswith('#'):
+                if stripped.startswith('#') and not self._script.description:
+                    self._script.description = stripped[1:].strip()
                 continue
 
-            # 简介行
-            if line.startswith('#'):
-                if not script.description:
-                    script.description = line[1:].strip()
-                continue
+            indent = len(line) - len(line.lstrip())
+            if indent > 0:
+                raise ValueError(f"第{self._pos}行: 顶层命令不应有缩进: {stripped}")
 
-            # 无缩进的 > 行：脚本启动时间跳跃（必须在第一个 / 之前）
-            if line.startswith('>') and not raw_line.startswith((' ', '\t')) and current_target_idx < 0:
-                date_str = line[1:].strip()
-                if date_str:
-                    date = _parse_date(date_str)
-                    if date is not None:
-                        script.start_jump_date = date
-                    else:
-                        logger.warning(f"无效的启动跳跃日期: {date_str}")
-                continue
-
-            # 结束标记
-            if line == '%':
+            if stripped == '%':
                 break
 
-            # 目标区域定义行 (/ 或 //)
-            if line.startswith('/'):
-                constant = line.startswith('//')
-                content = line[2:] if constant else line[1:]
-                parts = content.split(';')
-                if len(parts) != 2:
-                    logger.warning(f"脚本行格式错误 (需要 ; 分隔): {line}")
-                    continue
-                coord_part = parts[0].strip()
-                width_part = parts[1].strip()
+            if stripped.lower().startswith('jump '):
+                self._parse_jump(stripped)
+            elif stripped.lower().startswith('target '):
+                self._parse_target_block(stripped[6:].strip())
+            elif stripped.lower().startswith('to ') and not stripped.lower().startswith('target '):
+                self._parse_target_block(stripped[2:].strip())
+            elif stripped.lower().startswith('repeat '):
+                self._parse_repeat_block(stripped)
+            elif stripped.lower().startswith('wait '):
+                self._parse_wait(stripped)
+            elif stripped.lower() in ('wait', 'pause'):
+                self._script.commands.append(Command(type=CMD_WAIT_USER))
+            elif stripped.startswith('*'):
+                self._script.commands.append(
+                    Command(type=CMD_SPEED, speed=_parse_speed(stripped[1:])))
+            elif stripped.lower().startswith('speed '):
+                self._script.commands.append(
+                    Command(type=CMD_SPEED, speed=_parse_speed(stripped[5:])))
+            elif stripped.lower() in ('hold ',) or (stripped.lower().startswith('hold ')):
+                # hold 5s → wait 5s
+                dur = _parse_duration(stripped[4:].strip())
+                if dur is not None:
+                    self._script.commands.append(Command(type=CMD_WAIT_REAL, wait_seconds=dur))
+                else:
+                    raise ValueError(f"第{self._pos}行: 无效时间: {stripped}")
+            else:
+                raise ValueError(f"第{self._pos}行: 未知命令: {stripped}")
 
-                coord_tokens = coord_part.split()
-                if len(coord_tokens) < 2:
-                    logger.warning(f"脚本行坐标格式错误: {line}")
-                    continue
-                lon = _parse_lon(coord_tokens[0])
-                lat = _parse_lat(coord_tokens[1])
-                width_deg = float(width_part)
+        return self._script
 
-                current_target_idx = len(script.targets)
-                past_eq = False
-                script.targets.append(TargetRegion(lon, lat, width_deg, current_target_idx,
-                                                    constant_speed=constant))
+    def _parse_jump(self, line: str):
+        d = _parse_date(line[4:].strip())
+        if d is None:
+            raise ValueError(f"第{self._pos}行: 无效日期: {line}")
+        self._script.commands.append(Command(type=CMD_JUMP, jump_date=d))
+
+    def _parse_wait(self, line: str):
+        arg = line[4:].strip()
+        dur = _parse_duration(arg)
+        if dur is not None:
+            self._script.commands.append(Command(type=CMD_WAIT_REAL, wait_seconds=dur))
+        else:
+            d = _parse_date(arg)
+            if d is not None:
+                raise ValueError(
+                    f"第{self._pos}行: wait 不支持日期参数，请放在 target 块内或使用 jump: {line}")
+            raise ValueError(f"第{self._pos}行: 无效参数: {line}")
+
+    def _parse_target_block(self, line: str):
+        header = line.strip().rstrip(':')
+        smooth = False
+
+        # -smooth / -s
+        if re.search(r'(?i)\s+-s(?:mooth)?\s*$', header):
+            smooth = True
+            header = re.sub(r'(?i)\s+-s(?:mooth)?\s*$', '', header)
+
+        # parse: <lon> <lat> w=<deg>
+        m = re.match(r'^(\S+)\s+(\S+)\s+w\s*=\s*(\S+)', header)
+        if not m:
+            raise ValueError(f"第{self._pos}行: target 格式错误，应为: target <lon> <lat> w=<deg>: {line}")
+        lon = _parse_lon(m.group(1))
+        lat = _parse_lat(m.group(2))
+        try:
+            width = float(m.group(3))
+        except ValueError:
+            raise ValueError(f"第{self._pos}行: 无效宽度: {m.group(3)}")
+
+        idx = self._base_target_idx + len([c for c in self._script.commands if c.type == CMD_TARGET])
+        tgt = TargetRegion(lon, lat, width, idx, constant_speed=not smooth)
+
+        # 解析缩进子命令
+        self._parse_sub_commands(tgt)
+
+        self._script.commands.append(Command(type=CMD_TARGET, target=tgt))
+
+    def _parse_sub_commands(self, tgt: TargetRegion):
+        past_depart = False
+        has_arrive = False
+
+        while self._pos < len(self._lines):
+            line = self._lines[self._pos]
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip())
+
+            if indent == 0:
+                break  # 无缩进 → 回到顶层
+
+            self._pos += 1
+
+            if not stripped or stripped.startswith('#'):
                 continue
 
-            # 缩进的行
-            if not raw_line.startswith((' ', '\t')):
-                logger.warning(f"脚本行缺少缩进: {line}")
-                continue
-
-            if current_target_idx < 0:
-                logger.warning(f"控制符号出现在目标区域之前: {line}")
-                continue
-
-            tgt = script.targets[current_target_idx]
-            line_stripped = line
-
-            if line_stripped.startswith('[['):
-                date = _parse_date_required(line_stripped[2:].strip())
-                tgt.move_to_date = date
-                past_eq = False
-            elif line_stripped.startswith('=='):
-                date = _parse_date_required(line_stripped[2:].strip())
-                tgt.move_from_date = date
-                past_eq = True
-            elif line_stripped.startswith('['):
-                # [秒数 — 暂未在状态机中实现，保留兼容
-                pass
-            elif line_stripped.startswith('='):
-                # =秒数 — 暂未在状态机中实现，保留兼容
-                pass
-            elif line_stripped.startswith('*'):
-                speed = _parse_speed(line_stripped[1:].strip())
-                if past_eq:
+            if stripped.startswith('*'):
+                speed = _parse_speed(stripped[1:])
+                if past_depart:
                     tgt.departure_speed = speed
                     tgt._has_departure_speed = True
+                elif has_arrive:
+                    tgt.approach_speed = speed
+                    tgt._has_arrive_speed = True
                 else:
                     tgt.approach_speed = speed
-            elif line_stripped.startswith('>'):
-                date_str = line_stripped[1:].strip()
-                date = _parse_date(date_str) if date_str else None
-                if past_eq:
-                    tgt.jump_on_depart = date
+                    tgt._has_arrive_speed = True
+                continue
+
+            if stripped.lower().startswith('speed '):
+                speed = _parse_speed(stripped[5:])
+                if past_depart:
+                    tgt.departure_speed = speed
+                    tgt._has_departure_speed = True
+                elif has_arrive:
+                    tgt.approach_speed = speed
+                    tgt._has_arrive_speed = True
                 else:
-                    tgt.jump_on_arrival = date
-            else:
-                logger.warning(f"未知控制符号: {line}")
+                    tgt.approach_speed = speed
+                    tgt._has_arrive_speed = True
+                continue
 
-        # ── 推断缺失的到达/离开日期 ──
-        for i, target in enumerate(script.targets):
-            if target.move_to_date is None:
-                if i == 0:
-                    target.move_to_date = script.start_jump_date or datetime(2000, 1, 1, 0)
-                else:
-                    prev = script.targets[i - 1]
-                    target.move_to_date = prev.move_from_date or prev.move_to_date or script.start_jump_date or datetime(2000, 1, 1, 0)
-            if target.move_from_date is None:
-                if i + 1 < len(script.targets):
-                    target.move_from_date = target.move_to_date
-                else:
-                    target.move_from_date = target.move_to_date
+            if stripped.lower().startswith('arrive '):
+                d = _parse_date(stripped[6:].strip())
+                if d is None:
+                    raise ValueError(f"第{self._pos}行: 无效日期: {stripped}")
+                tgt.move_to_date = d
+                has_arrive = True
+                past_depart = False
+                continue
 
-        return script
+            if stripped.lower().startswith('depart '):
+                d = _parse_date(stripped[6:].strip())
+                if d is None:
+                    raise ValueError(f"第{self._pos}行: 无效日期: {stripped}")
+                tgt.move_from_date = d
+                past_depart = True
+                continue
+
+            if stripped.lower().startswith('jump '):
+                d = _parse_date(stripped[4:].strip())
+                if d is None:
+                    raise ValueError(f"第{self._pos}行: 无效日期: {stripped}")
+                tgt.jump_on_depart = d
+                continue
+
+            raise ValueError(f"第{self._pos}行: 未知子命令: {stripped}")
+
+        # 自动推断缺失日期
+        if tgt.move_to_date is None:
+            tgt.move_to_date = datetime(2000, 1, 1, 0)
+        if tgt.move_from_date is None:
+            tgt.move_from_date = tgt.move_to_date
+
+    def _parse_repeat_block(self, line: str):
+        m = re.match(r'repeat\s+(\d+)', line, re.IGNORECASE)
+        if not m:
+            raise ValueError(f"第{self._pos}行: repeat 格式错误: {line}")
+        count = int(m.group(1))
+
+        # 收集缩进块的全部行
+        block_lines = []
+        while self._pos < len(self._lines):
+            curr = self._lines[self._pos]
+            if curr.strip() and not curr.startswith((' ', '\t')):
+                break
+            block_lines.append(curr)
+            self._pos += 1
+
+        non_empty = [l for l in block_lines if l.strip()]
+        if non_empty:
+            min_indent = min(len(l) - len(l.lstrip()) for l in non_empty)
+            block_lines = [l[min_indent:] if l.strip() else l for l in block_lines]
+
+        # 用 block_lines 构建子解析器，展开 N 次
+        block_text = '\n'.join(block_lines)
+        base = 0
+        for _ in range(count):
+            sub_parser = _Parser(block_text, self._filename, base)
+            sub_parser._pos = 0
+            sub_script = sub_parser.parse()
+            base += sum(1 for c in sub_script.commands if c.type == CMD_TARGET)
+            self._script.commands.extend(sub_script.commands)
 
 
-# ── 脚本执行引擎 (状态机) ──
+# ── 脚本引擎 ──
 
 class ScriptEngine:
-    """执行脚本，控制镜头运动和时间变速。
-
-    状态机:
-      IDLE    — 未运行
-      DWELL   — 镜头静止在 current_target，等待 sim.ste 抵达 move_from_date
-      MOVING  — 镜头插值从 prev_target 到 current_target，
-                 等待 sim.ste 抵达 current_target.move_to_date
-    """
-
     STATE_IDLE = 0
     STATE_DWELL = 1
     STATE_MOVING = 2
+    STATE_WAIT_REAL = 3
+    STATE_WAIT_USER = 4
 
     def __init__(self, sim):
         self.sim = sim
@@ -273,74 +398,98 @@ class ScriptEngine:
         self.paused = False
 
         self._state = self.STATE_IDLE
-        self._current_target_idx = 0
-        self._prev_target_idx = -1
+        self._cmd_index = 0
+        self._current_target = None
+        self._prev_target = None
 
         # 插值参数
-        self._interp_start = [0.0, 0.0, 0.0, 0.0]   # mlo, Mlo, mla, Mla
+        self._interp_start = [0.0, 0.0, 0.0, 0.0]
         self._interp_end = [0.0, 0.0, 0.0, 0.0]
         self._interp_start_ste: float = 0.0
         self._interp_end_ste: float = 0.0
-        self._interp_linear: bool = False
+        self._interp_linear: bool = True
+
+        # 真实等待计时
+        self._wait_elapsed: float = 0.0
+        self._wait_total: float = 0.0
 
     # ── 公开 API ──
 
     def load_script(self, text: str, filename: str = "") -> bool:
         try:
             self.script = Script.parse(text, filename)
-            if not self.script.targets:
+            target_count = sum(1 for c in self.script.commands if c.type == CMD_TARGET)
+            if target_count == 0:
                 self.sim.show_error("脚本无有效目标")
                 return False
             return True
         except Exception as e:
             logger.error(f"脚本解析失败: {e}")
-            self.sim.show_error(f"脚本解析失败: {e}")
+            self.sim.show_error(f"解析失败: {e}")
             return False
 
     def start(self) -> bool:
-        if not self.script or not self.script.targets:
+        script = self.script
+        if not script or not script.commands:
             self.sim.show_error("没有可执行的脚本")
             return False
 
-        # 切换到台风季模式
-        if self.sim.md != self.sim.MODE_SEASON:
-            self.sim.switch_mode()
+        # 清理可能残留的拖动状态（上次未正常结束）
+        if self.sim.right_button_dragging:
+            self.sim.right_button_dragging = False
+            self.sim._drag_offset_x = 0
+            self.sim._drag_offset_y = 0
+            for ty in self.sim.tys:
+                ty._path_cache_drag_surf = None
+                ty._path_cache_drag_key = ()
 
-        # 启动时间跳跃
-        if self.script.start_jump_date is not None:
-            self._do_time_jump(self.script.start_jump_date)
+        self.running = True
+        self.paused = False
+        self._cmd_index = 0
+        self._current_target = None
+        self._prev_target = None
+        self._wait_elapsed = 0.0
+        self._wait_total = 0.0
 
-        # 取消模拟暂停
         self.sim.pl = True
         from .constants import f_s, rt
         self.sim.play_text = rt(f_s, "暂停", (255, 255, 255))
 
-        self.running = True
-        self.paused = False
-        self._current_target_idx = 0
-        self._prev_target_idx = -1
-
-        # 进入首个目标的 DWELL 状态
-        t0 = self.script.targets[0]
-        self._snap_to_target(t0)
-        self._set_speed(t0.approach_speed)
-        self._state = self.STATE_DWELL
-
+        self._state = self.STATE_IDLE
+        self._advance()
+        self.sim.update_all_screen_points()
         return True
 
     def stop(self):
+        if self.sim.right_button_dragging:
+            self.sim.right_button_dragging = False
+            self.sim._drag_offset_x = 0
+            self.sim._drag_offset_y = 0
+            for ty in self.sim.tys:
+                ty._path_cache_drag_surf = None
+                ty._path_cache_drag_key = ()
+        self.sim.update_all_screen_points()
         self.running = False
         self.paused = False
         self._state = self.STATE_IDLE
+        self._current_target = None
+        self._prev_target = None
         self.script = None
 
     def update(self, dt: float):
-        """每帧更新。"""
         if not self.running or not self.script:
             return
 
         sim_paused = not self.sim.pl
+        if self._state == self.STATE_WAIT_USER:
+            return
         if self.paused or sim_paused:
+            return
+
+        if self._state == self.STATE_WAIT_REAL:
+            self._wait_elapsed += dt
+            if self._wait_elapsed >= self._wait_total:
+                self._advance()
             return
 
         if self._state == self.STATE_DWELL:
@@ -348,75 +497,108 @@ class ScriptEngine:
         elif self._state == self.STATE_MOVING:
             self._update_moving()
 
-    # ── DWELL 阶段 ──
+    # ── 命令推进 ──
+
+    def _advance(self):
+        """执行下一条命令。"""
+        while self._cmd_index < len(self.script.commands):
+            cmd = self.script.commands[self._cmd_index]
+            self._cmd_index += 1
+
+            if cmd.type == CMD_TARGET:
+                self._enter_target(cmd.target)
+                return
+            elif cmd.type == CMD_JUMP:
+                self._ensure_date(cmd.jump_date)
+                self._do_time_jump(cmd.jump_date)
+            elif cmd.type == CMD_SPEED:
+                self._set_speed(cmd.speed)
+            elif cmd.type == CMD_WAIT_REAL:
+                self._wait_elapsed = 0.0
+                self._wait_total = cmd.wait_seconds
+                self._state = self.STATE_WAIT_REAL
+                return
+            elif cmd.type == CMD_WAIT_USER:
+                self._state = self.STATE_WAIT_USER
+                return
+
+        self.stop()
+
+    def _enter_target(self, tgt: TargetRegion):
+        self._prev_target = self._current_target
+        self._current_target = tgt
+
+        if self._prev_target is None:
+            # 首个目标：直接定位，进入 DWELL
+            self._snap_to_target(tgt)
+            if tgt._has_arrive_speed:
+                self._set_speed(tgt.approach_speed)
+            self._state = self.STATE_DWELL
+        else:
+            # 从上一个目标向此目标移动
+            self._start_moving_to(self._prev_target, tgt)
+
+    # ── DWELL ──
 
     def _update_dwell(self):
-        """DWELL: 镜头静止在 current_target，等待 ste 抵达 move_from_date。"""
-        tgt = self.script.targets[self._current_target_idx]
+        tgt = self._current_target
         end_abs = self._dt_to_abs_ste(tgt.move_from_date)
-
         if self._sim_abs_ste() >= end_abs:
-            # 停留结束：处理离开跳跃
             self._ensure_date(tgt.move_from_date)
 
             if tgt.jump_on_depart is not None:
                 self._do_time_jump(tgt.jump_on_depart)
 
-            # 进入 MOVING 到下一个目标
-            next_idx = self._current_target_idx + 1
-            if next_idx >= len(self.script.targets):
-                self.stop()
-                return
+            self._advance()
 
-            next_tgt = self.script.targets[next_idx]
-            self._prev_target_idx = self._current_target_idx
-            self._current_target_idx = next_idx
-            self._start_moving_to(tgt, next_tgt)
-
-    # ── MOVING 阶段 ──
+    # ── MOVING ──
 
     def _start_moving_to(self, from_tgt: TargetRegion, to_tgt: TargetRegion):
-        """开始从 from_tgt 向 to_tgt 移动。"""
-        # 速度
-        speed = to_tgt.get_move_speed(from_tgt)
-        self._set_speed(speed)
+        if from_tgt._has_departure_speed:
+            self._set_speed(from_tgt.departure_speed)
+        elif to_tgt._has_arrive_speed:
+            self._set_speed(to_tgt.approach_speed)
 
         target_date = to_tgt.move_to_date
-
-        # 记录起始 bounds
         start_b = from_tgt.compute_bounds(self.sim.screen_width, self.sim.map_height)
         end_b = to_tgt.compute_bounds(self.sim.screen_width, self.sim.map_height)
         self._interp_start = list(start_b)
         self._interp_end = list(end_b)
         self._interp_start_ste = self._sim_abs_ste()
         self._interp_end_ste = self._dt_to_abs_ste(target_date)
-        self._interp_linear = to_tgt.constant_speed  # 移入目标的 // 或 /
+        self._interp_linear = to_tgt.constant_speed
 
         if self._interp_end_ste <= self._interp_start_ste:
-            # 日期已到（或跳跃后已过），立即到位
             self._snap_to_target(to_tgt)
             self._set_speed(to_tgt.approach_speed)
             self._state = self.STATE_DWELL
             return
 
+        # 激活虚拟拖动：复用手动拖动的快速偏移渲染路径
+        self.sim.right_button_dragging = True
+        self.sim._drag_offset_x = 0
+        self.sim._drag_offset_y = 0
+
         self._state = self.STATE_MOVING
 
     def _update_moving(self):
-        """MOVING: 插值镜头从 prev_target 到 current_target。"""
         if self._sim_abs_ste() >= self._interp_end_ste:
-            # 到达
-            tgt = self.script.targets[self._current_target_idx]
+            tgt = self._current_target
+            # 结束虚拟拖动状态
+            self.sim.right_button_dragging = False
+            self.sim._drag_offset_x = 0
+            self.sim._drag_offset_y = 0
+            for ty in self.sim.tys:
+                ty._path_cache_drag_surf = None
+                ty._path_cache_drag_key = ()
             self._snap_to_target(tgt)
             self._ensure_date(tgt.move_to_date)
-            self._set_speed(tgt.approach_speed)
+            if tgt._has_arrive_speed:
+                self._set_speed(tgt.approach_speed)
+            self.sim.update_all_screen_points()
             self._state = self.STATE_DWELL
-
-            # 处理到达跳跃（如果 > 在 [[ 之前）
-            if tgt.jump_on_arrival is not None:
-                self._do_time_jump(tgt.jump_on_arrival)
             return
 
-        # 插值
         if self._interp_end_ste > self._interp_start_ste:
             t = (self._sim_abs_ste() - self._interp_start_ste) / (self._interp_end_ste - self._interp_start_ste)
         else:
@@ -425,59 +607,106 @@ class ScriptEngine:
         if not self._interp_linear:
             t = self._ease_in_out(t)
 
-        self.sim.mlo = self._interp_start[0] + (self._interp_end[0] - self._interp_start[0]) * t
-        self.sim.Mlo = self._interp_start[1] + (self._interp_end[1] - self._interp_start[1]) * t
-        self.sim.mla = self._interp_start[2] + (self._interp_end[2] - self._interp_start[2]) * t
-        self.sim.Mla = self._interp_start[3] + (self._interp_end[3] - self._interp_start[3]) * t
-        self._update_sim_view()
+        mlo = self._interp_start[0] + (self._interp_end[0] - self._interp_start[0]) * t
+        Mlo = self._interp_start[1] + (self._interp_end[1] - self._interp_start[1]) * t
+        mla = self._interp_start[2] + (self._interp_end[2] - self._interp_start[2]) * t
+        Mla = self._interp_start[3] + (self._interp_end[3] - self._interp_start[3]) * t
+
+        self._update_view_incremental(mlo, Mlo, mla, Mla)
+
+    # ── 视图增量更新 ──
+
+    def _update_view_incremental(self, mlo, Mlo, mla, Mla):
+        mv = self.sim.map_mgr.map_view
+        if mv is None:
+            return
+        if Mlo < mlo:
+            Mlo += 360
+        clon = (mlo + Mlo) / 2.0
+        clat = (mla + Mla) / 2.0
+        lon_span = Mlo - mlo
+        lat_span = Mla - mla
+
+        new_scale = max(mv.min_scale, min(
+            mv.screen_width / (lon_span / mv.width_deg * mv.img_w),
+            mv.screen_height / (lat_span / mv.height_deg * mv.img_h), 8.0))
+
+        old_scale = mv.scale
+        if abs(new_scale - old_scale) > 0.0001:
+            factor = new_scale / old_scale
+            center_x = mv.screen_width / 2.0
+            center_y = mv.screen_height / 2.0
+            mv.zoom_at(factor, center_x, center_y)
+            # 缩放破坏旧坐标系，同手动拖动中缩放行为：全量重建 + 清零偏移
+            self.sim.update_all_screen_points()
+            self.sim._drag_offset_x = 0
+            self.sim._drag_offset_y = 0
+            for ty in self.sim.tys:
+                ty._path_cache_drag_surf = None
+                ty._path_cache_drag_key = ()
+
+        target_vx = ((clon - mv.lon_min) / mv.width_deg * mv.img_w
+                     - mv.screen_width / (2.0 * mv.scale)) % mv.img_w
+        target_vy = (mv.lat_max - clat) / mv.height_deg * mv.img_h \
+                    - mv.screen_height / (2.0 * mv.scale)
+
+        raw_dx = mv.view_x - target_vx
+        half_w = mv.img_w / 2.0
+        if raw_dx > half_w:
+            raw_dx -= mv.img_w
+        elif raw_dx < -half_w:
+            raw_dx += mv.img_w
+        dx_px = raw_dx * mv.scale
+        dy_px = (mv.view_y - target_vy) * mv.scale
+        if abs(dx_px) > 0.01 or abs(dy_px) > 0.01:
+            adx, ady = mv.move_view(dx_px, dy_px)
+            self.sim._drag_offset_x -= adx
+            self.sim._drag_offset_y -= ady
+
+        self.sim._view_dirty = True
 
     # ── 辅助 ──
 
     def _snap_to_target(self, tgt: TargetRegion):
-        """瞬间将镜头定位到目标区域。"""
         mlo, Mlo, mla, Mla = tgt.compute_bounds(self.sim.screen_width, self.sim.map_height)
         self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla = mlo, Mlo, mla, Mla
         self._update_sim_view()
 
-    _SECONDS_PER_YEAR = 31622400  # 366 * 86400，确保跨年比较无重叠
+    _SECONDS_PER_YEAR = 31622400
 
     def _sim_abs_ste(self) -> float:
-        """返回模拟当前时间的绝对秒数（跨年安全）。"""
-        return self.sim.ste + self.sim.sy * self._SECONDS_PER_YEAR
+        return self.sim.ste + self._year_seconds_abs(self.sim.sy)
+
+    def _year_seconds_abs(self, year: int) -> float:
+        total = 0.0
+        for y in range(1970, year):
+            total += 86400.0 * (366 if (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0) else 365)
+        return total
 
     def _dt_to_abs_ste(self, date: datetime) -> float:
-        """将 datetime 转换为绝对秒数（跨年安全）。"""
         ste_in_year = (date - datetime(date.year, 1, 1, 0)).total_seconds()
-        return ste_in_year + date.year * self._SECONDS_PER_YEAR
+        return ste_in_year + self._year_seconds_abs(date.year)
 
     def _set_speed(self, speed: float):
-        """设置模拟速度。"""
         self.sim.sp = speed
 
     def _ensure_date(self, date: datetime):
-        """确保 sim 的 sy / st / ste 与给定日期一致。"""
-        if self.sim.sy != date.year:
-            self.sim.sy = date.year
-            self.sim.ste = 0.0
+        self.sim.ste = (date - datetime(date.year, 1, 1, 0)).total_seconds()
+        self.sim.sy = date.year
         self.sim.st = date.strftime("%m%d%H")
+        self.sim.season_ctrl.jump_to(date)
+        self.sim._sync_season_state()
 
     def _do_time_jump(self, target_date: datetime):
-        """执行时间跳跃（委托给 season_ctrl，确保状态一致）。"""
         self.sim.season_ctrl.jump_to(target_date)
         self.sim._sync_season_state()
         self.sim.update_all_screen_points()
 
     def _update_sim_view(self):
-        """将 sim 的 bounds 同步到视图（MOVING 阶段每帧调用）。
-        使用惰性刷新（与缩放机制相同）：仅标记版本号，
-        绘制时按需重算可见台风，避免每帧全量 O(N) 重算。
-        状态切换点（_snap_to_target / _do_time_jump）走全量刷新。"""
         if self.sim.map_mgr.map_view:
             self.sim.map_mgr.map_view.set_view_region(
                 self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla)
-        # 惰性刷新：仅版本号 + 清空缓存，绘制时按需重算
         self.sim.invalidate_screen_points_lazy()
-        # 不直接调 update_land_mask：_view_dirty 后主循环延迟陆地重建处理
         self.sim._view_dirty = True
 
     @staticmethod
@@ -486,6 +715,14 @@ class ScriptEngine:
             return 4 * t * t * t
         else:
             return 1 - pow(-2 * t + 2, 3) / 2
+
+
+# ── WAIT_USER 恢复 ──
+
+    def resume_from_user_wait(self):
+        """由外部（按键/点击）调用，结束 WAIT_USER 状态。"""
+        if self._state == self.STATE_WAIT_USER:
+            self._advance()
 
 
 # ── 脚本文件扫描 ──

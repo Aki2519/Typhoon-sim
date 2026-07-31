@@ -114,8 +114,8 @@ class PointEditDialog(DraggableDialog):
                 self.deactivate()
                 return True
             elif e.key == pygame.K_RETURN:
-                self.submit()
-                self.deactivate()
+                if self.submit():
+                    self.deactivate()
                 return True
             elif e.key == pygame.K_TAB or e.key == pygame.K_KP_ENTER:
                 active_idx = next((i for i, f in enumerate(self.fields) if f.active), -1)
@@ -135,15 +135,15 @@ class PointEditDialog(DraggableDialog):
             confirm_rect = pygame.Rect(self.bg_rect.centerx - 90, btn_y, 80, 30)
             cancel_rect = pygame.Rect(self.bg_rect.centerx + 10, btn_y, 80, 30)
             if confirm_rect.collidepoint(x, y):
-                self.submit()
-                self.deactivate()
+                if self.submit():
+                    self.deactivate()
                 return True
             if cancel_rect.collidepoint(x, y):
                 self.deactivate()
                 return True
         return False
 
-    def submit(self):
+    def submit(self) -> bool:
         if self.callback:
             values = {}
             keys = ['wind', 'pressure', 'type', 'lat', 'lon', 'time']
@@ -151,12 +151,21 @@ class PointEditDialog(DraggableDialog):
                 raw = self.fields[i].get_text()
                 # 经纬度从 NSEW 格式解析回浮点数
                 if key == 'lat':
-                    values[key] = str(parse_lat(raw))
+                    try:
+                        values[key] = str(parse_lat(raw))
+                    except (TypeError, ValueError):
+                        self.sim.show_error("纬度格式不正确")
+                        return False
                 elif key == 'lon':
-                    values[key] = str(parse_lon(raw))
+                    try:
+                        values[key] = str(parse_lon(raw))
+                    except (TypeError, ValueError):
+                        self.sim.show_error("经度格式不正确")
+                        return False
                 else:
                     values[key] = raw
             self.callback(values)
+        return True
 
     def draw(self, surface: pygame.Surface):
         if not self.active:

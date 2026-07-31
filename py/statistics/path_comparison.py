@@ -421,9 +421,17 @@ class PathComparisonDialog(DraggableDialog):
             return
 
         changed = False
+        ctrl = pygame.key.get_mods() & pygame.KMOD_CTRL
         for idx, cb_rect in self._checkbox_rects:
             if box_rect.colliderect(cb_rect):
-                if idx not in self._selected:
+                if ctrl:
+                    if idx not in self._selected:
+                        self._selected.add(idx)
+                        changed = True
+                elif idx in self._selected:
+                    self._selected.discard(idx)
+                    changed = True
+                else:
                     self._selected.add(idx)
                     changed = True
 

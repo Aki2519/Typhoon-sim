@@ -61,9 +61,10 @@ class OceanArea:
             while cur_lon - prev_lon < -180: cur_lon += 360
             unwrapped.append([cur_lat, cur_lon])
         lons = [v[1] for v in unwrapped]
-        span = max(lons) - min(lons)
+        min_lon, max_lon = min(lons), max(lons)
+        span = max_lon - min_lon
         if span > 180:
-            center = (min(lons) + max(lons)) / 2.0
+            center = (min_lon + max_lon) / 2.0
             shifted = []
             for lat, lon in unwrapped:
                 while lon - center > 180: lon -= 360
@@ -133,18 +134,30 @@ class OceanAreaManager:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"紧凑 JSON 加载失败: {e}")
             return
+        if not isinstance(data, list):
+            logger.warning(f"紧凑 JSON 顶层不是列表: {path}")
+            return
         for obj in data:
-            verts = [(lat, lon) for lon, lat in obj['c']]
-            area = OceanArea(
-                code=obj.get('code', ''),
-                name_cn=obj.get('name_cn', ''),
-                name_full=obj.get('name_full', ''),
-                hemisphere=obj.get('h', 'N'),
-                avg_ace=float(obj.get('ace', 0)),
-                vertices=verts,
-                is_merged=bool(obj.get('merged', False)),
-            )
-            self.areas.append(area)
+            try:
+                if not isinstance(obj, dict) or not isinstance(obj.get('c'), list):
+                    raise ValueError("缺少坐标列表")
+                verts = [(float(lat), float(lon)) for lon, lat in obj['c']]
+                try:
+                    avg_ace = float(obj.get('ace', 0))
+                except (TypeError, ValueError):
+                    avg_ace = 0.0
+                area = OceanArea(
+                    code=obj.get('code', ''),
+                    name_cn=obj.get('name_cn', ''),
+                    name_full=obj.get('name_full', ''),
+                    hemisphere=obj.get('h', 'N'),
+                    avg_ace=avg_ace,
+                    vertices=verts,
+                    is_merged=bool(obj.get('merged', False)),
+                )
+                self.areas.append(area)
+            except (KeyError, TypeError, ValueError) as e:
+                logger.warning(f"紧凑 JSON 条目跳过: {e}")
 
     def _load_geojson(self, path: str):
         try:
@@ -153,24 +166,31 @@ class OceanAreaManager:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"GeoJSON 加载失败: {e}")
             return
-        features = data.get("features", [])
+        features = data.get("features", []) if isinstance(data, dict) else []
         for feat in features:
-            props = feat.get("properties", {})
-            geom = feat.get("geometry", {})
-            if geom.get("type") != "Polygon":
-                continue
-            coords = geom.get("coordinates", [[]])[0]
-            verts = [(lat, lon) for lon, lat in coords]
-            area = OceanArea(
-                code=props.get("code", ""),
-                name_cn=props.get("name_cn", ""),
-                name_full=props.get("name_full", ""),
-                hemisphere=props.get("hemisphere", "N"),
-                avg_ace=float(props.get("avg_ace", 0)),
-                vertices=verts,
-                is_merged=bool(props.get("is_merged", False)),
-            )
-            self.areas.append(area)
+            try:
+                props = feat.get("properties", {})
+                geom = feat.get("geometry", {})
+                if geom.get("type") != "Polygon":
+                    continue
+                coords = geom.get("coordinates", [[]])[0]
+                verts = [(float(lat), float(lon)) for lon, lat in coords]
+                try:
+                    avg_ace = float(props.get("avg_ace", 0))
+                except (TypeError, ValueError):
+                    avg_ace = 0.0
+                area = OceanArea(
+                    code=props.get("code", ""),
+                    name_cn=props.get("name_cn", ""),
+                    name_full=props.get("name_full", ""),
+                    hemisphere=props.get("hemisphere", "N"),
+                    avg_ace=avg_ace,
+                    vertices=verts,
+                    is_merged=bool(props.get("is_merged", False)),
+                )
+                self.areas.append(area)
+            except (KeyError, TypeError, ValueError) as e:
+                logger.warning(f"GeoJSON 条目跳过: {e}")
 
     def _parse(self, line):
         is_merged = line.startswith('(') and line.endswith(')')
@@ -201,7 +221,7 @@ class OceanAreaManager:
     def _plon(s):
         s = s.strip().upper()
         v = float(s[:-1]) if s.endswith(('E', 'W')) else float(s)
-        if s.endswith('W') and abs(v - 180) > 0.001:
+        if s.endswith('W') and abs(v - 180) > 0.001 and abs(v) > 0.001:
             return 360.0 - v
         return v
 

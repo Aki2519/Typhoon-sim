@@ -8,6 +8,14 @@ class TySimEventMixin:
     """事件处理: 键盘、鼠标点击"""
 
     def handle_event(self, e: pygame.event.Event) -> bool:
+        # 脚本引擎 WAIT_USER：任意按键/点击恢复
+        se = getattr(self, 'script_engine', None)
+        if se and se._state == se.STATE_WAIT_USER:
+            if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                se.resume_from_user_wait()
+                return True
+            return True
+
         # 对话框优先处理（栈顶优先）
         if self.dialog_mgr.any_active():
             stack = getattr(self, '_dialog_stack', [])
@@ -70,8 +78,18 @@ class TySimEventMixin:
         if e.type == pygame.KEYDOWN:
             return self._handle_keydown(e)
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if self._ms.active:
+                self._ms.dismiss()
+                return True
             if self.dragging_point or self.right_button_dragging:
                 return True
+            if self.md == self.MODE_EDIT and self.edit_typhoon and not self.dialog_mgr.any_active():
+                mx, my = e.pos
+                if my < self.map_height:
+                    for i, (sx, sy) in enumerate(self.edit_typhoon.screen_points):
+                        if abs(mx - sx) < 8 and abs(my - sy) < 8:
+                            self._edit_selected_point = i
+                            return True
             return self._handle_click(e.pos)
         return False
 
@@ -99,6 +117,8 @@ class TySimEventMixin:
                 return True
         elif e.type == pygame.MOUSEMOTION and self.right_button_dragging:
             mx, my = e.pos
+            if my >= self.map_height:
+                my = self.map_height - 1
             dx = mx - self.right_drag_start_pos[0]
             dy = my - self.right_drag_start_pos[1]
             if self.map_mgr.map_view:
@@ -126,6 +146,9 @@ class TySimEventMixin:
                     self.update_all_screen_points()
                     self._drag_offset_x = 0
                     self._drag_offset_y = 0
+                    for ty in self.tys:
+                        ty._path_cache_drag_surf = None
+                        ty._path_cache_drag_key = ()
                 else:
                     # 惰性刷新：仅可见台风在绘制时重算；
                     # 突发期(200ms)内跳过平滑样条，停止缩放后恢复
@@ -202,6 +225,15 @@ class TySimEventMixin:
             self.dragging_point = False
             self.drag_typhoon = None
             self.drag_point_index = -1
+        if self.right_button_dragging:
+            self.right_button_dragging = False
+            self._drag_offset_x = 0
+            self._drag_offset_y = 0
+            for ty in self.tys:
+                ty._path_cache_drag_surf = None
+                ty._path_cache_drag_key = ()
+            self.update_all_screen_points()
+            self._view_dirty = True
 
     def _handle_keydown(self, e: pygame.event.Event) -> bool:
         return self.input_ctrl.handle_keydown(e)
@@ -225,6 +257,7 @@ class TySimEventMixin:
                             init,
                             lambda vals, idx=i: self.update_point_in_edit_typhoon(vals, idx)
                         )
+                        self._last_edited_point = i
                         return
                 la, lo = self.screen_to_latlon(mx, my)
                 current_name = (self.edit_typhoon.pts[-1]['name'] if self.edit_typhoon.pts

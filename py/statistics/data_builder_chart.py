@@ -70,10 +70,10 @@ def build_chart_data(sim, year: int, cumulative_to_current: bool,
         ty = name_to_ty.get(name)
         if ty is not None:
             pts = [p for p in ty.pts if (p.get('w') or 0) >= 0
-                   and p['st'].upper() not in ('MD', 'SS', 'SD', 'EX', 'LO')]
+                   and (p.get('st') or '').upper() not in ('MD', 'SS', 'SD', 'EX', 'LO')]
             if pts:
-                peak_wind = max(p['w'] for p in pts)
-                mwp = max(pts, key=lambda px: px['w'])
+                peak_wind = max(p.get('w', 0) for p in pts)
+                mwp = max(pts, key=lambda px: px.get('w', 0))
                 color = mwp.get('color', (100, 150, 255))
             if ty.pts and ty.pts[0].get('t'):
                 start = ty.pts[0]['t']

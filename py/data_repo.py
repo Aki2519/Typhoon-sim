@@ -219,8 +219,8 @@ class DataRepository:
     def _fill_point_categories(self) -> None:
         for ty in self.tys:
             for p in ty.pts:
-                if 'cat' not in p:
-                    p['cat'] = self.get_strength_category(p['w'], p['st'])
+                if not p.get('cat'):
+                    p['cat'] = self.get_strength_category(p.get('w', 0), p.get('st', ''))
 
     def _sort_by_basin(self) -> None:
         areas = self.res_mgr.ocean_areas
@@ -241,6 +241,15 @@ class DataRepository:
             self.load_typhoon_files()
             return
 
+        # 记住当前选中的台风身份，以免重排序/过滤后丢失选中
+        saved_cti_id = None
+        if self.cti is not None and 0 <= self.cti < len(self.tys):
+            t = self.tys[self.cti]
+            saved_cti_id = (t.basin, t.n, t.filepath)
+        saved_edit_id = None
+        if self.edit_typhoon:
+            saved_edit_id = (self.edit_typhoon.basin, self.edit_typhoon.n, self.edit_typhoon.filepath)
+
         if (getattr(self._sim, 'basin_filter_enabled', True) and
                 self.cfg.ace_limit_mode == "basin" and self.cfg.ace_limit_basin):
             area = self.res_mgr.ocean_areas.get_by_code(self.cfg.ace_limit_basin)
@@ -253,8 +262,30 @@ class DataRepository:
             self.tys = list(backup)
 
         self._sort_by_basin()
-        if self.cti >= len(self.tys):
+
+        # 恢复到排序后的正确位置
+        if saved_cti_id:
+            found = False
+            for i, ty in enumerate(self.tys):
+                if (ty.basin, ty.n, ty.filepath) == saved_cti_id:
+                    self.cti = i
+                    found = True
+                    break
+            if not found:
+                self.cti = 0
+        if not (0 <= self.cti < len(self.tys)):
             self.cti = 0
+
+        if saved_edit_id:
+            found = False
+            for ty in self.tys:
+                if (ty.basin, ty.n, ty.filepath) == saved_edit_id:
+                    self.edit_typhoon = ty
+                    found = True
+                    break
+            if not found:
+                self.edit_typhoon = None
+
         self._refresh_ace()
         self._fill_point_categories()
 
@@ -269,6 +300,12 @@ class DataRepository:
         if new_ty is None:
             return
         self.tys[idx] = new_ty
+        if self._all_tys_backup:
+            fp = new_ty.filepath
+            for i, bt in enumerate(self._all_tys_backup):
+                if bt.filepath == fp:
+                    self._all_tys_backup[i] = new_ty
+                    break
         if self.edit_typhoon is ty:
             self.edit_typhoon = new_ty
         self._refresh_ace()

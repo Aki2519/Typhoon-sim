@@ -61,9 +61,11 @@ class DialogManager:
         return any(d.active for d in self._all())
 
     def _all(self) -> tuple:
-        return (self.tj, self.sd, self.tl, self.new_typhoon_dialog,
-                self.point_edit_dialog, self.point_list, self.ace_chart,
-                self.intensity_chart, self.path_comparison, self.heatmap,
-                self.path_length_viewer, self.season_stats, self.intensity_comparison,
-                self.summary_list, self.multi_year,
-                getattr(self.sim, 'script_dialog', None))
+        return tuple(d for d in (
+            self.tj, self.sd, self.tl, self.new_typhoon_dialog,
+            self.point_edit_dialog, self.point_list, self.ace_chart,
+            self.intensity_chart, self.path_comparison, self.heatmap,
+            self.path_length_viewer, self.season_stats, self.intensity_comparison,
+            self.summary_list, self.multi_year,
+            getattr(self.sim, 'script_dialog', None),
+        ) if d is not None)

@@ -83,6 +83,7 @@ class TySimDrawInfoBoxesMixin:
     _season_info_box_cache: dict = {}
     _season_info_box_last_data: dict = {}
     _season_box_line_h: int = 0
+    _clock_arc_surf = None
 
     @classmethod
     def _season_info_box_line_height(cls) -> int:
@@ -105,6 +106,8 @@ class TySimDrawInfoBoxesMixin:
         key_data = (
             ty.b, ty.n, ty.tace,
             cp['w'] if cp else 0,
+            cp['st'] if cp else '',
+            cp['p'] if cp else 0,
             ty.ci, dark,
         )
         if ty in self._season_info_box_cache and self._season_info_box_last_data.get(ty) == key_data:
@@ -136,7 +139,12 @@ class TySimDrawInfoBoxesMixin:
         fp = ty.pts[0]
         lp = ty.pts[-1]
         tyy = fp['t'][:4] if len(fp['t']) >= 4 else "未知"
-        tn = self.get_display_name(ty)
+        if getattr(self, 'point_name_mode', False) and cp:
+            tn = (cp.get('name') or '').strip()
+            if not tn:
+                tn = self.get_display_name(ty)
+        else:
+            tn = self.get_display_name(ty)
 
         st = fp['t']
         et = lp['t']
@@ -144,8 +152,8 @@ class TySimDrawInfoBoxesMixin:
         ef = f"{et[4:6]}/{et[6:8]}" if len(et) >= 8 else "未知"
         if len(st) >= 10 and len(et) >= 10:
             try:
-                s_dt = datetime(int(fp['t'][:4]), int(st[4:6]), int(st[6:8]), int(st[8:10]))
-                e_dt = datetime(int(lp['t'][:4]), int(et[4:6]), int(et[6:8]), int(et[8:10]))
+                s_dt = datetime(int(st[:4]), int(st[4:6]), int(st[6:8]), int(st[8:10]))
+                e_dt = datetime(int(et[:4]), int(et[4:6]), int(et[6:8]), int(et[8:10]))
                 td = (e_dt - s_dt).days
             except Exception:
                 td = 0
@@ -275,6 +283,8 @@ class TySimDrawInfoBoxesMixin:
                 surface.blit(digits, (x + ace_x, y + ace_y))
 
     def draw_season_clock(self, surface: pygame.Surface) -> None:
+        if TySimDrawInfoBoxesMixin._clock_arc_surf is None:
+            TySimDrawInfoBoxesMixin._clock_arc_surf = pygame.Surface((240, 240), pygame.SRCALPHA)
         tr = 80
         inner_r = 56
         cx = cy = 120
@@ -291,15 +301,17 @@ class TySimDrawInfoBoxesMixin:
 
         # 进度弧（多边形精确填充，两环之间留缝隙）
         if progress > 0.001:
-            arc_surf = pygame.Surface((cx * 2, cy * 2), pygame.SRCALPHA)
+            arc_surf = self._clock_arc_surf
+            arc_surf.fill((0, 0, 0, 0))
             steps = max(4, int(progress * 120))
             pts_out, pts_in = [], []
             start_a = -math.pi / 2
+            step_angle = progress * 2.0 * math.pi / steps
             for i in range(steps + 1):
-                a = start_a + i * progress * 2 * math.pi / steps
+                a = start_a + i * step_angle
                 pts_out.append((cx + arc_outer * math.cos(a), cy + arc_outer * math.sin(a)))
             for i in range(steps, -1, -1):
-                a = start_a + i * progress * 2 * math.pi / steps
+                a = start_a + i * step_angle
                 pts_in.append((cx + arc_inner * math.cos(a), cy + arc_inner * math.sin(a)))
             pygame.draw.polygon(arc_surf, (255, 255, 255), pts_out + pts_in)
             surface.blit(arc_surf, (0, 0))
@@ -388,8 +400,9 @@ class TySimDrawInfoBoxesMixin:
         vf = _font_ace.en_font
         black = vf.render(val, True, (0, 0, 0))
         white = vf.render(val, True, (255, 255, 255))
-        text_x = x + w - white.get_width() - 12
-        text_y = 32 + (h - white.get_height()) // 2
+        tw, th = white.get_width(), white.get_height()
+        text_x = x + w - tw - 12
+        text_y = 32 + (h - th) // 2
         for dx, dy in _STROKE:
             surface.blit(black, (text_x + dx, text_y + dy))
         surface.blit(white, (text_x, text_y))
@@ -411,17 +424,15 @@ class TySimDrawInfoBoxesMixin:
         if elapsed >= _ACE_NOTE_DURATION_MS:
             return
         txt = (f"{note['name']} " if note['name'] else "") + f"+{note['ace']:.4f}"
-        black = rt(_font_ace_note, txt, (0, 0, 0))
+        white = rt(_font_ace_note, txt, (255, 255, 255))
         colored = rt(_font_ace_note, txt, note['color'])
         remain = _ACE_NOTE_DURATION_MS - elapsed
         if remain < _ACE_NOTE_FADE_MS:
             alpha = max(0, int(255 * remain / _ACE_NOTE_FADE_MS))
-            black = black.copy()
-            black.set_alpha(alpha)
-            colored = colored.copy()
-            colored.set_alpha(alpha)
+            white = white.copy(); white.set_alpha(alpha)
+            colored = colored.copy(); colored.set_alpha(alpha)
         nx = bar_x + 10
-        ny = bar_y + (bar_h - colored.get_height()) // 2
+        ny = bar_y + (bar_h - white.get_height()) // 2
         for dx, dy in _STROKE:
-            surface.blit(black, (nx + dx, ny + dy))
-        surface.blit(colored, (nx, ny))
+            surface.blit(colored, (nx + dx, ny + dy))
+        surface.blit(white, (nx, ny))

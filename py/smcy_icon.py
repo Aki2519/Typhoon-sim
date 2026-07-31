@@ -62,8 +62,9 @@ class _VideoStream:
     多游标：同一类别视频被多个台风以不同帧号播放时，为每个前进序列
     维护独立 VideoCapture 游标，顺序 read（~0.4ms）替代随机 seek（~5ms）。"""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, loop: bool = False) -> None:
         self._path = path
+        self._loop = loop
         self._cap = cv2.VideoCapture(path)
         self._cursors: list = [{'cap': self._cap, 'pos': None, 'use': 0}]
         self._cache: OrderedDict[int, pygame.Surface] = OrderedDict()
@@ -128,7 +129,10 @@ class _VideoStream:
         return ret, frame_bgr
 
     def get_frame(self, idx: int, target_size: Optional[Tuple[int, int]] = None) -> Optional[pygame.Surface]:
-        idx = idx % self._frame_count
+        if self._loop:
+            idx = idx % self._frame_count
+        elif idx < 0 or idx >= self._frame_count:
+            return None
         if target_size and target_size != self._scale_size:
             self._scale_size = target_size
             self._cache.clear()
@@ -297,7 +301,7 @@ class SMCYIconManager:
             logger.warning(f"SMCY: 视频文件不存在 {video_path}")
             return None
 
-        stream = _VideoStream(video_path)
+        stream = _VideoStream(video_path, loop=True)
         if not stream.is_open:
             logger.warning(f"SMCY: 无法打开视频 {video_path}")
             return None
@@ -586,8 +590,16 @@ def get_smcy_manager() -> SMCYIconManager:
 
 
 def clear_smcy_cache() -> None:
-    global _smcy_manager
+    global _smcy_manager, _summary_streams, _summary_access, _landed_streams, _landfall_cache
     if _smcy_manager is not None:
         for stream in _smcy_manager._streams.values():
             stream.release()
     _smcy_manager = None
+    for stream in _summary_streams.values():
+        stream.release()
+    _summary_streams.clear()
+    _summary_access.clear()
+    for stream in _landed_streams.values():
+        stream.release()
+    _landed_streams.clear()
+    _landfall_cache.clear()

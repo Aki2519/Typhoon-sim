@@ -21,32 +21,42 @@ class Renderer:
         self.sim = sim
 
     def draw(self, surface: pygame.Surface) -> None:
-        self._draw_scene(surface)
         sim = self.sim
-        sim.draw_control_panel(surface)
-        sim.dialog_mgr.draw(surface)
+        hidden = getattr(sim, '_ui_hidden', False)
+        self._draw_scene(surface, hidden)
+        if not hidden:
+            sim.draw_control_panel(surface)
+            sim.dialog_mgr.draw(surface)
 
-        if getattr(sim.cfg, 'show_fps', False):
-            self._draw_fps(surface)
+            if getattr(sim.cfg, 'show_fps', False):
+                self._draw_fps(surface)
 
-        if sim.error_message and pygame.time.get_ticks() - sim.error_time < ERROR_TIMEOUT_MS:
-            self._draw_error(surface)
+            if sim.error_message and pygame.time.get_ticks() - sim.error_time < ERROR_TIMEOUT_MS:
+                self._draw_error(surface)
+        else:
+            sim.draw_control_panel(surface)
 
-    def _draw_scene(self, surface: pygame.Surface) -> None:
+    def _draw_scene(self, surface: pygame.Surface, hidden: bool = False) -> None:
         sim = self.sim
         surface.fill(BG)
         sim._draw_map(surface)
 
-        if sim.md == sim.MODE_SEASON:
-            sim.draw_season_clock(surface)
-            sim._ms.draw(surface)
-            if sim.show_info_box_season:
-                sim.draw_season_info_boxes(surface)
+        if not hidden:
+            if sim.md == sim.MODE_SEASON:
+                sim.draw_season_clock(surface)
+                sim._ms.draw(surface)
 
-        if getattr(sim, 'show_ace_bar', True):
-            sim.draw_ace_display(surface)
+            if getattr(sim, 'show_ace_bar', True):
+                sim.draw_ace_display(surface)
+
+            if sim.md == sim.MODE_SEASON:
+                if sim.show_info_box_season:
+                    sim.draw_season_info_boxes(surface)
 
         sim._draw_typhoons(surface)
+
+        if hidden:
+            return
 
         ct = pygame.time.get_ticks()
 

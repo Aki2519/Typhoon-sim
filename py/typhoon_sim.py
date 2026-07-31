@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import datetime
 from typing import List, Optional, Dict, TYPE_CHECKING
+
+import pygame
+
 from .spline import position_at_arc
 
 if TYPE_CHECKING:
@@ -15,12 +18,13 @@ class TyphoonSimMixin:
     """模拟方法：start_move, update_move, set_current_time, reset 等。"""
 
     def start_move(self, current_time: float) -> None:
-        if self.ci < 0 or self.ci >= len(self.pts) - 1:
+        n_pts = len(self.pts)
+        if self.ci < 0 or self.ci >= n_pts - 1:
             self._mark_finished(current_time)
             return
-        if len(self.points_time) != len(self.pts):
+        if len(self.points_time) != n_pts:
             self.recalc_simulated_times()
-        if len(self.points_time) != len(self.pts):
+        if len(self.points_time) != n_pts:
             self._mark_finished(current_time)
             return
         if self.ci + 1 >= len(self.points_time):
@@ -39,7 +43,8 @@ class TyphoonSimMixin:
     def update_move(self, current_time: float, speed_factor: float = 1.0,
                     is_paused: bool = False) -> bool:
         ipos = self.v.ipos
-        if not ipos or self.ci >= len(self.pts) - 1:
+        last_idx = len(self.pts) - 1
+        if not ipos or self.ci >= last_idx:
             return False
         if is_paused:
             self.lut = current_time
@@ -67,7 +72,7 @@ class TyphoonSimMixin:
 
         self.ci += 1
         self.v.ipos = None
-        if self.ci >= len(self.pts) - 1:
+        if self.ci >= last_idx:
             self.fin = True
             self.ft = current_time
             self.finish_time = current_time
@@ -90,6 +95,8 @@ class TyphoonSimMixin:
         sc_x, sc_y = position_at_arc(
             self.v.smooth_screen_points, arcs, target)
         if self.sim:
+            sc_x += self.sim._drag_offset_x
+            sc_y += self.sim._drag_offset_y
             lat, lon = self.sim.screen_to_latlon(sc_x, sc_y)
             ipos['la'] = lat
             ipos['lo'] = lon
@@ -195,6 +202,7 @@ class TyphoonSimMixin:
         v.icon_alpha = v.path_alpha = 255
         v._last_ri_at = -999.0
         v._ri_armed = True
+        v._spawn_time = pygame.time.get_ticks()
         v._img_cache.clear()
         if self.pts:
             self.recalc_simulated_times()

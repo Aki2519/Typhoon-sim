@@ -19,6 +19,7 @@ class AppConfig:
     Mlo: float = 180.0
     mla: float = 0.0
     Mla: float = 50.0
+    map_corner_mode: bool = False
     cmp: Optional[str] = None
 
     ac: bool = True
@@ -60,8 +61,10 @@ class AppConfig:
     fix_icon_point_size: bool = False
     fade_typhoon: bool = True
     fade_path: bool = True
+    fade_path_mode: str = "fade"
     smooth_path: bool = False
     smooth_path_segments: int = 10
+    smooth_path_mode: str = "monotone"
     path_mode: str = "markers"
     show_future_path: bool = True
     ace_interpolated: bool = False
@@ -97,8 +100,46 @@ class AppConfig:
         except Exception as e:
             logger.warning(f"配置加载失败: {path}: {e}")
             return cls()
-        known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in raw.items() if k in known})
+        known = {f.name: f for f in fields(cls)}
+        kwargs = {}
+        for k, v in raw.items():
+            fld = known.get(k)
+            if fld is None:
+                continue
+            kwargs[k] = cls._coerce(fld, v)
+        try:
+            return cls(**kwargs)
+        except Exception as e:
+            logger.warning(f"配置字段非法，使用默认值: {e}")
+            return cls()
+
+    @staticmethod
+    def _coerce(fld, v):
+        if v is None:
+            return fld.default
+        t = fld.type
+        if t == 'bool':
+            return v if isinstance(v, bool) else fld.default
+        if t == 'int':
+            if isinstance(v, bool):
+                return fld.default
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                try:
+                    return int(float(v))
+                except (TypeError, ValueError):
+                    return fld.default
+        if t == 'float':
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return fld.default
+        if t.startswith('Dict['):
+            return v if isinstance(v, dict) else fld.default
+        if t == 'Optional[str]':
+            return v if v is None or isinstance(v, str) else fld.default
+        return v if isinstance(v, str) else fld.default
 
     def save(self, path: str) -> None:
         with open(path, 'w', encoding='utf-8') as f:

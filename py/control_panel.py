@@ -186,19 +186,28 @@ class ControlPanel:
     # ── 绘制 ──
 
     def draw(self, surface: pygame.Surface) -> None:
-        cp_h = self.sim.control_panel_height
-        py = self.sim.map_height
-        dark = getattr(self.sim, 'dark_mode', True)
+        sim = self.sim
+        cp_h = sim.control_panel_height
+        py = sim.map_height
+        dark = getattr(sim, 'dark_mode', True)
+        sw = sim.screen_width
+
+        if getattr(sim, '_ui_hidden', False):
+            if dark:
+                pygame.draw.rect(surface, SETTINGS_DARK_BG[:3], (0, py, sw, cp_h))
+            else:
+                pygame.draw.rect(surface, CONTROL_PANEL_BG, (0, py, sw, cp_h))
+            return
 
         if dark:
-            pygame.draw.rect(surface, SETTINGS_DARK_BG[:3], (0, py, self.sim.screen_width, cp_h))
+            pygame.draw.rect(surface, SETTINGS_DARK_BG[:3], (0, py, sw, cp_h))
             pygame.draw.line(surface, SETTINGS_TAB_BG,
-                             (0, py), (self.sim.screen_width, py), 2)
+                             (0, py), (sw, py), 2)
         else:
             pygame.draw.rect(surface, CONTROL_PANEL_BG,
-                             (0, py, self.sim.screen_width, cp_h))
+                             (0, py, sw, cp_h))
             pygame.draw.line(surface, CONTROL_PANEL_LINE,
-                             (0, py), (self.sim.screen_width, py), 2)
+                             (0, py), (sw, py), 2)
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_down = pygame.mouse.get_pressed()[0]
@@ -209,13 +218,14 @@ class ControlPanel:
         by = self._by()
         sbx = self._speed_bar_x
         text_color = SETTINGS_TEXT_LIGHT if dark else (20, 40, 80)
-        speed_text = rt(f_s, f"\u901f\u5ea6: {self.sim.sp:.1f}x", text_color)
+        speed_text = rt(f_s, f"\u901f\u5ea6: {sim.sp:.1f}x", text_color)
         surface.blit(speed_text, (sbx, by - 3))
         speed_bar_rect = pygame.Rect(sbx, by + 15, self.SPEED_BAR_W, self.SPEED_BAR_H)
         sb_bg = SETTINGS_TOGGLE_OFF if dark else SPEED_BAR_BG
-        sb_fill = settings_accent(dark, self.sim.color_scheme) if dark else SPEED_BAR_FILL
+        sb_fill = settings_accent(dark, sim.color_scheme) if dark else SPEED_BAR_FILL
         pygame.draw.rect(surface, sb_bg, speed_bar_rect, 0, 6)
-        sr = (self.sim.sp - self.sim.mis) / (self.sim.mas - self.sim.mis)
+        denom = sim.mas - sim.mis
+        sr = 0.0 if denom <= 0 else (sim.sp - sim.mis) / denom
         fw = int(self.SPEED_BAR_W * sr)
         pygame.draw.rect(surface, sb_fill,
                          (sbx, by + 15, fw, self.SPEED_BAR_H), 0, 6)
@@ -224,17 +234,17 @@ class ControlPanel:
         mode_texts = {"normal": "模式: 正常",
                       "season": "模式: 台风季",
                       "edit": "模式: 编辑"}
-        mode_label = mode_texts.get(self.sim.md, "")
+        mode_label = mode_texts.get(sim.md, "")
         if mode_label:
             text_color = SETTINGS_TEXT_LIGHT if dark else (20, 40, 80)
             md_surf = rt(f_s, mode_label, text_color)
             surface.blit(md_surf, (
-                self.sim.screen_width // 2 - md_surf.get_width() // 2,
-                self.sim.screen_height - 30))
+                sw // 2 - md_surf.get_width() // 2,
+                sim.screen_height - 30))
 
         # 脚本运行指示
-        if (hasattr(self.sim, 'script_engine') and self.sim.script_engine
-                and self.sim.script_engine.running):
+        if (hasattr(sim, 'script_engine') and sim.script_engine
+                and sim.script_engine.running):
             running_surf = rt(f_s, "\u00b7\u811a\u672c\u8fd0\u884c\u4e2d", (220, 50, 50))
             script_btn = self._btn_map.get("script")
             if script_btn:

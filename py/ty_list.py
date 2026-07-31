@@ -66,6 +66,11 @@ class TyList(DraggableDialog):
         self._row_cache: Dict[int, Dict[str, pygame.Surface]] = {}
         self._row_hashes: Dict[int, str] = {}
 
+        self._key_held_timer = 0
+        self._key_held_key = 0
+        self._KEY_REPEAT_DELAY = 500
+        self._KEY_REPEAT_INTERVAL = 120
+
     def activate(self):
         super().activate()
         if 'ty_list' in self.sim.dialog_page_cache:
@@ -198,6 +203,26 @@ class TyList(DraggableDialog):
     # ═══════════════════════════════════════════════
     #  事件
     # ═══════════════════════════════════════════════
+    def _handle_key_repeat(self):
+        if not self._key_held_key:
+            return
+        now = pygame.time.get_ticks()
+        elapsed = now - self._key_held_timer
+        if elapsed < self._KEY_REPEAT_DELAY:
+            return
+        ticks_from_start = elapsed - self._KEY_REPEAT_DELAY
+        expected = int(ticks_from_start / self._KEY_REPEAT_INTERVAL)
+        if expected > getattr(self, '_lr_tick', 0):
+            count = expected - getattr(self, '_lr_tick', 0)
+            for _ in range(count):
+                if self._key_held_key == pygame.K_LEFT:
+                    self.current_page = (self.current_page - 1) % self.get_total_pages()
+                else:
+                    self.current_page = (self.current_page + 1) % self.get_total_pages()
+                s = self.get_page_start()
+                self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
+            self._lr_tick = expected
+
     def handle_event(self, e):
         if not self.active:
             return False
@@ -247,16 +272,14 @@ class TyList(DraggableDialog):
                 return True
 
             if self._page_left_btn().collidepoint(e.pos):
-                if self.current_page > 0:
-                    self.current_page -= 1
-                    s = self.get_page_start()
-                    self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
+                self.current_page = (self.current_page - 1) % self.get_total_pages()
+                s = self.get_page_start()
+                self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
                 return True
             if self._page_right_btn().collidepoint(e.pos):
-                if self.current_page < self.get_total_pages() - 1:
-                    self.current_page += 1
-                    s = self.get_page_start()
-                    self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
+                self.current_page = (self.current_page + 1) % self.get_total_pages()
+                s = self.get_page_start()
+                self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
                 return True
 
             if self._jump_btn().collidepoint(e.pos):
@@ -291,6 +314,11 @@ class TyList(DraggableDialog):
 
         if e.type == pygame.KEYDOWN:
             return self._keydown(e)
+
+        if e.type == pygame.KEYUP and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            if self._key_held_key == e.key:
+                self._key_held_key = 0
+            return True
 
         if e.type == pygame.MOUSEMOTION and not self.dragging:
             if self.bg_rect.collidepoint(e.pos):
@@ -350,6 +378,17 @@ class TyList(DraggableDialog):
         if e.key == pygame.K_RETURN:
             if self.ei != -1 and self.edit_field:
                 self._apply_edit()
+            elif self.ei != -1:
+                try:
+                    page = self._filtered_indices.index(self.ei) // self.rows_per_page
+                except ValueError:
+                    page = self.current_page
+                self.current_page = page
+                self.si = self.ei
+                self.edit_field = None
+                ty = self.sim.tys[self.ei]
+                self._ensure_edit_field(ty)
+                self._apply_edit()
             elif self.si != -1:
                 self._select(self.si)
             return True
@@ -377,21 +416,42 @@ class TyList(DraggableDialog):
                 pass
             return True
 
-        if e.key == pygame.K_LEFT:
-            if self.current_page > 0:
-                self.current_page -= 1
-                s = self.get_page_start()
-                self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
-            return True
-
-        if e.key == pygame.K_RIGHT:
-            if self.current_page < self.get_total_pages() - 1:
-                self.current_page += 1
-                s = self.get_page_start()
-                self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
+        if e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            self._key_held_timer = pygame.time.get_ticks()
+            self._key_held_key = e.key
+            self._lr_tick = 0
+            if e.key == pygame.K_LEFT:
+                self.current_page = (self.current_page - 1) % self.get_total_pages()
+            else:
+                self.current_page = (self.current_page + 1) % self.get_total_pages()
+            s = self.get_page_start()
+            self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
             return True
 
         return False
+
+    def _ensure_edit_field(self, ty):
+        if self.edit_field is not None:
+            return
+        try:
+            rel = self._filtered_indices.index(self.ei) % self.rows_per_page
+        except ValueError:
+            rel = 0
+        lx = self.bg_rect.x
+        y = self.bg_rect.y + TY_LIST_TOP_OFFSET + rel * TY_LIST_ITEM_HEIGHT + 20
+        if self.edit_type == 'name':
+            self.edit_field = InputField((lx + 30, y + 5, 300, 25),
+                                         max_length=30, dark=self.dark_mode)
+            self.edit_field.set_text(ty.cust or "")
+        else:
+            self.edit_field = InputField((lx + 30, y + 35, 200, 25),
+                                         max_length=20, dark=self.dark_mode)
+            if self.edit_type == 'number':
+                self.edit_field.set_text(ty.n)
+            else:
+                fname = os.path.basename(ty.filepath).replace('.txt', '') if ty.filepath else ""
+                self.edit_field.set_text(fname)
+        self.edit_field.activate()
 
     def _apply_edit(self):
         ty = self.sim.tys[self.ei]
@@ -400,6 +460,7 @@ class TyList(DraggableDialog):
             ty.cust = new_text
         elif self.edit_type == 'number':
             ty.n = new_text
+            ty.name = f"{ty.b}{new_text}"
         elif self.edit_type == 'filename':
             if ty.filepath:
                 safe = re.sub(r'[^a-zA-Z0-9_\-]', '', new_text) or "typhoon"
@@ -463,6 +524,7 @@ class TyList(DraggableDialog):
     def draw(self, surface):
         if not self.active:
             return
+        self._handle_key_repeat()
         lx, ly, lw, lh = self.bg_rect
         dark = self.dark_mode
         tc = SETTINGS_TEXT_LIGHT if dark else TXT
@@ -490,11 +552,7 @@ class TyList(DraggableDialog):
                 surface.blit(hl, (lx + 20, y + 2))
 
             if self.ei == oi and self.edit_type == 'name':
-                if self.edit_field is None:
-                    self.edit_field = InputField((lx + 30, y + 5, 300, 25), max_length=30,
-                                                  dark=self.dark_mode)
-                    self.edit_field.set_text(ty.cust or "")
-                    self.edit_field.activate()
+                self._ensure_edit_field(ty)
             else:
                 old_hash = self._row_hashes.get(oi)
                 new_hash = self._get_row_hash(ty)
@@ -505,15 +563,7 @@ class TyList(DraggableDialog):
                 surface.blit(self._row_cache[oi]['info'], (lx + 30, y + 35))
 
             if self.ei == oi and self.edit_type in ('number', 'filename'):
-                if self.edit_field is None:
-                    rect = (lx + 30, y + 35, 200, 25)
-                    self.edit_field = InputField(rect, max_length=20, dark=self.dark_mode)
-                    if self.edit_type == 'number':
-                        self.edit_field.set_text(ty.n)
-                    else:
-                        fname = os.path.basename(ty.filepath).replace('.txt', '') if ty.filepath else ""
-                        self.edit_field.set_text(fname)
-                    self.edit_field.activate()
+                self._ensure_edit_field(ty)
 
         if self.edit_field:
             self.edit_field.draw(surface)

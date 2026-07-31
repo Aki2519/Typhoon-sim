@@ -208,7 +208,7 @@ class TySim(TySimUtilsMixin,
             logger.debug("特效/图标预加载失败", exc_info=True)
 
         if self.window_topmost:
-            self.toggle_window_topmost()
+            self.set_window_topmost(self.window_topmost)
 
         if self.md == MODE_SEASON:
             self._init_season_ace()
@@ -240,6 +240,7 @@ class TySim(TySimUtilsMixin,
         self.lst = pygame.time.get_ticks()
         self._fps = 60.0
         self.dark_mode = True
+        self._ui_hidden = False
         self._dialog_pause_active = False
         self._pl_before_dialog = False
 
@@ -288,6 +289,9 @@ class TySim(TySimUtilsMixin,
 
         self._ace_timeline_cache: Dict[int, List[Tuple[datetime, float]]] = {}
         self._ace_typhoon_cache: Dict[int, List[Tuple[str, float]]] = {}
+
+        self._edit_selected_point: Optional[int] = None
+        self._last_edited_point: Optional[int] = None
 
     def _init_resource_managers(self) -> None:
         self.res_mgr = ResourceManager()
@@ -503,6 +507,7 @@ class TySim(TySimUtilsMixin,
         sc.csa = self.csa
         sc.set_csa_base(self.csa)
         sc.current_ace_year = self.current_ace_year
+        sc.ssf = self.ssf
 
     def _sync_season_state(self) -> None:
         sc = self.season_ctrl
@@ -520,6 +525,10 @@ class TySim(TySimUtilsMixin,
             return
         if not (1 <= mo <= 12):
             return
+        prev_ste = getattr(self, '_last_month_ste', None)
+        if prev_ste is not None and self.ste < prev_ste - 1e-6:
+            self._last_month_key = None
+        self._last_month_ste = self.ste
         key = (self.sy, mo)
         if not hasattr(self, '_last_month_key') or self._last_month_key is None:
             self._last_month_key = key

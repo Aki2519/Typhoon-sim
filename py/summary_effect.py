@@ -100,7 +100,7 @@ class TyphoonSummary:
             occ = _slot_registry.get(s)
             if occ is not None and occ._started and occ._expired(now):
                 _slot_registry.pop(s, None)
-        if _wait_queue and _wait_queue[0] is not self and self in _wait_queue:
+        if _wait_queue and _wait_queue[0] is not self:
             return False
         for s in range(self.MAX_VISIBLE):
             if s not in _slot_registry:
@@ -174,7 +174,8 @@ class TyphoonSummary:
         cat_color = _CAT_COLOR.get(self._cat, (220, 220, 240))
 
         # 保持视频原始比例（1920:96），高度不变，向右靠齐 ACE 进度条左侧
-        bar_w = int(self.BAR_H * 1920 / 96)
+        max_w = surface.get_width() - self.RIGHT_MARGIN - 20
+        bar_w = min(self.BAR_H * 20, max_w)
         target_size = (bar_w, self.BAR_H)
         frame = get_summary_frame(self._cat, self._hemi, self._frame_idx, target_size)
         # 155+/170+ 紫色滤镜（仅热带 C5 巅峰）
@@ -193,6 +194,7 @@ class TyphoonSummary:
         if frame is not None:
             frame.set_alpha(alpha)
             surface.blit(frame, (bar_rect.x, bar_rect.y))
+            frame.set_alpha(255)
 
         # 台风等级颜色描边（按 (尺寸,颜色,alpha量化) 缓存，避免每帧新建 Surface）
         border_key = (bar_rect.w, bar_rect.h, cat_color[:3], alpha // 16)

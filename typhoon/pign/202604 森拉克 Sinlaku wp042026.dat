@@ -1,0 +1,83 @@
+WP, 04,2099040512,   ,chunshu,   0,  30N, 1609E, 15, 1008, DB,    90W
+WP, 04,2099040518,   ,chunshu,   0,  38N, 1605E, 15, 1008, DB,    90W
+WP, 04,2099040600,   ,chunshu,   0,  43N, 1603E, 15, 1005, DB,    90W
+WP, 04,2099040606,   ,chunshu,   0,  40N, 1600E, 15, 1005, DB,    90W
+WP, 04,2099040612,   ,chunshu,   0,  40N, 1585E, 15, 1005, DB,    90W
+WP, 04,2099040618,   ,chunshu,   0,  40N, 1570E, 15, 1005, DB,    90W
+WP, 04,2099040700,   ,chunshu,   0,  41N, 1562E, 15, 1005, DB,    90W
+WP, 04,2099040706,   ,chunshu,   0,  43N, 1552E, 15, 1005, DB,    90W
+WP, 04,2099040712,   ,chunshu,   0,  50N, 1541E, 20, 1002, DB,    90W
+WP, 04,2099040718,   ,chunshu,   0,  57N, 1534E, 20, 1002, DB,    90W
+WP, 04,2099040800,   ,chunshu,   0,  64N, 1530E, 25, 1002, DB,    90W
+WP, 04,2099040806,   ,chunshu,   0,  75N, 1533E, 25, 1000, DB,    90W
+WP, 04,2099040812,   ,chunshu,   0,  80N, 1530E, 25, 1000, DB,    90W
+WP, 04,2099040818,   ,chunshu,   0,  81N, 1527E, 30, 1000, DB,    90W
+WP, 04,2099040900,   ,chunshu,   0,  81N, 1524E, 30,  998, TD,    04W
+WP, 04,2099040906,   ,chunshu,   0,  81N, 1522E, 35,  998, TS,    04W
+WP, 04,2099040912,   ,chunshu,   0,  82N, 1518E, 35,  995, TS,    04W
+WP, 04,2099040918,   ,chunshu,   0,  83N, 1515E, 40,  992, TS,    04W
+WP, 04,2099041000,   ,chunshu,   0,  82N, 1512E, 45,  990, TS,    Sinlaku
+WP, 04,2099041006,   ,chunshu,   0,  82N, 1510E, 50,  988, TS,    Sinlaku
+WP, 04,2099041012,   ,chunshu,   0,  80N, 1509E, 55,  985, TS,    Sinlaku
+WP, 04,2099041018,   ,chunshu,   0,  81N, 1513E, 65,  978, TY,    Sinlaku
+WP, 04,2099041100,   ,chunshu,   0,  85N, 1516E, 80,  972, TY,    Sinlaku
+WP, 04,2099041106,   ,chunshu,   0,  88N, 1516E, 85,  965, TY,    Sinlaku
+WP, 04,2099041112,   ,chunshu,   0,  89N, 1514E, 90,  955, TY,    Sinlaku
+WP, 04,2099041118,   ,chunshu,   0,  92N, 1514E, 95,  948, TY,    Sinlaku
+WP, 04,2099041200,   ,chunshu,   0,  98N, 1512E,120,  928, TY,    Sinlaku
+WP, 04,2099041206,   ,chunshu,   0, 103N, 1506E,145,  915, ST,    Sinlaku
+WP, 04,2099041212,   ,chunshu,   0, 111N, 1502E,160,  898, ST,    Sinlaku
+WP, 04,2099041214,   ,chunshu,   0, 113N, 1500E,165,  895, ST,    Sinlaku
+WP, 04,2099041218,   ,chunshu,   0, 116N, 1495E,160,  895, ST,    Sinlaku
+WP, 04,2099041300,   ,chunshu,   0, 122N, 1488E,155,  895, ST,    Sinlaku
+WP, 04,2099041306,   ,chunshu,   0, 127N, 1480E,150,  898, ST,    Sinlaku
+WP, 04,2099041312,   ,chunshu,   0, 131N, 1474E,155,  892, ST,    Sinlaku
+WP, 04,2099041318,   ,chunshu,   0, 137N, 1470E,145,  905, ST,    Sinlaku
+WP, 04,2099041400,   ,chunshu,   0, 143N, 1465E,130,  915, ST,    Sinlaku
+WP, 04,2099041406,   ,chunshu,   0, 146N, 1460E,115,  918, TY,    Sinlaku
+WP, 04,2099041412,   ,chunshu,   0, 149N, 1458E,125,  912, TY,    Sinlaku
+WP, 04,2099041418,   ,chunshu,   0, 152N, 1455E,130,  915, ST,    Sinlaku
+WP, 04,2099041500,   ,chunshu,   0, 156N, 1452E,120,  925, TY,    Sinlaku
+WP, 04,2099041506,   ,chunshu,   0, 160N, 1449E,115,  932, TY,    Sinlaku
+WP, 04,2099041512,   ,chunshu,   0, 162N, 1446E,110,  935, TY,    Sinlaku
+WP, 04,2099041518,   ,chunshu,   0, 167N, 1444E,100,  938, TY,    Sinlaku
+WP, 04,2099041600,   ,chunshu,   0, 171N, 1444E, 95,  948, TY,    Sinlaku
+WP, 04,2099041606,   ,chunshu,   0, 177N, 1445E,100,  948, TY,    Sinlaku
+WP, 04,2099041612,   ,chunshu,   0, 184N, 1448E, 95,  955, TY,    Sinlaku
+WP, 04,2099041618,   ,chunshu,   0, 190N, 1450E, 90,  960, TY,    Sinlaku
+WP, 04,2099041700,   ,chunshu,   0, 195N, 1453E, 90,  965, TY,    Sinlaku
+WP, 04,2099041706,   ,chunshu,   0, 201N, 1457E, 85,  965, TY,    Sinlaku
+WP, 04,2099041712,   ,chunshu,   0, 208N, 1460E, 80,  970, TY,    Sinlaku
+WP, 04,2099041718,   ,chunshu,   0, 215N, 1462E, 70,  975, TY,    Sinlaku
+WP, 04,2099041800,   ,chunshu,   0, 222N, 1464E, 70,  978, TY,    Sinlaku
+WP, 04,2099041806,   ,chunshu,   0, 233N, 1468E, 60,  982, TS,    Sinlaku
+WP, 04,2099041812,   ,chunshu,   0, 243N, 1474E, 55,  985, TS,    Sinlaku
+WP, 04,2099041818,   ,chunshu,   0, 254N, 1483E, 55,  985, TS,    Sinlaku
+WP, 04,2099041900,   ,chunshu,   0, 265N, 1495E, 50,  988, TS,    Sinlaku
+WP, 04,2099041906,   ,chunshu,   0, 276N, 1514E, 60,  985, TS,    Sinlaku
+WP, 04,2099041912,   ,chunshu,   0, 283N, 1537E, 60,  985, SS,    Sinlaku
+WP, 04,2099041918,   ,chunshu,   0, 290N, 1559E, 50,  988, SS,    Sinlaku
+WP, 04,2099042000,   ,chunshu,   0, 296N, 1583E, 45,  988, EX,    Sinlaku
+WP, 04,2099042006,   ,chunshu,   0, 297N, 1610E, 45,  990, EX,    Sinlaku
+WP, 04,2099042012,   ,chunshu,   0, 296N, 1639E, 40,  992, EX,    Sinlaku
+WP, 04,2099042018,   ,chunshu,   0, 295N, 1666E, 40,  995, EX,    Sinlaku
+WP, 04,2099042100,   ,chunshu,   0, 293N, 1696E, 40,  998, EX,    Sinlaku
+WP, 04,2099042106,   ,chunshu,   0, 286N, 1711E, 40, 1000, EX,    Sinlaku
+WP, 04,2099042112,   ,chunshu,   0, 316N, 1782E, 40, 1000, EX,    Sinlaku
+WP, 04,2099042118,   ,chunshu,   0, 329N, 1774W, 40, 1002, EX,    Sinlaku
+WP, 04,2099042200,   ,chunshu,   0, 333N, 1760W, 40, 1002, EX,    Sinlaku
+WP, 04,2099042206,   ,chunshu,   0, 335N, 1740W, 40, 1002, EX,    Sinlaku
+WP, 04,2099042212,   ,chunshu,   0, 338N, 1725W, 40, 1005, EX,    Sinlaku
+WP, 04,2099042218,   ,chunshu,   0, 344N, 1710W, 40, 1008, EX,    Sinlaku
+WP, 04,2099042300,   ,chunshu,   0, 353N, 1694W, 40, 1010, EX,    Sinlaku
+WP, 04,2099042306,   ,chunshu,   0, 367N, 1676W, 35, 1010, EX,    Sinlaku
+WP, 04,2099042312,   ,chunshu,   0, 404N, 1642W, 35, 1012, EX,    Sinlaku
+WP, 04,2099042318,   ,chunshu,   0, 435N, 1602W, 30, 1015, EX,    Sinlaku
+WP, 04,2099042400,   ,chunshu,   0, 476N, 1566W, 30, 1015, EX,    Sinlaku
+WP, 04,2099042412,   ,chunshu,   0, 510N, 1542W, 30, 1015, EX,    Sinlaku
+WP, 04,2099042418,   ,chunshu,   0, 536N, 1520W, 35, 1012, EX,    Sinlaku
+WP, 04,2099042500,   ,chunshu,   0, 577N, 1516W, 35, 1012, EX,    Sinlaku
+WP, 04,2099042506,   ,chunshu,   0, 585N, 1495W, 30, 1015, EX,    Sinlaku
+WP, 04,2099042512,   ,chunshu,   0, 594N, 1482W, 30, 1018, EX,    Sinlaku
+WP, 04,2099042518,   ,chunshu,   0, 620N, 1501W, 25, 1020, EX,    Sinlaku
+WP, 04,2099042600,   ,chunshu,   0, 608N, 1511W, 20, 1022, EX,    Sinlaku

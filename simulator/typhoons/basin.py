@@ -1,0 +1,364 @@
+# simulator/typhoons/basin.py
+"""盆地定义、性质标法(用户规则,F8 输出栏)、xrq 统计基准(2000-2025)。"""
+from __future__ import annotations
+import glob
+import os
+import re
+import math
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+
+XROOT = r'G:\气象\数据\xrq'
+BASE_YEARS = range(2000, 2026)
+
+# 盆地: (名称, 判定函数)。经度 0-360°E,北半球 N / 南半球 S。
+BASINS = {
+    'NI': dict(name='北印度洋', check=lambda la, lo: la >= 0 and 0 <= lo < 100),
+    'WP': dict(name='西太平洋', check=lambda la, lo: la >= 0 and 100 <= lo <= 180),
+    'SH': dict(name='南半球', check=lambda la, lo: la < 0),
+    'CP': dict(name='中北太平洋', check=lambda la, lo: la >= 0 and 180 < lo <= 220),
+    'EP': dict(name='东北太平洋', check=lambda la, lo: la >= 0 and 220 < lo <= 280),
+    'MD': dict(name='地中海', check=lambda la, lo: 30 <= la <= 45 and 350 <= lo <= 360),
+    'AL': dict(name='北大西洋', check=lambda la, lo: la >= 0 and 280 < lo <= 360),
+}
+
+
+def basin_of(lat: float, lon: float) -> str:
+    # NI 先于 SH/WP(北印度洋 0-100E 不再落入 WP 兜底);MD 先于 AL(地中海被 AL 截获,C4)
+    for code in ('NI', 'WP', 'SH', 'CP', 'EP', 'MD', 'AL'):
+        if BASINS[code]['check'](lat, lon):
+            return code
+    return 'WP' if lat >= 0 else 'SH'
+
+
+def nature_code(basin: str, w: int) -> str:
+    """性质标法(用户规则,A3 修正):
+    TD/TS 全球一致;HU 仅 NHC/CPHC 辖区(EP/AL/CP)与地中海(MD)采用,
+    其余盆地(含 WP/SH/NI)均为 TY;≥130kt 全球统一 ST。
+    注意: 项目 BASINS 无独立南大西洋代码,南半球统一归入 SH→TY。"""
+    if w < 34:
+        return 'TD'
+    if w <= 63:
+        return 'TS'
+    if w <= 129:
+        return 'HU' if basin in ('EP', 'AL', 'CP', 'MD') else 'TY'
+    return 'ST'
+
+
+def dat_prefix(basin: str) -> str:
+    return {'WP': 'bwp', 'SH': 'bsh', 'CP': 'bcp',
+            'EP': 'bep', 'AL': 'bal', 'MD': 'bmd', 'NI': 'bni'}[basin]
+
+
+# ════════════════════ miwu(EX/SS/SD 约束域基准)════════════════════
+
+MIWU_ROOT = r'G:\气象\数据\miwu'
+_EX_CACHE: Optional[List[Tuple[int, int, str]]] = None
+
+
+def load_miwu(years: range = range(1979, 2026)) -> List[dict]:
+    """加载 miwu 官评(年/盆地/文件名)。含多列,取前 12 列与 xrq 相同。"""
+    tys = []
+    for y in years:
+        d = os.path.join(MIWU_ROOT, str(y))
+        if not os.path.isdir(d):
+            continue
+        for f in glob.glob(os.path.join(d, '**', 'b*.dat'), recursive=True):
+            ty = parse_dat(f)
+            if ty:
+                tys.append(ty)
+    return tys
+
+
+def extratropical_pairs(tys: Optional[List[dict]] = None) -> List[Tuple[int, int, str]]:
+    """EX/SS/SD 段的 (w, p, 性质) 联合分布(风压解耦约束域)。"""
+    global _EX_CACHE
+    if _EX_CACHE is not None:
+        return _EX_CACHE
+    tys = tys if tys is not None else load_miwu()
+    out = []
+    for ty in tys:
+        for t, la, lo, w, p, st in _pts_of(ty):
+            if st in ('EX', 'SS', 'SD') and w > 0 and p > 0:
+                out.append((w, p, st))
+    _EX_CACHE = out
+    return out
+
+
+def ex_mslp_bounds(w: int, pairs: Optional[List[Tuple[int, int, str]]] = None) -> Tuple[float, float]:
+    """给定 vmax 的 EX/SS/SD mslp 约束带(±窗口内样本 5-95 分位)。
+    无样本时返回宽约束(避免硬套热带公式)。"""
+    pairs = pairs if pairs is not None else extratropical_pairs()
+    ws = np.array([p[0] for p in pairs])
+    ps = np.array([p[1] for p in pairs])
+    if len(ws) < 20:
+        return 960.0, 1012.0
+    sel = np.abs(ws - w) <= 15
+    if sel.sum() < 10:
+        sel = np.abs(ws - w) <= 30
+    if sel.sum() < 10:
+        return 960.0, 1012.0
+    return float(np.percentile(ps[sel], 5)), float(np.percentile(ps[sel], 95))
+
+
+def nearest_reference(month: int, basin: str, vmax: int,
+                      tys: Optional[List[dict]] = None) -> Optional[dict]:
+    """F11: xrq 最相似台风(按 生成月+盆地+峰值强度)作为实况对比参考线。"""
+    tys = tys if tys is not None else load_xrq()
+    best = None
+    best_d = float('inf')
+    for ty in tys:
+        pts = _pts_of(ty)
+        if not pts:
+            continue
+        la0, lo0 = pts[0][1], pts[0][2]
+        if basin_of(la0, lo0) != basin:
+            continue
+        mo = int(pts[0][0][4:6]) if len(pts[0][0]) >= 6 else 1
+        peak = max(p[3] for p in pts)
+        d = abs(mo - month) * 0.5 + abs(peak - vmax) / 100.0
+        if d < best_d:
+            best_d, best = d, ty
+    return best
+
+
+def parse_dat(path: str) -> Optional[dict]:
+    """解析 xrq 标准 .dat(与 app/data_repo.py 格式一致)。
+    返回 {'pts': [(t, la, lo, w, p, st), ...], 'filepath': path}。"""
+    pts = []
+    try:
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) < 11:
+                    continue
+                t = parts[2]
+                la_s, lo_s = parts[6], parts[7]
+                try:
+                    # xrq 格式: 纬度 int(lat*10)+N/S(如 49N=4.9N? 实为 224N=22.4N),经度 int(lon*10)+E/W
+                    la = float(la_s[:-1]) / 10.0 * (1 if la_s[-1] in 'Nn' else -1)
+                    lo = float(lo_s[:-1]) / 10.0 * (1 if lo_s[-1] in 'Ee' else -1)
+                    if lo < 0:
+                        lo += 360.0
+                    if not (-90 <= la <= 90) or not (0 <= lo <= 360):
+                        continue
+                    w = int(parts[8])
+                    p = int(parts[9]) if parts[9] else 0
+                except (ValueError, IndexError):
+                    continue
+                pts.append((t, la, lo, w, p, parts[10].upper()))
+    except OSError:
+        return None
+    if not pts:
+        return None
+    pts.sort(key=lambda x: x[0])
+    return {'pts': pts, 'filepath': path}
+
+
+def load_xrq(years: range = BASE_YEARS) -> List[dict]:
+    """加载基准台风: WP 在年目录;SH(sh\\)、CP(wp\\)为扁平目录(文件名含年份)。"""
+    tys = []
+    yset = set(years)
+    for y in years:
+        d = os.path.join(XROOT, str(y))
+        if os.path.isdir(d):
+            for f in glob.glob(os.path.join(d, '**', 'b*.dat'), recursive=True):
+                ty = parse_dat(f)
+                if ty:
+                    tys.append(ty)
+    # 扁平目录: 文件名 bsh{序号}{年份}.dat / bcp{序号}{年份}.dat
+    for sub in ('sh', 'wp'):
+        d = os.path.join(XROOT, sub)
+        if not os.path.isdir(d):
+            continue
+        for f in glob.glob(os.path.join(d, 'b*.dat')):
+            m = re.search(r'(\d{4})\.dat$', os.path.basename(f))
+            if not m or int(m.group(1)) not in yset:
+                continue
+            ty = parse_dat(f)
+            if ty:
+                tys.append(ty)
+    return tys
+
+
+# ════════════════════ 基准统计(缓存)════════════════════
+
+_CACHE: dict = {}
+
+
+def _pts_of(ty: dict):
+    return ty['pts']
+
+
+def basin_monthly_counts(tys: Optional[List[dict]] = None) -> Dict[str, np.ndarray]:
+    """逐盆地逐月生成数经验分布(1-12 月)。返回 {basin: (12,) counts}。
+    无基准盆地(2000+ 无官评)用气候学季节分布占位并标注。"""
+    key = 'monthly_counts'
+    if key in _CACHE:
+        return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
+    out = {b: np.zeros(12, dtype=int) for b in BASINS}
+    for ty in tys:
+        pts = _pts_of(ty)
+        if not pts:
+            continue
+        la, lo = pts[0][1], pts[0][2]
+        b = basin_of(la, lo)
+        mo = int(pts[0][0][4:6]) if len(pts[0][0]) >= 6 else 1
+        if 1 <= mo <= 12:
+            out[b][mo - 1] += 1
+    # 无基准盆地: 气候学季节分布(仅作为占位,标 no_baseline)。
+    # 占位数组按"年均生成数"给出,乘 26 折算为与真实计数同口径的累计数
+    # (否则 sample_monthly_counts 统一除以年数后 CP/EP/AL/MD 几乎不生成)。
+    # 基准计数 < 5/年 视为数据覆盖不全(如 xrq 仅 WP 完整),同样用气候学占位。
+    scale = len(BASE_YEARS)
+    no_baseline = [b for b in out if out[b].sum() < 5 * scale]
+    for b in no_baseline:
+        if b == 'SH':
+            # 南半球(印度洋+南太+南大西洋)年均 ~20-25 个系统: 12-4 月主季
+            out[b] = np.array([2.5, 2.5, 3.0, 2.5, 1.5, 1.0, 0.8, 1.0,
+                               1.2, 1.8, 2.5, 3.0]) * scale
+        elif b == 'CP':
+            out[b] = np.array([0, 0, 0, 0, 0, 0.3, 0.8, 1.2, 1.0, 0.5, 0.2, 0]) * scale
+        elif b == 'EP':
+            out[b] = np.array([0, 0, 0, 0, 0.2, 1.5, 2.8, 3.5, 3.0, 2.0, 0.6, 0]) * scale
+        elif b == 'AL':
+            out[b] = np.array([0, 0, 0, 0, 0.3, 1.2, 2.2, 3.0, 3.0, 2.2, 0.9, 0]) * scale
+        elif b == 'MD':
+            out[b] = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0.2, 0.4, 0.4, 0.2]) * scale
+        else:
+            # 北印度洋双季: 4-6 月(季风前)+ 10-12 月(孟加拉湾秋旋),年均 ~6
+            out[b] = np.array([0, 0, 0, 0.5, 1.0, 0.7, 0.2, 0.2, 0.3, 0.8, 1.5, 1.0]) * scale
+    _CACHE[key] = out
+    _CACHE['no_baseline'] = no_baseline
+    return out
+
+
+def genesis_points(tys: Optional[List[dict]] = None) -> Dict[str, List[Tuple[float, float]]]:
+    """逐盆地生成点(首报)经纬度列表。"""
+    key = 'genesis'
+    if key in _CACHE:
+        return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
+    out = {b: [] for b in BASINS}
+    for ty in tys:
+        pts = _pts_of(ty)
+        if not pts:
+            continue
+        la, lo = pts[0][1], pts[0][2]
+        out[basin_of(la, lo)].append((la, lo))
+    _CACHE[key] = out
+    return out
+
+
+def wind_pressure_pairs(tys: Optional[List[dict]] = None) -> List[Tuple[int, int]]:
+    """风压散点 (w, p),用于 KZC 标定与验证。"""
+    key = 'wp'
+    if key in _CACHE:
+        return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
+    out = []
+    for ty in tys:
+        for t, la, lo, w, p, st in _pts_of(ty):
+            if w > 0 and p > 0:
+                out.append((w, p))
+    _CACHE[key] = out
+    return out
+
+
+def wind_change_distribution(tys: Optional[List[dict]] = None) -> Dict[str, np.ndarray]:
+    """Vmax 逐 6h 变化率分布(增强/减弱分位)。返回 {mode: ndarray}。"""
+    key = 'dwind'
+    if key in _CACHE:
+        return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
+    pos, neg = [], []
+    for ty in tys:
+        pts = _pts_of(ty)
+        for i in range(1, len(pts)):
+            d = pts[i][3] - pts[i - 1][3]
+            if d > 0:
+                pos.append(d)
+            elif d < 0:
+                neg.append(d)
+    _CACHE[key] = {'up': np.array(pos) if pos else np.array([5, 10, 15]),
+                   'down': np.array(neg) if neg else np.array([-15, -10, -5])}
+    return _CACHE[key]
+
+
+def ace_of(ty: dict) -> float:
+    """单台风 ACE(与回放程序口径一致: ACE = Σ(w²/10000),35kt 阈值+B1)。"""
+    ace = 0.0
+    for t, la, lo, w, p, st in _pts_of(ty):
+        if w >= 35 and st in ('TS', 'TY', 'ST', 'HU', ''):
+            ace += (w * w) / 10000.0
+    return ace
+
+
+def season_ace(tys: Optional[List[dict]] = None) -> List[float]:
+    """逐年季 ACE 序列(2000-2025,全球)。"""
+    tys = tys if tys is not None else load_xrq()
+    by_year: Dict[int, float] = {}
+    for ty in tys:
+        pts = _pts_of(ty)
+        if not pts:
+            continue
+        y = int(pts[0][0][:4])
+        by_year[y] = by_year.get(y, 0.0) + ace_of(ty)
+    return [by_year.get(y, 0.0) for y in BASE_YEARS]
+
+
+def genesis_gpi_threshold(gpi_map, tys=None) -> float:
+    """历史生成点处的 GPI 经验分布 40 分位(环境允许性阈值)。
+    遍历 xrq 2000-2025 生成点,用 gpi 场(按生成月)双线性采样生成点 GPI。
+    E3/R2-7: 缓存键含场内容指纹与 tys 身份,不同月份/不同样本集不串值。"""
+    key = ('gpi_thr', id(gpi_map), gpi_map.shape,
+           round(float(np.nanmean(np.nan_to_num(gpi_map))), 6),
+           round(float(np.nanstd(np.nan_to_num(gpi_map))), 6),
+           id(tys) if tys is not None else None)
+    if key in _CACHE:
+        return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
+    if gpi_map is None:
+        vals = []
+        for ty in tys:
+            pts = _pts_of(ty)
+            if pts:
+                vals.append(pts[0][3])
+        _CACHE[key] = float(np.percentile(vals, 40)) if vals else 15.0
+        return _CACHE[key]
+    gpi = gpi_map
+    vals = []
+    for ty in tys:
+        pts = _pts_of(ty)
+        if not pts:
+            continue
+        la, lo = pts[0][1], pts[0][2]
+        la_i = int(np.clip((la + 60.0), 0, gpi.shape[0] - 1))
+        lo_i = int(lo % gpi.shape[1])
+        v = gpi[la_i, lo_i]
+        if not np.isnan(v):
+            vals.append(v)
+    thr = float(np.percentile(vals, 40)) if vals else 15.0
+    # R2-8: 阈值上限 = 场自身 60 分位。历史生成点集中于最高 GPI 区,
+    # 合成场下 xrq 采样阈值可达场 40 分位的近 2 倍, 随机生成点几乎全被拒。
+    gv = gpi[~np.isnan(gpi)]
+    if len(gv):
+        thr = min(thr, float(np.percentile(gv, 60)))
+    _CACHE[key] = thr
+    return _CACHE[key]
+
+
+if __name__ == '__main__':
+    tys = load_xrq()
+    print('xrq typhoons:', len(tys))
+    mc = basin_monthly_counts(tys)
+    for b, c in mc.items():
+        print(f"  {b}: {c.tolist()}  total={c.sum()}")
+    wp = wind_pressure_pairs(tys)
+    print('wind-pressure pairs:', len(wp))
+    print('season ACE:', [round(a, 1) for a in season_ace(tys)])

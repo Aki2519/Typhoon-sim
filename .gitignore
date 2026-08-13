@@ -16,3 +16,18 @@ assets/SMCY/
 
 .DS_Store
 Thumbs.db
+
+# 开发约定文档(本地维护, 不入库)
+CODE_STYLE.md
+
+# 模拟器产物/大数据(不入库)
+simulator/output/
+simulator/env/library/
+simulator/env/climate/
+simulator/env/wrfdir/
+simulator/env/realdir/
+simulator/wrf/case/input/
+simulator/logs/
+video/
+assets/ty_history/
+wget-log

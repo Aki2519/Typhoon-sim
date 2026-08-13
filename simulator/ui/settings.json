@@ -1,0 +1,11 @@
+{
+ "show_grid": true,
+ "basemap": "spec",
+ "colormap": "BW",
+ "region_lat": 15.0,
+ "region_lon": 130.0,
+ "region_lat_span": 30.0,
+ "region_lon_span": 50.0,
+ "station_lat": "",
+ "station_lon": ""
+}

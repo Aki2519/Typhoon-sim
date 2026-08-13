@@ -1,0 +1,37 @@
+&share
+ wrf_core = 'ARW',
+ max_dom = 1,
+ start_date = '2026-08-01_00:00:00',
+ end_date   = '2026-08-08_06:00:00',
+ interval_seconds = 21600,
+ io_form_geogrid = 2,
+/
+
+&geogrid
+ parent_id         = 1,
+ parent_grid_ratio = 1,
+ i_parent_start    = 1,
+ j_parent_start    = 1,
+ e_we          = 408,
+ e_sn          = 186,
+ geog_data_res = 'default',
+ dx = 30000.0,
+ dy = 30000.0,
+ map_proj = 'mercator',
+ ref_lat   = 25.0,
+ ref_lon   = 150.0,
+ truelat1  = 25.0,
+ truelat2  = 0.0,
+ stand_lon = 150.0,
+ geog_data_path = '/home/yukioto/wrf/WPS_GEOG',
+/
+
+&ungrib
+ out_format = 'WPS',
+ prefix = 'ERA5',
+/
+
+&metgrid
+ fg_name = 'ERA5',
+ io_form_metgrid = 2,
+/

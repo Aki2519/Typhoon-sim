@@ -22,6 +22,28 @@ RMSE_SST_TARGET = 0.9         # SST 月 RMSE 上限(°C)
 CORR_TARGET = 0.7             # 空间相关下限
 
 
+def _library_mode(years: range) -> str:
+    """由场库内 sst 文件的 meta.source 判定 'real'/'synthetic'(取代硬编码)。
+    真实库落盘 source 为 'era5'(sst) 与 'oras5'(ohc), 归一为 'real';
+    合成库为 'synthetic'。读不到/异常则回退 'synthetic'。"""
+    for y in years:
+        p = F.field_path('sst', y)
+        if not os.path.exists(p):
+            continue
+        try:
+            with np.load(p, allow_pickle=True) as z:
+                meta = z['meta']
+                m = meta.item() if hasattr(meta, 'item') else meta
+                src = m.get('source', 'synthetic') if isinstance(m, dict) else None
+                if src in ('era5', 'oras5'):
+                    return 'real'
+                if src == 'synthetic':
+                    return 'synthetic'
+        except Exception:
+            continue
+    return 'synthetic'
+
+
 def holdout_validate(years: range = None, ratio: float = HOLDOUT_RATIO,
                      seed: int = 2026) -> Dict[str, dict]:
     """留出法验证: 剔除部分历史月 → 重建库索引 → 生成被剔除月 → 对比。"""
@@ -90,15 +112,21 @@ def holdout_validate(years: range = None, ratio: float = HOLDOUT_RATIO,
     targets = {'sst': (0.9, 0.7), 'ohc': (20.0, 0.6), 'shear': (8.0, 0.5),
                'rh700': (8.0, 0.5), 'mslp': (6.0, 0.7), 'gpi': (3.0, 0.3)}
     fails = []
+    unvalidated = []
     for var, (rmse_t, corr_t) in targets.items():
         r = report.get(var)
         if r is None:
+            # 该变量全无有效留出样本(库内无该场/样本过少)→ 记未验证,
+            # 计入失败而非静默跳过, 避免"空报告 pass"的假阳性。
+            unvalidated.append(var)
             continue
         if r['rmse_mean'] > rmse_t or r['corr_mean'] < corr_t:
             fails.append(var)
-    report['_pass'] = not fails
+    report['_pass'] = not fails and not unvalidated
     report['_fails'] = fails
-    report['_mode'] = 'synthetic'   # 合成库模式(真实库重建后置 'real')
+    report['_unvalidated'] = unvalidated
+    report['_mode'] = _library_mode(years)   # 由库内 sst 元数据判定 synthetic/real,
+                                             # 不再硬编码 'synthetic'
     # OHC-SST 独立性(生成库内)
     report['independence'] = _ohc_sst_independence()
     # 平滑度(生成 24 月相邻差异 vs 历史相邻差异)

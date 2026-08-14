@@ -66,16 +66,46 @@ def record_missing(key: str) -> None:
             json.dump(sorted(missing), f, ensure_ascii=False, indent=1)
 
 
+def _has_credential_config() -> bool:
+    """离线判断是否存在可用的 CDS 凭证源(不碰网络):
+    ~/.cdsapirc 或 CDSAPI_KEY/URL 环境变量。"""
+    if os.environ.get('CDSAPI_KEY') and os.environ.get('CDSAPI_URL'):
+        return True
+    try:
+        return os.path.exists(os.path.join(os.path.expanduser('~'), '.cdsapirc'))
+    except (OSError, ValueError):
+        return False
+
+
 def check_credentials() -> bool:
+    """检查 CDS 凭证是否就绪(仅 import cdsapi 不算配置凭证, 还要有 key 源)。
+    一次性缓存到 _HAS_CRED, 避免每次调用反复探测文件系统。"""
     global _HAS_CRED
     if _HAS_CRED is not None:
         return _HAS_CRED
     try:
         import cdsapi
-        _HAS_CRED = True
+        _HAS_CRED = _has_credential_config()
     except ImportError:
         _HAS_CRED = False
     return _HAS_CRED
+
+
+def _valid_download(path: str, min_bytes: int = 256) -> bool:
+    """下载产物校验(离线): 极小尺寸兜底 + 文件头探测。
+    CDS 以 format=netcdf 返回 → 期望 NETCDF3/4(HDF5)魔数;
+    半截/损坏/HTML 错误页等非场文件不会被误判成功, 断点续传不丢损坏缓存。
+    R4: 阈值由 1MB 降至 256B——ERA5 1°×1° 单变量月平均 netCDF 常仅几十~几百 KB,
+    旧阈值会把这类合法小文件误杀(判为损坏→反复重下→误记缺失)。真正区分合法/损坏
+    的是文件头魔数(CDF/HDF)而非尺寸, 尺寸兜底只拦零字节/极短截断(<256B)。"""
+    try:
+        if not os.path.exists(path) or os.path.getsize(path) < min_bytes:
+            return False
+        with open(path, 'rb') as f:
+            head = f.read(8)
+        return head[:3] == b'CDF' or head[:4] == b'\x89HDF'
+    except OSError:
+        return False
 
 
 def fetch_era5_month(var: str, year: int, month: int,
@@ -84,17 +114,18 @@ def fetch_era5_month(var: str, year: int, month: int,
     首次失败后快速失败(避免无网络/无配额时逐月挂起,A1)。"""
     key = f"{var}_{year}_{month:02d}"
     out = os.path.join(RAW_DIR, f"{key}.nc")
-    # BUG-23: 半截残文件不判成功(>1MB 且可加载), 否则断点续传缓存永远损坏
+    # BUG-23: 半截/损坏残文件不判成功(_valid_download 校验头与尺寸),
+    # 否则断点续传缓存永远损坏
+    if _valid_download(out):
+        return out
     if os.path.exists(out):
         try:
-            if os.path.getsize(out) > 1_000_000:
-                return out
             os.remove(out)          # 残留残文件 → 删除重下
         except OSError:
             pass
     if not check_credentials():
-        if not getattr(fetch_era5_month, '_no_cred_logged', False):
-            fetch_era5_month._no_cred_logged = True
+        if not getattr(fetch_era5_month, '_no_credentials_logged', False):
+            fetch_era5_month._no_credentials_logged = True
             record_missing('NO_CDS_CREDENTIALS')
         # D6: 快速失败也逐月记录缺失(重启后缺失清单完整)
         record_missing(key)
@@ -120,15 +151,15 @@ def fetch_era5_month(var: str, year: int, month: int,
             'grid': [1.0, 1.0],
             'format': 'netcdf',
         }
-        # D13: 真正的重试循环(断点续传=文件存在即复用)
+        # D13: 真正的重试循环(断点续传=文件已通过校验即复用)
         last_exc = None
         for attempt in range(max(1, retries)):
             try:
                 c.retrieve('reanalysis-era5-single-levels-monthly-means',
                            request, out)
-                if os.path.exists(out) and os.path.getsize(out) > 1_000_000:
+                if _valid_download(out):
                     return out
-                last_exc = RuntimeError('下载文件为空或过小')
+                last_exc = RuntimeError('下载文件为空/过小/损坏')
                 try:
                     os.remove(out)      # 残留残文件清理
                 except OSError:
@@ -147,8 +178,14 @@ def fetch_oras5_month(year: int, month: int, retries: int = 3) -> Optional[str]:
     D7: 尚未接入实际下载管线(需 ORAS5 存储/凭证方案)——显式告警而非伪装凭证问题。"""
     key = f"ohc_{year}_{month:02d}"
     out = os.path.join(RAW_DIR, f"{key}.nc")
-    if os.path.exists(out):
+    # R4: 与 ERA5 口径一致——损坏/残文件不判成功(避免断点续传永久复用坏缓存)。
+    if _valid_download(out):
         return out
+    if os.path.exists(out):
+        try:
+            os.remove(out)          # 残留残文件 → 删除重下
+        except OSError:
+            pass
     if not getattr(fetch_oras5_month, '_warned', False):
         fetch_oras5_month._warned = True
         print("[downloader] 警告: ORAS5 下载管线未接入(需要 ORAS5 存储/凭证方案),"

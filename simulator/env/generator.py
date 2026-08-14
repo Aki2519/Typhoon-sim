@@ -25,6 +25,11 @@ TRACK_MEMORY_WIN = 3    # 轨迹记忆: 上月所选月的时间邻居 ±3 月
 MAIN_WEIGHT = 0.85      # 主月权重
 MAX_DEGRADE = 4         # 降级链最大步数
 
+# F10 渲染场集成: 生成序列除 VARS 外也携带 RENDER_VARS(逐月/逐日查询一致),
+# 否则架空(虚构)台风年份的 D01/D02 等 F10 渲染层永远无 u10/v10/precip24/…。
+# RENDER_VARS 不参与 analog 选源(仅 VARS), 但被选中主/次月的对应场按同权混合落盘。
+GEN_VARS: Tuple[str, ...] = F.VARS + F.RENDER_VARS
+
 # 模态匹配向量(标准化): 统一向量(敏感度分析后再拆)
 MATCH_MODES = ('oni', 'soi', 'pdo', 'amo', 'dmi')
 LAG = 3                 # 响应滞后: 目标月 m 用 [m, m-1, m-2]
@@ -195,7 +200,7 @@ class AnalogGenerator:
                          ) -> Dict[str, Dict[int, np.ndarray]]:
         """生成逐月场序列。返回 {var: {月份序号: 场}}。月份序号从 0 起。
         G5: save=False 时不落盘(验证/平滑度检查用,避免污染 generated_dir)。"""
-        out_vars = {v: {} for v in F.VARS}
+        out_vars = {v: {} for v in GEN_VARS}
         month_ym = []
         y, mo = start_ym
         for i in range(n_months):
@@ -269,7 +274,7 @@ class AnalogGenerator:
         vec = _mode_vec(ym)
         cands = [c for c in self._season_candidates(ym, SEASON_WIN) if c != picked]
         sec = min(cands, key=lambda c: self._mahalanobis(vec, c)) if cands else None
-        for var in F.VARS:
+        for var in GEN_VARS:
             a = F.load_monthly_field(var, picked[0], self.lib_dir)
             if a is None:
                 continue
@@ -282,7 +287,7 @@ class AnalogGenerator:
 
     def _blend_clim(self, ym, out_vars, idx):
         """降级 e: 气候态 + 合成扰动。"""
-        for var in F.VARS:
+        for var in GEN_VARS:
             cl = F.load_climatology(var)
             if cl is None or cl['clim'] is None:
                 continue
@@ -299,11 +304,12 @@ class AnalogGenerator:
             by_year.setdefault(ym[0], {})[ym[1] - 1] = idx
         os.makedirs(self.generated_dir, exist_ok=True)
         for y, months in by_year.items():
-            for var in F.VARS:
+            for var in GEN_VARS:
                 if var not in out_vars:
                     continue
                 existing = F.load_monthly_field(var, y, self.generated_dir)
-                if var == 'uv_steer':
+                if var in F._4D_VARS:
+                    # 双分量(uv_steer/uv200): (12, 2, NLAT, NLON)
                     if existing is not None:
                         arr4 = existing.copy()
                     else:

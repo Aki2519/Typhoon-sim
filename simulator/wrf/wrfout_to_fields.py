@@ -88,11 +88,17 @@ def _destagger_y(a):
 
 
 def _level_uv(uv_dict, p_full, target):
-    """取最接近 target Pa 的模式层 (u, v) 质量点场。v 可为 None。"""
+    """取最接近 target Pa 的模式层 (u, v) 质量点场。v 可为 None。
+    idx 越界防御: argmin 以 p_full 首维(nz)为界, 若传入场的首维层数较
+    p_full 更少(交错/裁剪不一致、极端缺层配置), idx 会命中上越界 →
+    IndexError 拖垮整批; 夹到该层场的末层(nlev-1)。"""
     idx = int(np.argmin(np.abs(p_full[:, p_full.shape[1] // 2, p_full.shape[2] // 2] - target)))
-    u = uv_dict['u'][idx]
+    u = uv_dict['u']
+    nlev = u.shape[0]
+    if idx >= nlev:
+        idx = max(0, nlev - 1)
     v = uv_dict['v']
-    return (u, v[idx]) if v is not None else (u, None)
+    return (u[idx], v[idx]) if v is not None else (u[idx], None)
 
 
 def _regrid_to_1deg(fld, xlat, xlong):
@@ -147,6 +153,11 @@ def process_wrfout(wrfout_dir: str, start: datetime, days: int,
         day_files = [f for f in files if tag in os.path.basename(f)]
         if not day_files:
             print(f'[wrfout] {tag}: 无 wrfout, 跳过')
+            # 断链: 整日无文件同样必须失效跨日降水基线(否则下个有雨日会用
+            # 多日前的陈旧累计做差分 → 跨越多天的错误高值, 与"无 RAIN 日"
+            # 一致; 这里不能 continue 跳过, 否则把基线残留到后日)。
+            pcum_prev = None
+            has_prev = False
             continue
         acc = {}
         n = 0
@@ -227,16 +238,18 @@ def process_wrfout(wrfout_dir: str, start: datetime, days: int,
             f10f['t500'] = t500
             qv850 = _level_uv({'u': qv * 1000.0, 'v': None}, p_full, 85000.0)[0]
             f10f['qv850'] = qv850
-            # hgt100: wrfout 无 HGT 变量 → 整场 NaN 并告警, 不崩溃
-            if 'HGT' in d:
-                hgt = np.asarray(d['HGT'], dtype=float)
-                hgt = hgt[0] if hgt.ndim == 4 else hgt
-                hgt100 = _level_uv({'u': hgt, 'v': None}, p_full, 10000.0)[0]
-                f10f['hgt100'] = hgt100 / 10.0                    # m → dam
+            # hgt100: wrfout 的 HGT 变量是**地形高度**(2D), 不是 100hPa 层位势高度,
+            # 原实现把 HGT 当 3D 场经 _level_uv 按气压层索引 → 维度错误(切出 1D 行)。
+            # 改用整层完整位势(ph_mid = (PH+PHB) 插到整层, m²/s², 在 need 必需集内恒可用)
+            # → 高度 = ph_mid/g(m) → dam。极端缺 PH 配置导致 ph_mid NaN 时由下游 NaN 契约回退。
+            phm = np.asarray(ph_mid, dtype=float)
+            if np.isfinite(phm).any():
+                hgt100 = _level_uv({'u': phm, 'v': None}, p_full, 10000.0)[0]
+                f10f['hgt100'] = (hgt100 / 9.80665) / 10.0     # 位势高(m) → dam
             else:
                 if not day_hgt_none:
                     day_hgt_none = True
-                    print(f'[wrfout] {os.path.basename(f)}: 无 HGT 变量, '
+                    print(f'[wrfout] {os.path.basename(f)}: 位势场 PH/PHB 全 NaN, '
                           f'hgt100 本日整场为 NaN')
                 f10f['hgt100'] = np.full_like(t500, np.nan)
             # uv200: 200hPa 层风(双分量, 与 uv_steer 同构)
@@ -248,6 +261,10 @@ def process_wrfout(wrfout_dir: str, start: datetime, days: int,
                 acc.setdefault(k, []).append(v)
             n += 1
         if not n:
+            # 整日有文件但全帧缺核心变量被跳过时,同样失效跨日降水基线,
+            # 避免陈旧 pcum_prev 残留到下一个有雨日造成跨多天差分(R4V-2 发现)。
+            pcum_prev = None
+            has_prev = False
             continue
         # ── precip24: 逐日差分(推荐: 日总量 = 当日末帧累计 − 前日末帧累计)──
         # 说明: RAINC/RAINNC 为随积分单调递增的累积量(mm)。precip24 为该自然日(00-18Z
@@ -263,10 +280,16 @@ def process_wrfout(wrfout_dir: str, start: datetime, days: int,
             else:
                 day_total = np.full_like(pcum_day, np.nan, dtype=np.float32)
             acc.setdefault('precip24', []).append(day_total)
-        # 更新跨日状态(本日末帧累计 → 下日前一帧基准)
-        if pcum_day is not None:
+            # 仅当本日捕获到降水累计时才推进跨日基线(本日末帧累计 → 下日前一帧基准)
             pcum_prev = pcum_day
-        has_prev = True
+            has_prev = True
+        else:
+            # 无 RAIN 日(缺 RAINC/RAINNC 或整日无雨帧): 必须**失效既有跨日基线**,
+            # 否则下个有雨日会用 N 日前(被跳过/无雨的一/多日)陈旧累计做差分,
+            # 静默产生跨越多天的错误高值(Eg. 中间缺一天 → 下日 24h 差分成 48h 量)。
+            # 断链后下个有雨日回退帧内差分(首帧→末帧), 单帧无法差分时按契约整场 NaN。
+            pcum_prev = None
+            has_prev = False
         # 逐变量平均 → 1° 网格(坐标取自该日首帧唯一一次读取)
         first_d = _load_wrfout(day_files[0])
         xlat = first_d['XLAT'][0]

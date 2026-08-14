@@ -70,10 +70,19 @@ class _RepoProperty:
     def __get__(self, obj: TySim | None, owner=None):
         if obj is None:
             return self
-        return getattr(obj.repo, self._name)
+        repo = getattr(obj, 'repo', None)
+        if repo is None:
+            # repo 尚未挂载(如 _init_attributes 阶段/二次实例化)时,
+            # 回退到实例字典,避免构造初期读写 crash(B19)
+            return object.__getattribute__(obj, '__dict__')[self._name]
+        return getattr(repo, self._name)
 
     def __set__(self, obj: TySim, value) -> None:
-        setattr(obj.repo, self._name, value)
+        repo = getattr(obj, 'repo', None)
+        if repo is None:
+            object.__getattribute__(obj, '__dict__')[self._name] = value
+            return
+        setattr(repo, self._name, value)
 
 
 class TySim(TySimUtilsMixin,
@@ -392,6 +401,11 @@ class TySim(TySimUtilsMixin,
         self.screen_width = width
         self.screen_height = height
         self.map_height = height - CPH
+        # B18: 同步窗口尺寸到配置并标记保存,使 main 循环的 resize-save 能把
+        # 调整后的窗口大小持久化到 config.json,重启仍保持(此前 save_config 空转)
+        self.cfg.screen_width = width
+        self.cfg.screen_height = height
+        self._config_needs_save = True
         self.view.screen_width = width
         self.view.screen_height = height
         self.view.map_height = height - CPH
@@ -613,6 +627,15 @@ class TySim(TySimUtilsMixin,
                 if (last_key[1] == 6 and mo in (6, 7)
                         and self.cfg.hemisphere == HEMISPHERE_SOUTH):
                     self._ms.trigger(last_key[0], 6)
+                    self._last_month_key = cur_key
+                    self._last_month_ste = self.ste
+                    return
+                # 南半球实际跨年边界为 12 月 -> (下一季)6/30, 当前月落在 6/7 月。
+                # 此时 6 月总结会由后续 6->7 正常递进补触发, 而 12 月总结必须在此
+                # 回卷点补触发, 否则每一季的 12 月都会被漏掉(R2-31)。
+                if (last_key[1] == 12 and mo in (6, 7)
+                        and self.cfg.hemisphere == HEMISPHERE_SOUTH):
+                    self._ms.trigger(last_key[0], 12)
                     self._last_month_key = cur_key
                     self._last_month_ste = self.ste
                     return

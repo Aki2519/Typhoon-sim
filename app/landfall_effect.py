@@ -1,4 +1,4 @@
-﻿# py/landfall_effect.py
+# py/landfall_effect.py
 """登陆效果类（简单图标 PNG + SMCY 视频）。"""
 from __future__ import annotations
 
@@ -53,6 +53,17 @@ def _draw_strength_label(surface, label: str, color, x: int, y_top: int,
         surf.set_alpha(alpha)
     r = surf.get_rect(midtop=(x, y_top))
     surface.blit(surf, r)
+
+
+def clear_caches() -> None:
+    """清空本模块缓存(标签/登陆旋转淡化),配合 SMCY 资源重置调用。
+
+    _faded_cache/_ring_cache 以 id(源 Surface) 为键:源图被回收后 id 可能被
+    新图复用,旧缓冲条目命中会渲染陈旧图标。资源重置时一并清空(R6 闭环)。"""
+    global _label_cache
+    _label_cache.clear()
+    LandfallEffect._faded_cache.clear()
+    LandfallEffect._ring_cache.clear()
 
 
 # ── 登陆点标记 ──
@@ -161,7 +172,11 @@ class LandfallEffect:
             r = flash.get_rect(center=(x, y))
             surface.blit(flash, r)
         if self._ring_alpha > 0 and self.img1:
-            # 法29: 旋转按 4° 桶缓存
+            # 法29: 旋转按 4° 桶缓存; alpha 用“命中面拷贝”应用,避免对共享缓存面
+            # 原地 set_alpha(共享面跨效果串扰 alpha 残留),同时不把 alpha 并入缓存键:
+            # 若把 (90 角度桶 × 16 色阶 = 1440 组合) 全部入缓存,远超过 128 上限会触发
+            # 淡出阶段近乎每帧 rotate 重算的缓存抖动。改为旋转只按 (id,aq) 缓存,
+            # 每帧仅一次低成本 copy+set_alpha; 全强度(ab==15)直接共享面(blit 不改源)。
             aq = int(elapsed * 360 % 360) // 4 * 4
             rk = (id(self.img1), aq)
             rotated = LandfallEffect._ring_cache.get(rk)
@@ -170,9 +185,14 @@ class LandfallEffect:
                 if len(LandfallEffect._ring_cache) >= 128:
                     LandfallEffect._ring_cache.pop(next(iter(LandfallEffect._ring_cache)))
                 LandfallEffect._ring_cache[rk] = rotated
-            rotated.set_alpha(self._ring_alpha)
-            r = rotated.get_rect(center=(x, y))
-            surface.blit(rotated, r)
+            ab = min(15, self._ring_alpha // 16)
+            if ab >= 15:
+                used = rotated            # 全强度: blit 不改源面,可直接共享
+            else:
+                used = rotated.copy()     # 淡出: 独立拷贝,免串扰
+                used.set_alpha(ab * 16 + 15)
+            r = used.get_rect(center=(x, y))
+            surface.blit(used, r)
         _draw_strength_label(surface, self.label, self.label_color, x, y + 14,
                              elapsed, self.label_scale)
 

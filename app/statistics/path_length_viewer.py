@@ -13,11 +13,18 @@ from .chart_helpers import (compute_path_km_in_window, _haversine_chain,
 
 
 def _ts_eligible(pt: dict) -> bool:
-    """TS+ 报点判定: 热带性质且风速≥35kt(与 ace_engine/season_stats 同口径, R25)。"""
+    """TS+ 报点判定: 热带性质且风速≥35kt 且为正式报(official)。
+
+    与 season_stats._ace_eligible 完全同口径(R4-25 前忽略 official 造成与
+    洋区统计的 `TS+ 路径总长度` 口径分歧: 03/09/15/21Z 内插非正式报点
+    official=False,被纳入后路径会系统性偏长)。
+    ace_engine._ace_eligible 默认(strict=False)不计 official,但 season_stats
+    恒计;本查看器展示的是 TS+ 路径长度这一季节统计口径,故以 season_stats 为准。"""
     st = (pt.get('st') or '').upper()
     return (st in ('TS', 'TY', 'ST', 'HU', '')
             and isinstance(pt.get('w'), (int, float))
-            and pt['w'] >= 35)
+            and pt['w'] >= 35
+            and pt.get('official', True))
 
 
 def _fit_col_text(text: str, max_w: int, color=None) -> pygame.Surface:

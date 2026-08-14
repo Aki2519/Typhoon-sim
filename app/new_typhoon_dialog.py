@@ -1,4 +1,4 @@
-﻿# py/new_typhoon_dialog.py
+# py/new_typhoon_dialog.py
 from __future__ import annotations
 
 import os
@@ -139,14 +139,18 @@ class NewTyphoonDialog(Dialog):
             self.sim.show_error(f"创建文件失败: {e}")
             return False
 
-        ty = Typhoon(basin, number)
+        # b 恒为 "WP"(与 parse_typhoon_file 的构造一致, 见 data_repo.py:171);
+        # 真实盆域存 basin, 保证 cfg.tn 键 f"{b}{n}" 跨重载一致(R4V-1 发现)。
+        ty = Typhoon("WP", number)
         ty.cust = ty.sname = name
         ty.basin = basin
         ty.filepath = filepath
         ty.sim = self.sim
         ty.start_time = start_time
         self.sim.tys.append(ty)
-        if self.sim.repo._all_tys_backup:
+        # _all_tys_backup 是"原始未过滤全集"备份;用 is not None 判定,避免备份为空
+        # (首次新建/空工作区)时新台风被漏进备份,导致还原/重载后失衡
+        if self.sim.repo._all_tys_backup is not None:
             self.sim.repo._all_tys_backup.append(ty)
         self.sim.cti = len(self.sim.tys) - 1
         self.sim.edit_typhoon = ty

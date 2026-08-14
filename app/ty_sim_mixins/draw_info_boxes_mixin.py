@@ -1,4 +1,4 @@
-﻿# py/ty_sim_mixins/draw_info_boxes_mixin.py
+# py/ty_sim_mixins/draw_info_boxes_mixin.py
 """风季台风信息框 Mixin + 合并：季节时钟、ACE、控制面板。"""
 from __future__ import annotations
 import math
@@ -144,6 +144,7 @@ class TySimDrawInfoBoxesMixin:
         mv = movement_speed_kt(ty.pts, ty.points_time, ty.ci)
         key_data = (
             ty.b, ty.n, ty.tace,
+            ty.cust, ty.sname, ty.start_time,   # 名称字段(编辑名称后缓存失效)
             cp['w'] if cp else 0,
             cp['st'] if cp else '',
             cp['p'] if cp else 0,
@@ -153,6 +154,7 @@ class TySimDrawInfoBoxesMixin:
             getattr(self, 'point_name_mode', False),   # N16: 逐点名称模式进 key
             getattr(self, 'name_display_mode', 0),
             len(ty.pts), peak['t'] if peak else '',
+            peak['w'] if peak else 0, peak['p'] if peak else 0,  # R4: 巅峰风速/气压进 key
             round(mv or 0, 2),
             box_w, box_h,
         )

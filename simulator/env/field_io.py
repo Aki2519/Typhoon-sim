@@ -27,7 +27,7 @@ PARAMS = ('ridge', 'itcz', 'monsoon_trough')
 # F10 渲染新字段契约(合成库侧默认生成,真实库/wrfout 侧以本块为准对齐)。
 # 这些字段**不加入 VARS**(保持既有 API/analog 迭代遍历兼容),但可由
 # save_monthly_field / load_monthly_field / get_field 直接存取(命名即契约)。
-RENDER_VARS = ('u10', 'v10', 'precip24', 't500', 'qv850', 'hgt100', 'uv200')
+RENDER_VARS = ('u10', 'v10', 'precip24', 't500', 'qv850', 'hgt500', 'hgt100', 'uv200')
 
 # 字段定义: shape=单月面形状, unit=F10 图层单位, ndim=月面 vstack 维数
 # (3D=(12,NLAT,NLON); 4D=(12,*,NLAT,NLON), 与 uv_steer 同构)。
@@ -37,12 +37,29 @@ FIELD_DEFS = {
     'precip24': {'shape': (NLAT, NLON),        'unit': 'mm/24h',  'ndim': 3},
     't500':     {'shape': (NLAT, NLON),        'unit': 'K',       'ndim': 3},
     'qv850':    {'shape': (NLAT, NLON),        'unit': 'g/kg',    'ndim': 3},
+    'hgt500':   {'shape': (NLAT, NLON),        'unit': 'dam',     'ndim': 3},
     'hgt100':   {'shape': (NLAT, NLON),        'unit': 'dam',     'ndim': 3},
     'uv200':    {'shape': (2, NLAT, NLON),     'unit': 'm/s',     'ndim': 4},
 }
 
 # 4D(双分量)变量: 与 uv_steer 同构 (12, 2, NLAT, NLON)。uv200 必须纳入。
 _4D_VARS = frozenset({'uv_steer', 'uv200'})
+
+# R4 契约自检: RENDER_VARS 中声明的 4D 字段(ndim==4)必须同时登记进 _4D_VARS,
+# 否则 save/load/get_field 会按 3D 形状错误处理(save 抛 shape 错、load 判坏返回 None),
+# 两类契约靠此兜底不再静默失联。
+def _assert_contracts():
+    declared4 = {v for v in FIELD_DEFS if FIELD_DEFS[v].get('ndim') == 4}
+    missing = [v for v in declared4 if v in RENDER_VARS and v not in _4D_VARS]
+    bad3 = [v for v in RENDER_VARS if v in _4D_VARS and v in FIELD_DEFS
+            and FIELD_DEFS[v].get('ndim') != 4]
+    if missing or bad3:
+        raise RuntimeError(
+            "FIELD_DEFS/_4D_VARS 契约不一致: 4D字段缺登=%s, 3D字段被误登4D=%s"
+            % (missing, bad3))
+
+
+_assert_contracts()
 
 # SST 色标(风迷惯例,界面显示/校验用)
 SST_BINS = [(26.5, (90, 190, 235)), (28.5, (120, 220, 120)),
@@ -57,7 +74,13 @@ def field_path(var: str, year: int, lib_dir: str = LIB_DIR) -> str:
 
 def save_monthly_field(var: str, year: int, months: np.ndarray, lib_dir: str = LIB_DIR,
                        meta: Optional[dict] = None) -> str:
-    """months: (12, NLAT, NLON)。缺失月用 np.nan 面,不静默填 0。"""
+    """months: (12, NLAT, NLON); 双分量(uv_steer/uv200)为 (12, 2, NLAT, NLON)。
+    缺失月用 np.nan 面,不静默填 0。
+    写入前按 _4D_VARS 契约校验形状,3D/4D 混淆在落盘即报错,不静默产生坏文件。"""
+    exp = (12, 2, NLAT, NLON) if var in _4D_VARS else (12, NLAT, NLON)
+    if months.shape != exp:
+        raise ValueError(f"save_monthly_field('{var}', {year}) shape {months.shape} "
+                         f"!= contract {exp}")
     os.makedirs(lib_dir, exist_ok=True)
     path = field_path(var, year, lib_dir)
     np.savez(path, months=months.astype(np.float32), meta=meta or {})
@@ -72,9 +95,12 @@ def load_monthly_field(var: str, year: int, lib_dir: str = LIB_DIR) -> Optional[
         with np.load(path, allow_pickle=False) as z:
             m = z['months']
             # BUG-9: 损坏/旧格式文件(形状不对或含全 NaN)判为缺失, 不静默复用
-            # uv_steer/uv200 为双分量 (12, 2, NLAT, NLON) 4D; 其余变量 3D
-            expected_ndim = 4 if var in _4D_VARS else 3
-            if m.shape[0] < 12 or len(m.shape) != expected_ndim:
+            # uv_steer/uv200 为双分量 (12, 2, NLAT, NLON) 4D; 其余变量 3D。
+            # 校验精确形状: 仅检查 ndim/月数不足以拦截"ndim 对但尾维错"的旧/坏文件
+            # (如 uv_steer 误存 (12,3,NLAT,NLON) 或 3D 变量存成 (12,361,121)),
+            # 这类文件会通过现有检查并在 get_field/插值时静默产出错误形状。
+            exp = (12, 2, NLAT, NLON) if var in _4D_VARS else (12, NLAT, NLON)
+            if m.shape != exp:
                 return None
             return m
     except Exception:

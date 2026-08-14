@@ -56,12 +56,27 @@ def _slp_field(d) -> np.ndarray:
     return _load_2d(d, 'SLP')
 
 
+def _time_squeeze(a):
+    """去掉最前的时间维(若存在), 返回 3D 场; 与 _load_2d 口径一致。"""
+    a = np.asarray(a, dtype=float)
+    return a[0] if a.ndim == 4 else a
+
+
+def _destag3(a, axis):
+    """对已去时间维的 (nz, …) 网格在 axis∈{'x','y'} 上去交错(交错格→质量格)。"""
+    if axis == 'x':
+        return (a[..., :-1] + a[..., 1:]) / 2.0      # U: (nz, ny, nx+1) → (nz, ny, nx)
+    return (a[:, :-1, :] + a[:, 1:, :]) / 2.0        # V: (nz, ny+1, nx) → (nz, ny, nx)
+
+
 def _uv850(d):
     """850hPa 附近层 u/v 质量点场。"""
     ph_mid, p_full = WF._full_pressure(d['PH'], d['PHB'], d['P'], d['PB'])
     p_full = np.asarray(p_full, dtype=float)
-    u = WF._destagger_x(np.asarray(d['U'], dtype=float))[0]
-    v = WF._destagger_y(np.asarray(d['V'], dtype=float))[0]
+    # 先 d['U']/d['V'](可能是 4D 带时间)去时间维再本地去交错, 不依赖
+    # wrfout_to_fields._destagger_* 的散维假设(其 _destagger_y 硬编码 4D 下标)。
+    u = _destag3(_time_squeeze(d['U']), 'x')
+    v = _destag3(_time_squeeze(d['V']), 'y')
     k = int(np.argmin(np.abs(p_full[:, p_full.shape[1] // 2,
                                   p_full.shape[2] // 2] - 85000.0)))
     return u[k], v[k]
@@ -163,6 +178,12 @@ def track_wrfout(wrfout_dir: str, start: datetime, days: int,
         if t < start or t >= start + timedelta(days=days):
             continue
         d = WF._load_wrfout(f)
+        # T5: 与 wrfout_to_fields.W1 同口径——缺核心变量(气压/风)时该帧无法追踪,
+        # 跳过而非让 _uv850 的裸 d['PH'] 抛 KeyError 终止整条追踪管线。
+        _need = ('SLP', 'U', 'V', 'PH', 'PHB', 'P', 'PB')
+        if any(v not in d for v in _need):
+            print(f'[track] {os.path.basename(f)}: 缺核心变量, 跳过该帧')
+            continue
         xlat = _load_2d(d, 'XLAT')
         xlong = _load_2d(d, 'XLONG')
         slp = _slp_field(d)
@@ -217,8 +238,11 @@ def write_dat(pts: list, out_dir: str, basin: str = 'WP', no: int = 1,
     lines = []
     for st in pts:
         la_s = f"{int(abs(st['la']) * 10):3d}{'N' if st['la'] >= 0 else 'S'}"
-        lo_s = f"{int((360 - st['lo']) * 10):4d}W" if st['lo'] > 180 \
-            else f"{int(st['lo'] * 10):4d}E"
+        # T4: st['lo'] 已 %360 但 round 可把 359.9x 进位到 360.0 → 必须再 %360,
+        # 否则经度接近 360 时写出 '0W'(实为 0°E/日界线)。与 sim.py 的 C7 处理一致。
+        vlo = st['lo'] % 360.0
+        lo_s = f"{int((360 - vlo) * 10):4d}W" if vlo > 180 \
+            else f"{int(vlo * 10):4d}E"
         lines.append(f"{basin}, {no:02d}, {st['t']},   , XRQA,   0,"
                      f" {la_s}, {lo_s}, {st['w']:3d}, {st['p']:4d}, {st['st']}")
     with open(path, 'w', encoding='utf-8') as f:

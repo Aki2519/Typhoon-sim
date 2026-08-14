@@ -610,7 +610,11 @@ class SimulatorApp:
             pygame.display.flip()
             g = TG.Generator(api=api, seed=seed + 2000)
             if mode == 'D':
-                recs = g.generate('D', year=base_year, month=base_month)
+                # 模式 D: 月份窗口从 base_month 对齐到整窗。
+                # GUI 环境场固定生成 36 个月(base_year 起), window_months=36
+                # 覆盖整窗(跨年递增); 旧实现仅首年生成, 后续面板时间线空转。
+                recs = g.generate('D', year=base_year, month=base_month,
+                                  window_months=36)
             else:
                 recs = g.generate(mode, coord=(lat, lon) if lat is not None and lon is not None else None,
                                   t0=t0, year=t0.year if t0 else base_year,
@@ -647,10 +651,14 @@ class SimulatorApp:
                 })
             n_dat = len([s for s in sims if s.states])
             # run.log: 记录 seed/内核/模式/时间窗口/生成与模拟台风数 (与 headless 同目录语义)
-            _write_gui_run_log(
-                os.path.join(run_dir, 'run.log'), seed=seed, kernel=self.kernel,
-                mode=mode, base_year=base_year, base_month=base_month,
-                n_gen=len(recs), n_dat=n_dat)
+            # 日志写失败不否决已完成的生成/模拟(兜底,不影响产物落盘)
+            try:
+                _write_gui_run_log(
+                    os.path.join(run_dir, 'run.log'), seed=seed, kernel=self.kernel,
+                    mode=mode, base_year=base_year, base_month=base_month,
+                    n_gen=len(recs), n_dat=n_dat)
+            except Exception as ex:
+                print(f"[sim] 写 run.log 失败(忽略): {ex}")
             # F10: 视频图层数据接入(界面模式此前从未设置上下文,画面显示空/合成)
             all_states = []
             for s in sims:
@@ -1449,8 +1457,12 @@ def run_pipeline(seed: int = 1, years: int = 3, out_root: Optional[str] = None,
             raise ValueError('模式 B 需 --time')
         recs = g.generate('B', t0=t0, year=t0.year, month=t0.month)
     else:
-        # 模式 D: 月份窗口从接续段起始月对齐(环境场窗口与模拟月一致)
-        recs = g.generate('D', year=start_y, month=start_mo)
+        # 模式 D: 月份窗口从接续段起始月对齐到整窗(环境场窗口与模拟月一致)。
+        # window_months = years*12 从 (start_y, start_mo) 覆盖整窗, 跨年递增;
+        # 旧实现仅生成首年 [start_mo..12], --years>1 时窗口后续年份完全空转
+        # (多年场景台风缺失 + 越窗月用历史/无场采样 的集成 Bug)。
+        recs = g.generate('D', year=start_y, month=start_mo,
+                          window_months=years * 12)
     if no and len(recs) == 1:
         recs[0]['no'] = no
     if name:

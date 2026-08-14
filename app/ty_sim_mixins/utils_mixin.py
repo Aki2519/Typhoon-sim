@@ -1,4 +1,4 @@
-﻿# py/ty_sim_mixins/utils_mixin.py
+# py/ty_sim_mixins/utils_mixin.py
 """工具方法：坐标转换、编辑操作、错误提示。"""
 from __future__ import annotations
 import pygame
@@ -184,9 +184,19 @@ class TySimUtilsMixin:
         from ..typhoon_render import _clear_geo_spline_cache
         _clear_geo_spline_cache(ty)
         ty.update_screen_points(self.latlon_to_screen)
-        self._reposition_typhoon_on_path(ty)
-        self._invalidate_path_cache_for_ty(ty)
-        self.dialog_mgr.point_list.save_typhoon_to_file(ty)
+        # 与其它编辑操作一致：微调跨过 ACE 地理限制边界时重算 ACE，
+        # 并失效 ACE/季节信息框缓存（否则显示的 ACE/信息框残留旧值）
+        ty.recalc_ace()
+        self.refresh_typhoon_after_point_change(ty)
+        self._refresh_ace_data(ty)
+        self._season_info_box_cache.pop(ty, None)
+        self._season_info_box_last_data.pop(ty, None)
+        pl = self.dialog_mgr.point_list
+        if pl.active:
+            pl._clear_row_cache()
+            pl._needs_save = True
+        else:
+            pl.save_typhoon_to_file(ty)
         return True
 
     def add_point_to_edit_typhoon(self, vals: dict, current_name: str) -> None:
@@ -259,7 +269,10 @@ class TySimUtilsMixin:
 
             self._drop_season_start_cache(ty)
 
+            # 与 update/delete 一致: 新增点自动成为地图选中点(避免
+            # _last_edited_point 指向新点而 _edit_selected_point 残留旧 idx 的错位)
             self._last_edited_point = new_idx
+            self._edit_selected_point = new_idx
 
         except ValueError:
             self.show_error("添加点失败：数值格式错误")
@@ -331,6 +344,9 @@ class TySimUtilsMixin:
             self._drop_season_start_cache(ty)
 
             self._last_edited_point = point_index
+            # 时间被重排后原选中索引可能指向了别的报点(或越界)：
+            # 把地图选中/报点列表选中同步到重排后的新索引,避免删错/微调错点
+            self._edit_selected_point = point_index
         except ValueError:
             self.show_error("修改点失败：数值格式错误")
         except Exception as e:

@@ -280,6 +280,8 @@ class TySimDrawPathMixin:
                 sp_first, sp_last, len(screen_points),
                 len(ty.pts), id(ty.pts),
                 getattr(self, 'show_future_path', True),
+                getattr(self, 'smooth_path', False),      # R3: 平滑开关/模式进 key
+                getattr(self, 'smooth_path_mode', 'monotone'),
                 getattr(self, 'smooth_path_segments', 10),
                 getattr(self, 'path_mode', 'markers'),   # N6: 路径模式进 key
                 # K26: 固定点/图标大小模式进 key(影响标记 radius 与 size_factors)
@@ -341,7 +343,10 @@ class TySimDrawPathMixin:
         n_pts = len(ty.pts)
         cur_idx = ty.ci
         if not screen_points:
-            return pygame.Surface((1, 1), pygame.SRCALPHA), (0, 0)
+            # R4: 与文件内其它返回同契约——统一 3 元组 (full, trav, blit_pos)，
+            # 避免 draw_typhoon 在极端情况下落入 2 元组单面 else 分支。
+            return pygame.Surface((1, 1), pygame.SRCALPHA), \
+                pygame.Surface((1, 1), pygame.SRCALPHA), (0, 0)
 
         # ── 拖拽中：渲染到独立 bbox Surface（不受屏幕裁剪）。
         #    必须在下方"裁剪到屏幕"的 bbox 计算之前处理，
@@ -586,7 +591,10 @@ class TySimDrawPathMixin:
         need_clip = box_w > self._DRAG_SURF_MAX or box_h > self._DRAG_SURF_MAX
         drag_extra = (self.point_size, segs,
                       getattr(self, 'path_mode', 'markers'),
-                      getattr(self, 'show_future_path', True))
+                      getattr(self, 'show_future_path', True),
+                      # R3: 平滑开关/模式/段数影响 future 层的 line_pts 与线型
+                      getattr(self, 'smooth_path', False),
+                      getattr(self, 'smooth_path_mode', 'monotone'))
         bucket = (ox // 512, oy // 512) if need_clip else (0, 0)
         future_key = (highlight, n_pts, bucket, ty.v._sp_ver,
                       getattr(self, '_path_render_view_version', 0), *drag_extra)
@@ -605,13 +613,15 @@ class TySimDrawPathMixin:
                               self.map_height + vis_pad * 2)
             clipped = pygame.Rect(min_x - 30, min_y - 30, box_w, box_h).clip(vis)
             if clipped.width <= 0 or clipped.height <= 0:
+                # 拖拽路径完全被裁剪掉：返回一致的 3 元组 (future, traversed, pos)，
+                # 与下方所有返回路径同契约，避免 draw_typhoon 落入 2 元组单面 else 分支。
                 surf = pygame.Surface((1, 1), pygame.SRCALPHA)
                 ty._path_cache_drag_future = surf
                 ty._path_cache_drag_trav = surf
                 ty._path_cache_drag_key = future_key
                 ty._path_cache_drag_trav_key = trav_key
                 ty._path_cache_drag_pos = (0, 0)
-                return surf, (0, 0)
+                return surf, surf, (0, 0)
             origin_x, origin_y = clipped.x, clipped.y
             box_w, box_h = clipped.width, clipped.height
         else:

@@ -27,13 +27,20 @@ def _extract_ridge(mslp: np.ndarray) -> Tuple[float, float, float]:
     band = (lat >= 15) & (lat <= 45)
     slat = lat[band]
     m = mslp[band, :]
-    # 全 NaN 防御: 输入场无效时返回中性脊线值, 避免 argmax 落在首个 NaN 上
+    # 全 NaN / 部分 NaN 防御: 输入无效或某纬度行全 NaN 时, 排除这些行后再
+    # argmax, 避免 argmax 落在首个 NaN 行上产生非法纬度/NaN 强度。
     if not np.isfinite(m).any():
         return 0.0, 0.0, 0.0
-    row_max = m.max(axis=1)
-    lat_idx = int(np.argmax(row_max))
+    finite = np.isfinite(m)
+    row_max = np.where(finite.any(axis=1),
+                       np.max(np.where(finite, m, -np.inf), axis=1),
+                       np.nan)
+    good = np.isfinite(row_max)
+    if not good.any():
+        return 0.0, 0.0, 0.0
+    lat_idx = int(np.flatnonzero(good)[int(np.argmax(row_max[good]))])
     ridge_lat = float(slat[lat_idx])
-    strength = float(row_max[lat_idx]) if np.isfinite(row_max[lat_idx]) else 0.0
+    strength = float(row_max[lat_idx])
     # 东西延伸: 脊线纬度上 > 1015 hPa 的经度跨度
     high = m[lat_idx] > 1015.0
     if high.any():
@@ -51,20 +58,32 @@ def _extract_itcz(mslp: np.ndarray) -> Tuple[float, float, float]:
     lat = F.LATS
     band = (lat >= -20) & (lat <= 20)
     slat = lat[band]
-    # 全 NaN 防御: 无效场返回中性槽位(赤道附近,零强度,缺省半宽)
-    if not np.isfinite(mslp[band, :]).any():
+    a = mslp[band, :]
+    # 全 NaN / 部分 NaN 防御: 只统计至少含一个有限格点的纬度行,
+    # 避免 NaN 行让 argmin/min/max 返回非法槽位/NaN 强度与半宽。
+    if not np.isfinite(a).any():
         return 0.0, 0.0, 8.0
-    profile = np.nanmean(mslp[band, :], axis=1)
-    # 3 点平滑,防逐月跳变(边缘 nearest 填充)
-    if len(profile) >= 3:
-        padded = np.pad(profile, 1, mode='edge')
-        profile = np.convolve(padded, np.ones(3) / 3.0, mode='valid')
-    center = float(slat[int(np.argmin(profile))])
-    strength = float(np.nanmean(mslp[band, :]) - profile.min())
+    finite = np.isfinite(a)
+    cnt = finite.sum(axis=1)
+    row_mean = np.divide(np.where(finite, a, 0.0).sum(axis=1), cnt,
+                         out=np.full_like(cnt, np.nan, dtype=np.float64),
+                         where=cnt > 0)
+    profile = row_mean
+    good = np.isfinite(profile)
+    if not good.any():
+        return 0.0, 0.0, 8.0
+    slat_sub = slat[good]
+    p = profile[good]
+    # 3 点平滑,防逐月跳变(对有限子集边缘 nearest 填充)
+    if len(p) >= 3:
+        padded = np.pad(p, 1, mode='edge')
+        p = np.convolve(padded, np.ones(3) / 3.0, mode='valid')
+    center = float(slat_sub[int(np.argmin(p))])
+    strength = float(np.nanmean(a) - p.min())
     # 半宽: 槽深半高处的纬度跨度
-    half = profile.min() + (profile.max() - profile.min()) * 0.5
-    above = np.where(profile <= half)[0]
-    width = float(slat[above[-1]] - slat[above[0]]) * 0.5 if len(above) > 1 else 8.0
+    half = p.min() + (p.max() - p.min()) * 0.5
+    above = np.where(p <= half)[0]
+    width = float(slat_sub[above[-1]] - slat_sub[above[0]]) * 0.5 if len(above) > 1 else 8.0
     return center, max(0.0, strength), max(3.0, width)
 
 
@@ -75,13 +94,20 @@ def _extract_trough(mslp: np.ndarray) -> Tuple[float, float, float]:
     band = (lat >= 0) & (lat <= 20)
     slat = lat[band]
     m = mslp[band, :]
-    row_min = m.min(axis=1)
-    if not np.isfinite(row_min).any():
+    # 全 NaN / 部分 NaN 防御: 排除全 NaN 纬度行后再 argmin(避免返回 NaN 纬度)。
+    finite = np.isfinite(m)
+    row_min = np.where(finite.any(axis=1),
+                       np.min(np.where(finite, m, np.inf), axis=1),
+                       np.nan)
+    good = np.isfinite(row_min)
+    if not good.any():
         return 0.0, 0.0, 0.0
-    lat_idx = int(np.argmin(row_min))
+    lat_idx = int(np.flatnonzero(good)[int(np.argmin(row_min[good]))])
     trough_lat = float(slat[lat_idx])
     strength = float(max(0.0, 1013.0 - row_min[lat_idx]))
-    lon_center = float(F.LONS[int(np.argmin(m[lat_idx]))])
+    row = m[lat_idx]
+    row_good = np.flatnonzero(np.isfinite(row))
+    lon_center = float(F.LONS[row_good[int(np.argmin(row[row_good]))]])
     return trough_lat, strength, lon_center
 
 

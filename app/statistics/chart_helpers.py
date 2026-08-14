@@ -164,13 +164,14 @@ def render_map_subset(surf: pygame.Surface, sim,
             surf.blit(scaled, (bx, by))
         else:
             # 跨 0 度线: 右段(ix1..iw) + 左段(0..ix2-iw) 拼接
-            seg1_w = iw - ix1
-            f1 = seg1_w / (ix2 - ix1)
-            sub1 = orig.subsurface(pygame.Rect(ix1, iy1, seg1_w, iy2 - iy1))
-            sub2 = orig.subsurface(pygame.Rect(0, iy1, ix2 - iw, iy2 - iy1))
-            panel = pygame.Surface((seg1_w, iy2 - iy1), pygame.SRCALPHA)
+            # K-回归: 拼接面板宽应为两段总宽 (iw-ix1)+(ix2-iw)=ix2-ix1,
+            # 原先只用 seg1_w 做面板宽,导致左段(0..ix2-iw)被裁在面板外丢失。
+            seg2_w = ix2 - iw        # 左段(跨 0 度后的 0..ix2-iw)宽
+            sub1 = orig.subsurface(pygame.Rect(ix1, iy1, iw - ix1, iy2 - iy1))
+            sub2 = orig.subsurface(pygame.Rect(0, iy1, seg2_w, iy2 - iy1))
+            panel = pygame.Surface((ix2 - ix1, iy2 - iy1), pygame.SRCALPHA)
             panel.blit(sub1, (0, 0))
-            panel.blit(sub2, (seg1_w, 0))
+            panel.blit(sub2, (iw - ix1, 0))
             scaled = pygame.transform.smoothscale(panel, (bw, bh))
             scaled.set_alpha(alpha)
             surf.blit(scaled, (bx, by))
@@ -339,7 +340,10 @@ def build_month_lines_surface(
     width: int, height: int,
     start_dt: datetime, total_hours: int, hemisphere: str,
 ) -> Tuple[pygame.Surface, List[float], List[str]]:
-    cache_key = (width, height, start_dt.year, total_hours, hemisphere, chart_dark())
+    # K-回归: 缓存键须含 start_dt 的月/日(仅 year 不足),否则同一年内不同
+    # 起始日期(如 7/1 与 1/1 的 ACE 窗口)会互相错用缓存。
+    cache_key = (width, height, start_dt.year, start_dt.month, start_dt.day,
+                 total_hours, hemisphere, chart_dark())
     if cache_key in _month_lines_cache:
         return _month_lines_cache[cache_key]
 
@@ -351,21 +355,27 @@ def build_month_lines_surface(
         _month_lines_cache[cache_key] = (surf, xs, labels)
         return surf, xs, labels
 
+    window_end = start_dt + timedelta(hours=total_hours)
+    # 先收集所有落在窗口内的候选月份起点,再按时间排序——南半球(7/1 起始)下
+    # 直接按 m=1..12 循环会把次年 1-6 月排在当年 7-12 月之前,导致返回的
+    # xs/labels 乱序,时间轴上网格线错位。
+    cands: List[Tuple[float, str]] = []
     for m in range(1, 13):
         if hemisphere == HEMISPHERE_NORTH:
             ms = datetime(start_dt.year, m, 1, 0)
         else:
             yr = start_dt.year
             ms = datetime(yr, m, 1, 0) if m >= 7 else datetime(yr + 1, m, 1, 0)
-        if ms < start_dt:
-            continue
-        if ms > (start_dt + timedelta(hours=total_hours)):
+        if ms < start_dt or ms > window_end:
             continue
         ho = (ms - start_dt).total_seconds() / 3600
         x_px = (ho / total_hours) * width if total_hours > 0 else 0.0
+        cands.append((x_px, f"{ms.month:02d}/01"))
+    cands.sort(key=lambda c: c[0])
+    for x_px, label in cands:
         draw_dashed_v(surf, x_px, 0, height, chart_dash())
         xs.append(x_px)
-        labels.append(f"{m:02d}/01")
+        labels.append(label)
 
     if len(_month_lines_cache) > 32:
         _month_lines_cache.pop(next(iter(_month_lines_cache)))

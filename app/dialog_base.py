@@ -1,4 +1,4 @@
-﻿# py/dialog_base.py
+# py/dialog_base.py
 """对话框基类。"""
 from __future__ import annotations
 
@@ -127,10 +127,12 @@ class Dialog:
                         border_color: Tuple = DIALOG_BORDER,
                         alpha: bool = True,
                         radius: int = DIALOG_CORNER_RADIUS) -> None:
-        key = (rect.width, rect.height, color, border_color, radius)
+        key = (rect.width, rect.height, color, border_color, radius, alpha)
         bg = self._bg_cache.get(key)
         if bg is None:
-            bg = pygame.Surface(rect.size, pygame.SRCALPHA)
+            # alpha=False 时生成不透明表面,避免颜色经 alpha 混合与预期不符
+            # (此前 alpha 参数从未生效,调用方传 alpha=False 会静默得到 SRCALPHA 表面)
+            bg = pygame.Surface(rect.size, flags=(0 if not alpha else pygame.SRCALPHA))
             pygame.draw.rect(bg, color, (0, 0, rect.width, rect.height), 0, radius)
             pygame.draw.rect(bg, border_color, (0, 0, rect.width, rect.height),
                              DIALOG_BORDER_WIDTH, radius)
@@ -172,7 +174,9 @@ class Dialog:
         if not isinstance(rect, pygame.Rect):
             rect = pygame.Rect(rect)
         bar_rect = pygame.Rect(rect.x, rect.y, rect.width, DIALOG_TITLE_BAR_HEIGHT)
-        key = (rect.width, title_text, title_color, id(title_font))
+        # 用字体对象本身而非 id(font) 做缓存键: id 在字体被释放、新字体复用同一
+        # 内存地址时会渲染成旧字体的标题;持引用可避免地址复用碰撞。
+        key = (rect.width, title_text, title_color, title_font)
         bar_surf = self._title_bar_cache.get(key)
         if bar_surf is None:
             bar_surf = pygame.Surface((bar_rect.width, bar_rect.height), pygame.SRCALPHA)

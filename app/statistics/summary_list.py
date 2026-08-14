@@ -13,7 +13,7 @@ from ..smcy_icon import get_summary_frame
 from ..summary_effect import TyphoonSummary, _CAT_COLOR
 from ..statistics.chart_helpers import _haversine_chain
 from ..statistics.season_stats import calculate_season_stats
-from ..utils import (display_category, _WIND_C2_MIN, _WIND_C4_ST_MIN,
+from ..utils import (display_category, _WIND_C2_MINUS_MIN, _WIND_C4_ST_MIN,
                      get_tropical_points)
 from ..ty_sim_mixins._draw_icon_mixin import _apply_purple_filter, _purple_tier
 
@@ -227,6 +227,9 @@ class SummaryListDialog(Dialog):
         hemi = 'S' if getattr(sim, 'hemisphere', 'north') == 'south' else 'N'
 
         # C2 / C4(超强台风) 数量：按热带报点风速阈值统计
+        # R4: C2 用 C2- 下限(83)以便与 C3 行(season_stats total_mh=96=C3- 下限)
+        # 构成"含 - 子级"的无缝阶梯(C1:64 < C2:83 < C3:96 < C5:137);
+        # 原用 _WIND_C2_MIN(86,满 C2)会把 83-85kt 的 C2- 台风漏在 C1 里,链断档。
         c2 = 0
         c4st = 0
         for ty in sim.tys:
@@ -234,7 +237,7 @@ class SummaryListDialog(Dialog):
             if basin_area is not None:
                 ypts = [p for p in ypts if basin_area.contains(p['la'], p['lo'])]
             tp = [p for p in ypts if (p.get('st') or '').upper() not in _NON_TROPICAL]
-            if any(p.get('w', 0) >= _WIND_C2_MIN for p in tp):
+            if any(p.get('w', 0) >= _WIND_C2_MINUS_MIN for p in tp):
                 c2 += 1
             if any(p.get('w', 0) >= _WIND_C4_ST_MIN for p in tp):
                 c4st += 1

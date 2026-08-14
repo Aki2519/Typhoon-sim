@@ -1,4 +1,4 @@
-﻿# py/monthly_summary.py
+# py/monthly_summary.py
 """台风季月度总结弹窗：按月统计风暴、台风、MH、C5、ACE、最强风暴。"""
 import pygame
 
@@ -151,7 +151,9 @@ class MonthlySummary:
             if in_month:
                 storms.add(tid)
                 name = self.sim.get_display_name(ty)
-                if max_w > strongest[1]:
+                # >= 而非 >: 首个月内风暴即便在风速全为 0 的异常数据下也作为
+                # 最强候选见底,避免"月内有风暴但最强行整行缺失";正值风速照常覆盖
+                if max_w >= strongest[1]:
                     strongest = (name, max_w)
 
         self._data = {

@@ -22,12 +22,25 @@ _KZC = {
     'b': [5.962, -0.267, 18.26, 6.8],                # 低纬: dp = b0 + b1·Vsrm - (Vsrm/b2)² - b3·S
 }
 _KZC_SOURCE = 'literature'    # 'literature' | 'calibrated'
+_LIT_A = [23.286, -0.483, 24.254, 12.587, 0.483]
+_LIT_B = [5.962, -0.267, 18.26, 6.8]
+
+
+def _reset_literature() -> None:
+    """回退到文献系数(撤销标定对共享 _KZC 的改写,防止二次标定失败残留)。"""
+    _KZC['a'] = list(_LIT_A)
+    _KZC['b'] = list(_LIT_B)
+    _KZC.pop('_pow', None)
 
 
 def kzc_dp(v: float, c: float, r34: float, lat: float) -> float:
     """KZC 气压差 hPa。v: kt;c: 移速 kt;r34: nm;lat: °(南半球取绝对值)。"""
     if lat < 0:
         lat = -lat
+    # 除零防护(B): v<=0 时无气压亏损(文献分支 V500c = v·(..)^X 在 v=0 时
+    # 除以零崩溃;弱风段本就被末尾 v/34 线性收窄,此守卫仅拦截 v<=0)
+    if v <= 0.0 or not math.isfinite(v):
+        return 0.0
     # E8: 标定幂律(dp = α·v^β,高纬加 -a4·lat)优先
     if _KZC_SOURCE == 'calibrated' and '_pow' in _KZC:
         a, beta = _KZC['_pow']
@@ -55,7 +68,12 @@ def kzc_dp(v: float, c: float, r34: float, lat: float) -> float:
     # 避免 20kt 弱风算出 +25hPa 的荒谬气压(被 1012 钳制掩盖)
     if v < 34.0:
         dp = dp * max(0.0, v / 34.0)
-    return dp
+    # E13: 物理钳制。KZC dp 为气压亏损(负值降低中心气压), 其
+    # - (Vsrm/a2)² 项随 v 无界负增长, 极端 v(>200kt) 或标定幂律
+    # (v 高 + 高纬 -a4·lat) 会算出数百 hPa 的负 Δp(v=500→-893hPa),
+    # 该值经 sim 880 钳制被掩盖、但 min_pressure 公共接口直接暴露荒谬值。
+    # 气旋气压亏损物理域 ≈ [-200, 0] hPa; 此处统一钳制, 所有调用方受保护。
+    return float(min(0.0, max(-200.0, dp)))
 
 
 def kzc_pmin(v: float, c: float, r34: float, lat: float, oci: float,
@@ -78,6 +96,13 @@ def chavas_pmin(vmax_ms: float, vtrans_ms: float, r34_km: float,
         return None
     s = _ck_half_fr(lat, r34_km)
     dp = _CK['b0'] + _CK['bV2'] * vbar ** 2 + _CK['bS'] * s + _CK['bSV'] * s / vbar
+    # E13: Chavas Eq.5 为热带气旋域公式, 极端域(r34→0 / r34 极大 / vbar 极小 / 高纬)
+    # 会算出远超出物理范围的 Δp(弱风大 r34 → +230hPa、大 Vmax 小 r34 → -205hPa 属无意义)。
+    # 弱风(vbar/34kt 以下)线性收窄 Δp→0; 再将亏损钳制到物理域 [-200, 0] hPa。
+    if vmax_ms < 34.0 * 0.514444:
+        scale = vmax_ms / (34.0 * 0.514444)
+        dp = dp * max(0.0, min(1.0, scale))
+    dp = min(0.0, max(-200.0, dp))
     return penv + dp
 
 
@@ -90,8 +115,13 @@ def min_pressure(vmax_kt: float, r34_nm: float, oci_hpa: float,
         vtrans_ms = speed_kt * 0.514444
         r34_km = r34_nm * 1.852
         p = chavas_pmin(vmax_ms, vtrans_ms, r34_km, lat, oci_hpa + penv_shift)
-        return p if p is not None else oci_hpa + penv_shift
-    return kzc_pmin(vmax_kt, speed_kt, r34_nm, lat, oci_hpa, penv_shift)
+        p = p if p is not None else oci_hpa + penv_shift
+    else:
+        p = kzc_pmin(vmax_kt, speed_kt, r34_nm, lat, oci_hpa, penv_shift)
+    # E13: 统一物理带下限(实测最低海平面气压 ~870hPa), 极端 v 输入(如 500kt,
+    # 非物理)经上方模型级 clamp 已降至 -200hPa 亏损, 这里再兜底到现实下限,
+    # 使公共 min_pressure 对所有调用方(含 GUI 直连)始终返回有效海面气压。
+    return float(min(1022.0, max(870.0, p)))
 
 
 def calibrate(wp_pairs: Optional[List[Tuple[int, int]]] = None) -> dict:
@@ -100,6 +130,7 @@ def calibrate(wp_pairs: Optional[List[Tuple[int, int]]] = None) -> dict:
     global _KZC, _KZC_SOURCE
     if not wp_pairs or len(wp_pairs) < 30:
         _KZC_SOURCE = 'literature'
+        _reset_literature()
         return {'source': _KZC_SOURCE, 'n': 0, 'rmse': None}
     ws = np.array([p[0] for p in wp_pairs], dtype=float)
     ps = np.array([p[1] for p in wp_pairs], dtype=float)
@@ -107,12 +138,20 @@ def calibrate(wp_pairs: Optional[List[Tuple[int, int]]] = None) -> dict:
     ok = (dp > 5) & (ws >= 35)
     if ok.sum() < 30:
         _KZC_SOURCE = 'literature'
+        _reset_literature()
         return {'source': _KZC_SOURCE, 'n': int(ok.sum()), 'rmse': None}
     # 简化回归: dp = α·v^β + γ·lat(不含 R34/移速的独立系数,保持原公式结构)
     vs = ws[ok]
     ds = dp[ok]
     try:
         beta, loga = np.polyfit(np.log(vs), np.log(ds), 1)
+        # E13: β 必须在物理合理域(风速-气压 Δp ~ α·v^β, 实况 β≈1.5-2.5)。
+        # β 为负/极小会使 v^β 随 v 变化方向错误或爆涨(弱风 v^β 甚至发散),
+        # 此类(因异常样本产生)标定直接回退文献, 避免极端域荒谬气压。
+        if not (0.3 <= beta <= 6.0):
+            _KZC_SOURCE = 'literature'
+            _reset_literature()
+            return {'source': _KZC_SOURCE, 'n': int(ok.sum()), 'rmse': None}
         # E8: β 必须参与公式(否则标定无效)。用标定幂律替换 dp 主项:
         #   dp = α·v^β - a4·lat(高纬) / α·v^β(低纬), 系数按纬度分支取
         a = math.exp(loga)
@@ -126,6 +165,7 @@ def calibrate(wp_pairs: Optional[List[Tuple[int, int]]] = None) -> dict:
                 'alpha': a, 'beta': float(beta)}
     except (ValueError, np.linalg.LinAlgError):
         _KZC_SOURCE = 'literature'
+        _reset_literature()
         return {'source': _KZC_SOURCE, 'n': int(ok.sum()), 'rmse': None}
 
 

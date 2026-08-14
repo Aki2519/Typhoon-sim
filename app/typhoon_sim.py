@@ -46,6 +46,11 @@ class TyphoonSimMixin:
         if is_paused:
             self.lut = current_time
             return False
+        # 确保 points_time 与 pts 长度一致,避免下方 points_time[ci+1] 越界(R4-1)
+        if len(self.points_time) != len(self.pts):
+            self.recalc_simulated_times()
+        if self.ci + 1 >= len(self.points_time):
+            return False
         if self.lut > 0:
             self.at += (current_time - self.lut) * 0.001 * speed_factor
         self.lut = current_time
@@ -152,32 +157,35 @@ class TyphoonSimMixin:
         return a0 + (self.pts[self.ci + 1]['ace'] - a0) * t
 
     def set_current_time(self, target_dt: datetime.datetime) -> None:
-        if not self.pts or not self.points_dt or not self.points_time:
+        if not self.pts:
             return
-        if len(self.points_dt) == len(self.pts):
-            # 法6: 二分定位段(等价于"首个 points_dt[i]<=dt<=points_dt[i+1]")
-            i = bisect.bisect_right(self.points_dt, target_dt) - 1
-            if 0 <= i < len(self.pts) - 1 and target_dt <= self.points_dt[i + 1]:
-                dt1, dt2 = self.points_dt[i], self.points_dt[i + 1]
-                ratio = (target_dt - dt1).total_seconds() / (dt2 - dt1).total_seconds() if dt2 > dt1 else 0
-                self.at = self.points_time[i] + ratio * (self.points_time[i + 1] - self.points_time[i])
-                self.ci = i
-                if ratio > 0:
-                    cp, np = self.pts[i], self.pts[i + 1]
-                    self.v.ipos = {'la': cp['la'] + (np['la'] - cp['la']) * ratio,
-                                   'lo': cp['lo'] + (np['lo'] - cp['lo']) * ratio}
-                else:
-                    self.v.ipos = None
-                self.lut = 0
-                self.fin = self.v.last_on_land = False
-                self.cace = self.pts[self.ci]['ace']
-                return
-        else:
-            for i in range(len(self.points_dt) - 1):
-                if self.points_dt[i] <= target_dt <= self.points_dt[i + 1]:
-                    dt1, dt2 = self.points_dt[i], self.points_dt[i + 1]
-                    ratio = (target_dt - dt1).total_seconds() / (dt2 - dt1).total_seconds() if dt2 > dt1 else 0
-                    self.at = self.points_time[i] + ratio * (self.points_time[i + 1] - self.points_time[i])
+        # 确保 points_time/points_dt 与 pts 长度一致,避免下方 points_time[i+1] 越界(R4-1)
+        if len(self.points_time) != len(self.pts):
+            self.recalc_simulated_times()
+        pd = self.points_dt
+        pt = self.points_time
+        if not pd or not pt:
+            return
+        n = len(self.pts)
+        # 恰在末报点/晚于末报点: 台风已播完(R2-21), 不进入插值分支,收尾为 fin
+        if target_dt >= pd[-1]:
+            self.at, self.ci = pt[-1], len(self.pts) - 1
+            self.fin = True
+            self.v.ipos = None
+            self.lut = 0
+            self.v.last_on_land = False
+            self.cace = self.pts[self.ci]['ace']
+            return
+        if len(pd) == n and len(pt) == n:
+            # bisect 仅在 points_dt 有序时成立;编辑/插入导致乱序时回落线性扫描(R4-2)
+            ordered = all(pd[i] <= pd[i + 1] for i in range(n - 1))
+            if ordered:
+                i = bisect.bisect_right(pd, target_dt) - 1
+                if 0 <= i < n - 1 and target_dt <= pd[i + 1]:
+                    dt1, dt2 = pd[i], pd[i + 1]
+                    ratio = ((target_dt - dt1).total_seconds() / (dt2 - dt1).total_seconds()
+                             if dt2 > dt1 else 0)
+                    self.at = pt[i] + ratio * (pt[i + 1] - pt[i])
                     self.ci = i
                     if ratio > 0:
                         cp, np = self.pts[i], self.pts[i + 1]
@@ -189,13 +197,31 @@ class TyphoonSimMixin:
                     self.fin = self.v.last_on_land = False
                     self.cace = self.pts[self.ci]['ace']
                     return
+        # 线性扫描(乱序 or 长度不一致): 首个满足 dt[i]<=t<=dt[i+1] 的段
+        for i in range(len(pd) - 1):
+            if i + 1 < len(pt) and pd[i] <= target_dt <= pd[i + 1]:
+                dt1, dt2 = pd[i], pd[i + 1]
+                ratio = ((target_dt - dt1).total_seconds() / (dt2 - dt1).total_seconds()
+                         if dt2 > dt1 else 0)
+                self.at = pt[i] + ratio * (pt[i + 1] - pt[i])
+                self.ci = i
+                if ratio > 0:
+                    cp, np = self.pts[i], self.pts[i + 1]
+                    self.v.ipos = {'la': cp['la'] + (np['la'] - cp['la']) * ratio,
+                                   'lo': cp['lo'] + (np['lo'] - cp['lo']) * ratio}
+                else:
+                    self.v.ipos = None
+                self.lut = 0
+                self.fin = self.v.last_on_land = False
+                self.cace = self.pts[self.ci]['ace']
+                return
 
-        if target_dt <= self.points_dt[0]:
-            self.at, self.ci = self.points_time[0], 0
+        if target_dt <= pd[0]:
+            self.at, self.ci = pt[0], 0
             self.fin = False
         else:
             # 目标在数据之后(含恰在末报点): 台风已播完(R2-21)
-            self.at, self.ci = self.points_time[-1], len(self.pts) - 1
+            self.at, self.ci = pt[-1], len(self.pts) - 1
             self.fin = True
         self.v.ipos = None
         self.lut = 0

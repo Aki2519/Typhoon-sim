@@ -14,16 +14,27 @@ logger = logging.getLogger(__name__)
 _text_input_count: int = 0
 
 
-def start_text_input_global(rect=None) -> None:
+def start_text_input_global(rect=None) -> bool:
     global _text_input_count
     if _text_input_count <= 0:
         try:
             pygame.key.start_text_input()
-            if rect is not None:
-                pygame.key.set_text_input_rect(rect)
         except Exception:
-            return
+            # IME 无法启动: 不把本字段计入计数。
+            # 若仍将 _text_started 置 True,低层 deactivate 会多扣计数,
+            # 误停仍激活字段的中文输入(见 _start_text_input)。
+            return False
+    # 计数已 >0(另一字段/上层对话框已启动 IME)时仍要更新候选窗位置:
+    # 此前只在校首次启动(<="0")时 set_text_input_rect,嵌套场景下新的激活
+    # 字段的 rect 从未传给 SDL,IME 候选窗停留在陈旧字段位置。
+    # set_text_input_rect 失败不致命: 不影响计数,仅候选窗可能定位不准。
+    if rect is not None:
+        try:
+            pygame.key.set_text_input_rect(rect)
+        except Exception:
+            pass
     _text_input_count += 1
+    return True
 
 
 def stop_text_input_global() -> None:
@@ -200,8 +211,7 @@ class InputField:
                 if self.selection_start is not None and self.selection_end is not None:
                     self._delete_selection()
                     deleted_any = True
-                    break
-                if self.cursor_pos > 0:
+                elif self.cursor_pos > 0:
                     v = self._manager.value
                     cp = self.cursor_pos
                     self.text = v[:cp - 1] + v[cp:]
@@ -226,6 +236,9 @@ class InputField:
         expected_ticks = int(ticks_from_start / self._LR_INTERVAL)
         if expected_ticks > self._lr_tick:
             chars_to_move = expected_ticks - self._lr_tick
+            # 按住方向键期间中途按下 Shift 开始选区：锚点必须是"移动前"的光标位置,
+            # 否则用移动后的最终 cursor 当锚点会把选区塌缩成一点(见历史 N-round 选区 bug)。
+            anchor = self.cursor_pos
             for _ in range(chars_to_move):
                 if self._lr_dir == -1 and self.cursor_pos > 0:
                     self.cursor_pos -= 1
@@ -235,7 +248,8 @@ class InputField:
                     break
             if pygame.key.get_mods() & pygame.KMOD_SHIFT:
                 if self.selection_start is None:
-                    self.selection_start = self.cursor_pos
+                    # 移动过程中新开的 shift 选区:以移动起点为锚点
+                    self.selection_start = anchor
                 self.selection_end = self.cursor_pos
             else:
                 self.selection_start = self.selection_end = None
@@ -329,7 +343,10 @@ class InputField:
                     self._notify_change()
                 return True
 
-            mods = pygame.key.get_mods()
+            # 用事件自带的修饰键状态(event.mod)而非实时 get_mods():
+            # 事件在缓冲等待派发时 get_mods() 可能已反映"松开"后的状态,
+            # 导致 Ctrl+V/C/A 等组合键偶发失效;event.mod 是事件的真实快照。
+            mods = getattr(event, 'mod', 0) or 0
             ctrl_pressed = mods & pygame.KMOD_CTRL
 
             if event.key in (pygame.K_LSHIFT, pygame.K_RSHIFT,
@@ -371,12 +388,18 @@ class InputField:
             if event.key == pygame.K_LEFT:
                 if mods & pygame.KMOD_SHIFT:
                     if self.selection_start is None:
+                        # 以"移动前"的光标为锚点,保证 Shift+← 首键即正确成选区
                         self.selection_start = self.cursor_pos
+                    if self.cursor_pos > 0:
+                        self.cursor_pos -= 1
+                    self.selection_end = self.cursor_pos
                 else:
+                    # 无 Shift 时不设 selection_end: 若此前为 Shift 选区,清除二者;
+                    # 若本无选区,保持二者为 None,不留悬挂的 selection_end
+                    # (悬挂 end 虽被各消费方用"start 与 end 均非 None"守住,但状态不干净)。
                     self.selection_start = self.selection_end = None
-                if self.cursor_pos > 0:
-                    self.cursor_pos -= 1
-                self.selection_end = self.cursor_pos
+                    if self.cursor_pos > 0:
+                        self.cursor_pos -= 1
                 self._lr_held = True
                 self._lr_start = pygame.time.get_ticks()
                 self._lr_tick = 0
@@ -386,11 +409,13 @@ class InputField:
                 if mods & pygame.KMOD_SHIFT:
                     if self.selection_start is None:
                         self.selection_start = self.cursor_pos
+                    if self.cursor_pos < len(self._manager.value):
+                        self.cursor_pos += 1
+                    self.selection_end = self.cursor_pos
                 else:
                     self.selection_start = self.selection_end = None
-                if self.cursor_pos < len(self._manager.value):
-                    self.cursor_pos += 1
-                self.selection_end = self.cursor_pos
+                    if self.cursor_pos < len(self._manager.value):
+                        self.cursor_pos += 1
                 self._lr_held = True
                 self._lr_start = pygame.time.get_ticks()
                 self._lr_tick = 0
@@ -576,8 +601,11 @@ class InputField:
         self._lr_dir = 0
 
     def _start_text_input(self):
-        start_text_input_global(self.rect)
-        self._text_started = True
+        # start_text_input_global 返回是否成功获取了 IME 槽位。
+        # 仅当确实获取到槽位才置 _text_started,否则 deactivate 时若照常
+        # 调用 stop 会把别的字段的计数扣负,误停仍激活字段的中文输入。
+        if start_text_input_global(self.rect):
+            self._text_started = True
 
     def _stop_text_input(self):
         # 仅当本字段确实启动过文本输入才停止,防止对未激活字段 stop

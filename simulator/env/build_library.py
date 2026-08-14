@@ -207,8 +207,14 @@ def synth_t500_month(mask: np.ndarray) -> np.ndarray:
 
 def synth_qv850_month(rh: np.ndarray, sst: np.ndarray) -> np.ndarray:
     """qv850(合成近似): 由 700hPa 相对湿度与 SST 的饱和比湿近似推导(Clausius-Clapeyron)。
-    qv ≈ qsat(T_sst) × rh/100, 850hPa 抬升饱和比湿近似。"""
-    T = np.clip(sst, 260.0, 310.0)             # K
+    qv ≈ qsat(T_sst) × rh/100, 850hPa 抬升饱和比湿近似。
+
+    R3: sst 来自 synth_sst_month, 单位是 **°C**(合成库全链 °C, 下限 -1、上限 31),
+    而 Magnus 公式要求 **Kelvin** 输入。原实现 `np.clip(sst, 260, 310)` 把 °C 值
+    (约 -1..31) 当 K 用, 热带 ~28°C 整场被钉死为 260K, 使 qv850 恒约 1.3 g/kg
+    而与 SST 无关(正确值 ~24 g/kg, 偏差 ~18×)。先用 °C→K 换算再算饱和比湿。
+    与 real_source._rh_to_q(同样 +273.15 后再算 Magnus)口径一致。"""
+    T = np.clip(sst + 273.15, 260.0, 310.0)    # °C → K, 再限幅
     esat = 6.112 * np.exp(17.67 * (T - 273.15) / (T - 29.65))   # hPa
     qsat = 622.0 * esat / np.maximum(850.0 - esat, 1.0)         # g/kg
     return np.clip(qsat * (rh / 100.0), 0.0, 25.0)
@@ -218,6 +224,13 @@ def synth_hgt100_month(mslp: np.ndarray) -> np.ndarray:
     """hgt100(合成近似): 由 MSLP 反推 100hPa 位势厚度, 单位 dam。
     hgt(m) ≈ 16650 + (1013 − MSLP)·8 → hgt(dam) = hgt(m)/10。"""
     hgt_m = 16650.0 + (1013.0 - mslp) * 8.0
+    return hgt_m / 10.0
+
+
+def synth_hgt500_month(mslp: np.ndarray) -> np.ndarray:
+    """hgt500(合成近似): 由 MSLP 反推 500hPa 位势高度, 单位 dam。
+    hgt(m) ≈ 5600 + (1013 − MSLP)·10 → hgt(dam) = hgt(m)/10(F10 render_mid 用)。"""
+    hgt_m = 5600.0 + (1013.0 - mslp) * 10.0
     return hgt_m / 10.0
 
 
@@ -294,11 +307,18 @@ def build_synthetic_library(years: range = LIB_YEARS, force: bool = False,
     built = {'sst': [], 'ohc': [], 'mslp': [], 'shear': [],
              'rh700': [], 'uv_steer': [], 'vort850': [], 'gpi': [], 'ssta': [],
              'u10': [], 'v10': [], 'precip24': [], 't500': [],
-             'qv850': [], 'hgt100': [], 'uv200': []}
+             'qv850': [], 'hgt500': [], 'hgt100': [], 'uv200': []}
     if not force and all(
             all(F.load_monthly_field(v, y) is not None for v in built)
             for y in years):
-        # 库已完整:直接复用,避免每次运行全量重写 ~1GB 并重算气候态
+        # 库已完整:直接复用,避免每次运行全量重写 ~1GB 并重算气候态。
+        # R4-完整性: fast-path 只检查场文件,可能在"库文件在、气候态缺失"的
+        # 半迁移环境静默返回, 使 get_anomaly 全链返回 None。此处补:若任一
+        # 非 ssta 气候态缺失则补建(ssta 本身已是距平场, 不入气候态)。
+        clim_vars = tuple(v for v in built if v != 'ssta')
+        if any(F.load_climatology(v) is None for v in clim_vars):
+            print('[library] 场库完整但气候态缺失,补建气候态')
+            F.build_climatology(clim_vars, CLIM_BASE)
         for y in years:
             for var in built:
                 built[var].append(y)
@@ -307,9 +327,9 @@ def build_synthetic_library(years: range = LIB_YEARS, force: bool = False,
         sst_m, ohc_m, mslp_m, sh_m, rh_m, vo_m, gp_m, sa_m = \
             [np.full((12, F.NLAT, F.NLON), np.nan) for _ in range(8)]
         st_m = np.full((12, 2, F.NLAT, F.NLON), np.nan)   # uv_steer 双分量
-        # F10 新增场: 6 个 3D + uv200(4D 双分量, 与 uv_steer 同构)
-        u10_m, v10_m, pp_m, t5_m, qv_m, hg_m = \
-            [np.full((12, F.NLAT, F.NLON), np.nan) for _ in range(6)]
+        # F10 新增场: 7 个 3D + uv200(4D 双分量, 与 uv_steer 同构)
+        u10_m, v10_m, pp_m, t5_m, qv_m, hg5_m, hg_m = \
+            [np.full((12, F.NLAT, F.NLON), np.nan) for _ in range(7)]
         u2_m = np.full((12, 2, F.NLAT, F.NLON), np.nan)   # uv200
         for mo in range(1, 13):
             mod = _modes_for((y, mo))
@@ -329,12 +349,13 @@ def build_synthetic_library(years: range = LIB_YEARS, force: bool = False,
             pp = synth_precip24_month((y, mo), mask)
             t5 = synth_t500_month(mask)
             qv = synth_qv850_month(rh, sst)
+            hg5 = synth_hgt500_month(mslp)
             hg = synth_hgt100_month(mslp)
             u2 = synth_uv200_month((y, mo), u200, v200, vo)
             i = mo - 1
             sst_m[i], ohc_m[i], mslp_m[i], sh_m[i] = sst, ohc, mslp, sh
             rh_m[i], st_m[i], vo_m[i], gp_m[i] = rh, np.stack([uu, vv]), vo, gp
-            u10_m[i], v10_m[i], pp_m[i], t5_m[i], qv_m[i], hg_m[i] = u10, v10, pp, t5, qv, hg
+            u10_m[i], v10_m[i], pp_m[i], t5_m[i], qv_m[i], hg5_m[i], hg_m[i] = u10, v10, pp, t5, qv, hg5, hg
             u2_m[i] = u2
         F.save_monthly_field('sst', y, sst_m, meta={'source': 'synthetic',
                                                     'seed_base': seed_base})
@@ -352,6 +373,7 @@ def build_synthetic_library(years: range = LIB_YEARS, force: bool = False,
         F.save_monthly_field('precip24', y, pp_m, meta={'source': 'synthetic'})
         F.save_monthly_field('t500', y, t5_m, meta={'source': 'synthetic'})
         F.save_monthly_field('qv850', y, qv_m, meta={'source': 'synthetic'})
+        F.save_monthly_field('hgt500', y, hg5_m, meta={'source': 'synthetic'})
         F.save_monthly_field('hgt100', y, hg_m, meta={'source': 'synthetic'})
         F.save_monthly_field('uv200', y, u2_m, meta={'source': 'synthetic'})
         for var in built:
@@ -363,11 +385,10 @@ def build_synthetic_library(years: range = LIB_YEARS, force: bool = False,
     # BUG-8: 删除历史遗留的 ssta_clim.npz(旧版误建), 否则 get_anomaly('ssta')
     # 静默返回错误距平
     try:
-        import os as _os
         for name in ('ssta_clim.npz', 'ssta_clim.json'):
-            p = _os.path.normpath(_os.path.join(F.CLIM_DIR, name))
-            if _os.path.exists(p):
-                _os.remove(p)
+            p = os.path.normpath(os.path.join(F.CLIM_DIR, name))
+            if os.path.exists(p):
+                os.remove(p)
                 print(f'[library] 已删除过期 {name}')
     except Exception:
         pass
@@ -483,11 +504,21 @@ def _store_month(var: str, y: int, mo: int, arr, built) -> None:
 
 def _parse_era5_nc(path: str, var: str) -> Optional[np.ndarray]:
     """解析 ERA5 NetCDF 月平均 → (NLAT, NLON) 1° 网格。需 netCDF4/xarray。
-    D9: 纬度序与 F.LATS(-60→60 升序)对齐(CDS 按 area=[60,0,-60,360] 返回降序)。"""
+    D9: 纬度序与 F.LATS(-60→60 升序)对齐(CDS 按 area=[60,0,-60,360] 返回降序)。
+    R4: 变量名映射 —— CDS 请求按 `mean_sea_level_pressure` 抓取, 返回 NetCDF 的
+    data var 短名为 `msl`(非内部名 `mslp`)。原实现 `ds['mslp']` 不存在时静默
+    退回"第一个 data var", 只在 msl 是唯一变量时碰巧选对; 改用显式别名映射
+    确定性选变量(仍保留"首个 data var"兜底, 兼容单变量文件)。"""
+    # CDS 返回短名 → 本模块请求名; 缺失时回退首个 data var(单变量文件)。
+    _ERA5_ALIAS = {'mslp': 'msl'}
     try:
         import xarray as xr
         with xr.open_dataset(path) as ds:
-            da = ds[var] if var in ds else list(ds.data_vars.values())[0]
+            name = var if var in ds else _ERA5_ALIAS.get(var)
+            if name is not None and name in ds:
+                da = ds[name]
+            else:
+                da = list(ds.data_vars.values())[0]
             arr = da.mean(dim='time', skipna=True).values
             arr = np.squeeze(arr)
             # 纬度降序(60→-60)时翻转
@@ -500,6 +531,10 @@ def _parse_era5_nc(path: str, var: str) -> Optional[np.ndarray]:
             from scipy.ndimage import zoom
             target = (F.NLAT, F.NLON)
             arr = zoom(arr, (target[0] / arr.shape[0], target[1] / arr.shape[1]))
+            # 单位归一: ERA5 CDS 的 msl 为 Pa, 项目其余路径(合成库/Open-Meteo)
+            # 与渲染诊断均按 hPa; 转成 hPa 以免真实库口径错位(A6 报告)。
+            if var == 'mslp':
+                arr = arr / 100.0
             return arr.astype(np.float32)
     except Exception:
         return None

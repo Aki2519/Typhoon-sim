@@ -389,14 +389,17 @@ class PointList(DraggableDialog):
         self.sim.dialog_mgr.point_edit_dialog.activate(init, lambda v: self._update_point(idx, v))
 
     def _update_point(self, idx, vals):
+        # 返回是否成功: 失败时对话框保持打开,避免用户输入被静默丢弃
         try:
             _, new_idx = self._apply_point_change(idx, vals, is_new=False)
             self.sim._last_edited_point = new_idx
             if new_idx is not None and 0 <= new_idx < len(self.typhoon.pts):
                 self.selected_index = new_idx
                 self.current_page = new_idx // self.rows_per_page
+            return True
         except Exception as e:
             self.sim.show_error(f"编辑点出错: {e}")
+            return False
 
     def _delete_point(self):
         if self.selected_index < 0:
@@ -448,50 +451,68 @@ class PointList(DraggableDialog):
         return self.sim.get_next_time_for_typhoon(self.typhoon)
 
     def _add_point(self, idx, before, vals, name):
+        # 返回是否成功: 失败时对话框保持打开,避免用户输入被静默丢弃
         try:
             _, new_idx = self._apply_point_change(idx, vals, is_new=True, before=before, name=name)
             self.sim._last_edited_point = new_idx
             if new_idx is not None and 0 <= new_idx < len(self.typhoon.pts):
                 self.selected_index = new_idx
                 self.current_page = new_idx // self.rows_per_page
+            return True
         except Exception as e:
             self.sim.show_error(f"插入点出错: {e}")
+            return False
 
     def _apply_point_change(self, idx, vals, is_new, before=True, name=""):
         """应用点变更。返回 (True, new_idx)：new_idx 为变更后该点的索引
         (新增/时间修改可能按时间重排)。"""
-        # 先快照,再解析输入。解析/应用任何一步失败都回滚本次快照,
-        # 否则撤销栈残留一个未消费快照,下次 undo 会变成"幽灵撤销"。
+        # 先无副作用地解析/校验输入(失败时直接抛出带具体信息的 ValueError);
+        # 全部通过后才快照并应用。这样校验失败不会污染撤销/重做栈
+        # (不残留未消费快照→"幽灵撤销",也不把未变更状态压进重做栈→"幽灵重做")。
+        try:
+            w = int(vals['wind']) if vals['wind'] else 15
+        except (ValueError, TypeError):
+            raise ValueError("强度必须是数字")
+        if w < 0:
+            raise ValueError("强度不能为负数")
+        try:
+            p = int(vals['pressure']) if vals['pressure'] else 0
+        except (ValueError, TypeError):
+            raise ValueError("气压必须是数字")
+        if p < 0:
+            raise ValueError("气压不能为负数")
+        try:
+            la, lo = float(vals['lat']), float(vals['lon'])
+        except (ValueError, TypeError):
+            raise ValueError("经纬度必须是数字")
+        if not (-90 <= la <= 90):
+            raise ValueError("纬度必须在 -90 到 90 之间")
+        if not (0 <= lo <= 360):
+            raise ValueError("经度必须在 0 到 360 之间")
+        st = (vals['type'] or '').strip() or self._infer_type(w, self.typhoon.basin if self.typhoon else None)
+        t = vals['time']
+
+        ace_year = 0
+        if len(t) >= 10:
+            try:
+                ace_year = self.sim.get_ace_year(datetime.strptime(t[:10], "%Y%m%d%H"))
+            except Exception:
+                pass
+
+        # 校验通过,此时才快照(推入撤销栈并清空重做栈)
         self.typhoon.push_snapshot()
         try:
-            try:
-                w = int(vals['wind']) if vals['wind'] else 15
-            except (ValueError, TypeError):
-                raise ValueError("强度必须是数字")
-            try:
-                p = int(vals['pressure']) if vals['pressure'] else 0
-            except (ValueError, TypeError):
-                raise ValueError("气压必须是数字")
-            try:
-                la, lo = float(vals['lat']), float(vals['lon'])
-            except (ValueError, TypeError):
-                raise ValueError("经纬度必须是数字")
-            st = (vals['type'] or '').strip() or self._infer_type(w, self.typhoon.basin if self.typhoon else None)
-            t = vals['time']
-
-            ace_year = 0
-            if len(t) >= 10:
-                try:
-                    ace_year = self.sim.get_ace_year(datetime.strptime(t[:10], "%Y%m%d%H"))
-                except Exception:
-                    pass
-
+            # 与 utils_mixin 地图路(add/update_point_in_edit_typhoon)口径一致:
+            # 每次变更加强度/性质都同步重算 cat,否则对话框改点后报点 cat 残留
+            # 旧类别,直接用 .get('cat') 的消费方(SMCY 预开流等)显示错类别
+            cat = self.sim.get_strength_category(w, st)
             if not is_new:
                 name = self.typhoon.pts[idx].get('name', '')
                 self.typhoon.pts[idx].update(
                     {'w': w, 'p': p, 'st': st, 'la': la, 'lo': lo, 't': t, 'name': name, 'ace_year': ace_year})
                 self.typhoon.pts[idx]['color'] = self.sim.get_point_color(w, st)
                 self.typhoon.pts[idx]['color_dim'] = self.sim.darken_color(self.typhoon.pts[idx]['color'], 0.6)
+                self.typhoon.pts[idx]['cat'] = cat
                 # 时间被修改后按时间重排,保证路径按时间连接
                 new_idx = self.typhoon.resort_point_by_time(idx)
             else:
@@ -506,6 +527,7 @@ class PointList(DraggableDialog):
                                 official=True, ace=0, pace=0, ace_year=ace_year,
                                 color=self.sim.get_point_color(w, st))
                 pt.color_dim = self.sim.darken_color(pt.color, 0.6)
+                pt.cat = cat
                 # 统一按时间顺序插入,路径按时间连接(无论输入时间在何时)
                 new_idx = self.typhoon.insert_point_by_time(pt)
 
@@ -526,6 +548,11 @@ class PointList(DraggableDialog):
         self.sim.refresh_typhoon_after_point_change(self.typhoon)
         self._needs_save = True
         self.sim._refresh_ace_data(self.typhoon)
+        # 缓存失效链与 utils_mixin 地图路一致: 时间/性质被改后必须同步失效
+        # 季节起始缓存(否则旧 pts[0]['t'] 派生起激活时刻残留)与季节信息框缓存
+        self.sim._drop_season_start_cache(self.typhoon)
+        for _c in ('_season_info_box_cache', '_season_info_box_last_data'):
+            getattr(self.sim, _c, {}).pop(self.typhoon, None)
 
     @staticmethod
     def _infer_type(wind, basin=None):

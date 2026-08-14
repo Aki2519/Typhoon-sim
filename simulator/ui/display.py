@@ -131,6 +131,9 @@ def _field_to_base(var, fld, layer_id):
             out[..., c] = zoom(rgb[..., c].astype(np.float32),
                                (BASE_H / 121, BASE_W / 360), order=0).astype(np.uint8)
         return out
+    # S1: shear 场为 m/s, 色标范围为 kt(0-30), 需与主图层(_build_env_layer)一致先换算
+    if layer_id == 'shear':
+        fld = np.nan_to_num(fld, nan=0.0) * 1.944
     cb = COLORBARS.get(layer_id)
     if cb:
         return _colorize_arr(fld, cb[0], cb[1], cb[2])
@@ -309,8 +312,10 @@ def _track_base(dt):
             continue
         pts = [(int(r['lo'] % 360.0 / 360.0 * BASE_W),
                 int((60.0 - r['la']) / 120.0 * BASE_H)) for r in rows]
-        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-            c = track_pressure_color(rows[pts.index((x0, y0))]['p'])
+        # S2: 按段首状态着色; 不能用 pts.index((x0,y0))——慢速台风多段像素重合时
+        # 会取到首个相同像素, 导致颜色错配
+        for i, ((x0, y0), (x1, y1)) in enumerate(zip(pts, pts[1:])):
+            c = track_pressure_color(rows[i]['p'])
             _line(out, x0, y0, x1, y1, c)
     return out
 
@@ -478,7 +483,7 @@ class DisplayView:
         pan_h = r.h - 16 - cb_h
         gap = 14
         margin = 40
-        pw = (r.w - margin * 2 - gap) // 2
+        pw = max(1, (r.w - margin * 2 - gap) // 2)
         d01 = pygame.Rect(r.x + margin, pan_top, pw, pan_h)
         d02 = pygame.Rect(r.right - margin - pw, pan_top, pw, pan_h)
         self._panels['__d01'] = d01
@@ -519,7 +524,8 @@ class DisplayView:
 
     def _draw_panel(self, surface, rect, layer_id, dt, prefix,
                     c0, c1, la0, la1, show_lat_side, tys, tracked):
-        meta = LAYER_META[layer_id]
+        # G7: 未知/未登记图层回退默认元数据, 避免 KeyError 崩溃
+        meta = LAYER_META.get(layer_id, ('', '', 'dual'))
         pygame.draw.rect(surface, WHITE, rect)
         pygame.draw.rect(surface, PANEL_BORDER, rect, 1)
         # 标题 + 时间戳(参考图: 左上角; M3: D01 标题避开左上角状态框)
@@ -780,6 +786,9 @@ class DisplayView:
 
     def _draw_single(self, surface, layer_id, dt):
         r = self.rect
+        # 单图/表格图层不再复用上一次双域绘制的 D01/D02 面板几何,
+        # 否则滚轮在这些图层上会误缩放已失效的 D01 区域(状态残留 bug)
+        self._panels.clear()
         meta = LAYER_META.get(layer_id, ('', '', 'single'))
         title = meta[0] + (f" ({meta[1]})" if meta[1] else "")
         pygame.draw.rect(surface, WHITE, r)
@@ -833,6 +842,9 @@ class DisplayView:
 
     def _draw_tables(self, surface, layer_id, dt):
         r = self.rect
+        # 表格/单图图层不再复用上一次双域绘制的 D01/D02 面板几何,
+        # 否则滚轮在表格上会误缩放已失效的 D01 区域(状态残留 bug)
+        self._panels.clear()
         meta = LAYER_META.get(layer_id, ('', '', 'table'))
         pygame.draw.rect(surface, WHITE, r)
         pygame.draw.rect(surface, PANEL_BORDER, r, 1)

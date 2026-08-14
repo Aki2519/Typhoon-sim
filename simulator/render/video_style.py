@@ -223,7 +223,7 @@ def draw_barb(s: pygame.Surface, x: int, y: int, u: float, v: float,
               scale: float = 2.2) -> None:
     """风羽: 半羽=2.5 m/s、整羽=5、旗=25;黑色,实心圆=静风。"""
     spd = math.hypot(u, v)
-    if math.isnan(spd):
+    if not math.isfinite(spd):      # NaN 或 ±inf 风(极端/损坏字段)直接跳过,不崩溃
         return
     ang = math.atan2(u, v)          # 风向(气象学来向)
     if spd < 0.5:
@@ -412,12 +412,27 @@ def _contour(s: pygame.Surface, rect: pygame.Rect, sub: np.ndarray,
 
 def _divergence(uv: np.ndarray) -> Optional[np.ndarray]:
     """从 (2, NLAT, NLON) m/s 风用 np.gradient 算散度 → 10⁻⁶ s⁻¹。
-    场无效时返回 None。"""
-    if uv is None or not _valid(uv) or not _valid(uv[0]):
+    场无效或形状异常(BUG: 原对错误形状场广播失败)时返回 None。"""
+    if uv is None or not _valid(uv):
         return None
-    u = np.nan_to_num(uv[0])
-    ve = np.nan_to_num(uv[1])
-    lat_rad = np.deg2rad(np.clip(LATS, -60, 60))
+    uv = np.asarray(uv)
+    # 先校验形状(ndim>=2 且至少 2 个分量)再访问 uv[0]/uv[1],
+    # 否则单分量场 (1,·,·) 或 1D 输入会在此 IndexError(W2R-V2 发现)。
+    if uv.ndim < 2 or uv.shape[0] < 2:
+        return None
+    u0 = np.asarray(uv[0])
+    v0 = np.asarray(uv[1])
+    if u0.ndim != 2 or v0.ndim != 2 or u0.shape != v0.shape \
+            or u0.shape[0] < 2 or u0.shape[1] < 2:
+        return None
+    nla, nlo = u0.shape
+    u = np.nan_to_num(u0)
+    ve = np.nan_to_num(v0)
+    lat_deg = np.asarray(LATS)
+    # 场可能非标准 121 行(异常/退化);按实际行数重采样纬度轴,避免广播错位
+    if nla != lat_deg.size:
+        lat_deg = np.linspace(-60, 60, nla)
+    lat_rad = np.deg2rad(np.clip(lat_deg, -60, 60))
     dx = 111.2e3 * np.cos(lat_rad)        # 每 1° 经度对应米数(逐纬)
     dy = 111.2e3                          # 每 1° 纬度对应米数
     dudx = np.gradient(u, axis=1, edge_order=1) / dx[:, None] * 1e6
@@ -518,16 +533,22 @@ def _d02_span(center, lon_span):
 
 
 def _blit_field(s: pygame.Surface, dst: pygame.Rect, fld: np.ndarray,
-                span: Tuple[float, float, float, float]) -> None:
-    """(NLAT, NLON) 场 → dst 矩形(等距圆柱,向量化采样)。"""
+                span: Tuple[float, float, float, float]) -> np.ndarray:
+    """(NLAT, NLON) 场 → (dst.h, dst.w) 子阵(等距圆柱,向量化采样)。
+    场形状非 (NLAT, NLON)(损坏/广播异常)时按实际行数列数钳制索引,退化为
+    全 NaN 子阵(调用方 _valid/_np.nan_to_num 见之而合理退化),不越界崩溃。"""
+    a = np.asarray(fld)
+    if a.ndim != 2 or a.shape[0] < 1 or a.shape[1] < 1:
+        return np.full((dst.h, dst.w), np.nan)
+    nla, nlo = a.shape
     c0, c1, la0, la1 = span
     span_lon = ((c1 - c0) % 360.0) or 360.0
     ys = la0 - (np.arange(dst.h) + 0.5) / dst.h * (la0 - la1)
     xs = c0 + (np.arange(dst.w) + 0.5) / dst.w * span_lon
-    la_i = np.clip(np.round(ys + 60).astype(int), 0, NLAT - 1)
-    lo_i = np.clip((xs % 360).astype(int), 0, NLON - 1)
-    sub = fld[np.ix_(la_i, lo_i)]
-    return sub
+    # 按实际场维数钳制,避免对 (NLA<NLAT 或 NLO<NLON) 的异常场越界
+    la_i = np.clip(np.round(ys + 60).astype(int), 0, nla - 1)
+    lo_i = np.clip((xs % 360).astype(int), 0, nlo - 1)
+    return a[np.ix_(la_i, lo_i)]
 
 
 # ════════════════════════════════════════════════ 8 类画面════════════════════════════════════════════════
@@ -633,14 +654,14 @@ def render_sfc(api, dt, typhoons=None, w=1280, h=760) -> pygame.Surface:
         # 风矢量箭头(等距取样,draw_arrow 按风速冷→暖着色)
         nj = max(2, inner_r.h // 24)
         ni = max(2, inner_r.w // 44)
+        sh_, sw_ = inner_r.h // nj, inner_r.w // ni
         for i in range(nj):
             for j in range(ni):
-                by = min(i * (inner_r.h // nj) + (inner_r.h // nj) // 2,
-                         inner_r.h - 1)
-                bx = min(j * (inner_r.w // ni) + (inner_r.w // ni) // 2,
-                         inner_r.w - 1)
-                draw_arrow(s, inner_r.x + j * (inner_r.w // ni),
-                           inner_r.y + i * (inner_r.h // nj),
+                # 箭头锚在像素 (i*sh_, j*sw_);场采样须取同一像素(BUG: 原加 sw//2 使
+                # 箭头与所画风速错开半格)。sh_/sw_ 至少为 1,越界收敛到末行/末列。
+                by = min(i * sh_, inner_r.h - 1)
+                bx = min(j * sw_, inner_r.w - 1)
+                draw_arrow(s, inner_r.x + j * sw_, inner_r.y + i * sh_,
                            float(us[by, bx]), float(vs[by, bx]), scale=2.6)
     if _valid(mslp):
         sub_m2 = _blit_field(s, inner_r, mslp, span_d02)
@@ -688,7 +709,15 @@ def _jet_fill(s, surf, inner, uv, q=70) -> bool:
     """急流紫填色(以分位风速为阈值,沿用原风格);uv 无效返回 False。"""
     if not (_valid(uv) and _valid(uv[0])):
         return False
-    spd = np.hypot(np.nan_to_num(uv[0]), np.nan_to_num(uv[1]))
+    u = np.asarray(uv)
+    # 先校验双分量(ndim>=2 且 shape[0]>=2)再访问 uv[1],
+    # 否则单分量场 (1,·,·) 或 1D 输入会在此 IndexError(W2R-V2 同类)。
+    if u.ndim < 2 or u.shape[0] < 2:
+        return False
+    u0, v0 = np.asarray(u[0]), np.asarray(u[1])
+    if u0.ndim != 2 or v0.ndim != 2 or u0.shape != v0.shape:
+        return False
+    spd = np.hypot(np.nan_to_num(u0), np.nan_to_num(v0))
     thr = float(np.nanpercentile(spd, q))
     sub = _blit_field(surf, inner, spd, _SPAN_GLOBAL)
     jet = sub >= thr
@@ -703,11 +732,21 @@ def _draw_barbs(s, inner, uv, step_la=3.0, step_lo=4.0) -> None:
     """黑色风羽(参考 draw_barb 现有实现,原样保留)。"""
     if not (_valid(uv) and _valid(uv[0])):
         return
+    uu = np.asarray(uv)
+    # 先校验双分量(ndim>=2 且 shape[0]>=2)再访问 uv[1],
+    # 否则单分量场 (1,·,·) 会在此 IndexError(W2R-V2 同类)。
+    if uu.ndim < 2 or uu.shape[0] < 2:
+        return
+    u0 = np.asarray(uu[0])
+    v0 = np.asarray(uu[1])
+    if u0.ndim != 2 or v0.ndim != 2 or u0.shape != v0.shape:
+        return
+    nla, nlo = u0.shape
     for la in np.arange(0, 56, step_la):
         for lo in np.arange(0, 360, step_lo):
-            la_i = int(np.clip((la + 60), 0, NLAT - 1))
-            lo_i = int(lo) % NLON
-            u, v = float(uv[0][la_i, lo_i]), float(uv[1][la_i, lo_i])
+            la_i = int(np.clip((la + 60), 0, nla - 1))
+            lo_i = int(lo) % nlo
+            u, v = float(u0[la_i, lo_i]), float(v0[la_i, lo_i])
             x, y = _map_rect(inner, 0, 360, -60, 60, lo, la)
             if inner.collidepoint(x, y):
                 draw_barb(s, x, y, u, v, scale=1.6)
@@ -762,7 +801,7 @@ def render_high(api, dt, typhoons=None, w=1280, h=760) -> pygame.Surface:
     """高空(F10): 100hPa 高度(dam 等值线)+200hPa 风羽(黑)+散度填色+
     高空急流紫填色。"""
     s = new_canvas(w, h)
-    draw_title(s, "100 hPa Height (dam), 200 hPa Wind (knots) and Divergence (10⁻⁶ s⁻¹)")
+    draw_title(s, "100 hPa Height (dam), 200 hPa Wind (m/s) and Divergence (10⁻⁶ s⁻¹)")
     draw_timestamp(s, dt, 10, 36)
     rect, inner = _whole_panel(s, w, h)
     g = _SPAN_GLOBAL
@@ -805,6 +844,9 @@ def render_station(api, dt, station=None, w=800, h=520) -> pygame.Surface:
     pts = station.get('pts') if station else None
     if not pts:
         pts = [{'p': 1013.0, 'w': 0.0}]
+    # pygame.draw.lines 需要 >=2 个点;单点(空/退化 pts)补一个重合点避免崩溃
+    if len(pts) < 2:
+        pts = pts + [dict(pts[-1])]
     ps = [p['p'] for p in pts]
     ws = [p.get('w', 0) for p in pts]
     pmin, pmax = min(ps), max(ps)
@@ -854,14 +896,24 @@ def render_center(api, dt, typhoon=None, ref=None, w=800, h=560) -> pygame.Surfa
         return s
     ps = [st['p'] for st in states]
     ws = [st['w'] for st in states]
+    # pygame.draw.lines 需要 >=2 点;单状态(1 点)补一个重合点避免崩溃
+    if len(ps) < 2:
+        ps = ps + ps
+        ws = ws + ws
     pmin, pmax = min(ps), max(ps)
     wmax = max(ws) or 1.0
     # 气压轴上限= 背景气压(台风位置处环境mslp 逐时刻变化,随环境时间动态浮动
     env_hi = pmax
     if api is not None:
         for st in states:
-            t = st['t']
-            mslp = api.get_field('mslp', (int(t[:4]), int(t[4:6]), int(t[6:8])))
+            t = st.get('t', '')
+            # 防御: t 非 'yyyymmddhh' 完整串(畸形/截断状态)时跳过环境 mslp 轴适配,
+            # 不崩溃(气压曲线仍按数据自适应)。运行时环境恒为完整串。
+            try:
+                date = (int(t[0:4]), int(t[4:6]), int(t[6:8]))
+            except (ValueError, IndexError):
+                continue
+            mslp = api.get_field('mslp', date)
             if mslp is not None:
                 o = _g._bilinear_at(mslp, st['la'], st['lo'])
                 if o == o and o > env_hi:

@@ -102,6 +102,15 @@ class MapView:
         clat = (lat_min + lat_max) / 2.0
         lon_span = lon_max - lon_min
         lat_span = lat_max - lat_min
+        # 防御: 零跨度(mlo==Mlo 或 mla==Mla,可来自外部脚本)会除零,保持当前缩放并居中
+        if lon_span <= 0 or lat_span <= 0:
+            self.view_x = ((clon - self.lon_min) * self._scale_x
+                           - self.screen_width / (2.0 * self.scale)) % self.img_w
+            self.view_y = (self.lat_max - clat) * self._scale_y \
+                          - self.screen_height / (2.0 * self.scale)
+            self._clamp_view_y()
+            self._bottom_align = False
+            return
         self.scale = max(self.min_scale, min(
             self.screen_width / (lon_span * self._scale_x),
             self.screen_height / (lat_span * self._scale_y), 8.0))

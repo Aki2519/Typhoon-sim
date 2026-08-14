@@ -474,10 +474,16 @@ class TySimDrawIconMixin:
             frame = get_smcy_manager().get_frame(cat, hemi, frame_idx, ts)
             if frame is None:
                 return
-        frame.set_alpha(icon_alpha)
+        # R4: 不可在原处 mutate 共享帧面。frame 可能来自 _purple_frame_cache 共享缓存，
+        # 或来自 smcy _VideoStream._cache（多台风共用同一 (类别,半球,帧号,尺寸) 帧）。
+        # set_alpha 会永久改写共享面的表面 alpha——若此处 set_alpha<255 后 blit，
+        # 其它台风/后续帧再取到同一面时 alpha 已被污染。与 _draw_simple_icon 一致：
+        # 仅当需要淡出(<255)时 copy，正常 255 直绘不改共享面。
+        if icon_alpha < 255:
+            frame = frame.copy()
+            frame.set_alpha(icon_alpha)
         rect = frame.get_rect(center=(x, y))
         surface.blit(frame, rect)
-        frame.set_alpha(255)
 
     # ── fallback 图标 ──
     _fallback_ring_cache = None

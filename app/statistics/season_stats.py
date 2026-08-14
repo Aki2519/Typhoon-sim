@@ -63,8 +63,12 @@ def calculate_season_stats(
     storm_day_set = set()
 
     for ty in sim.tys:
-        # 筛选当年报点
-        year_pts = [p for p in ty.pts if p.get('ace_year') == year]
+        # 筛选当年报点(R4: 同时套用 ACE 生效地理范围 point_in_limit,与 yad/热力图/
+        # monthly_summary 同口径——此前在 latlon 限制下会漏掉该过滤,导致统计值偏离
+        # ACE 限制视图;mode='none' 时恒 True,不影响默认全局统计)。
+        year_pts = [p for p in ty.pts
+                    if p.get('ace_year') == year
+                    and engine.point_in_limit(p['la'], p['lo'])]
         if not year_pts:
             continue
 
@@ -91,7 +95,7 @@ def calculate_season_stats(
                 max_wind = w
             ace += p.get('pace', 0.0)
             if w >= 137: has_c5 = True
-            if w >= 113: has_mh = True
+            if w >= 96: has_mh = True       # MH = C3+(>=96kt), 与 monthly_summary 同口径
             if w >= 64: has_ty = True
             if w >= 35: has_ts = True
             if w >= 29: has_td = True

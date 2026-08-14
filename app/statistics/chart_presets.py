@@ -361,11 +361,21 @@ def draw_curve_chart(
         cached = {'src': ace_curve_points}
         x_min, x_max = 0, total_hours
         max_cum = max(p[1] for p in ace_curve_points)
-        yt = float(year_total_ace or max_cum)
-        y_min_val = -0.05 * yt
+        # K-回归: 底部留白应与曲线实际显示的量(max_cum)同尺度。
+        # cumulative_to_current 时曲线被截断到当前时刻,max_cum 远小于全年总量
+        # year_total_ace;若用全年总量定 y_min,负向留白会被不成比例放大,把曲线压到图顶窄条内。
+        y_min_val = -0.05 * max_cum
         y_max_val = max_cum * 1.1
-        if y_max_val - y_min_val < 1:
-            y_max_val = y_min_val + 10.0
+        span = y_max_val - y_min_val
+        if span < 1e-9:
+            # 全零/退化数据:曲线水平贴底,给固定小轴即可
+            y_min_val, y_max_val = -0.5, 10.0
+        elif y_max_val < 1.0:
+            # 小但非零的 ACE:仅把上限提到 1.0 避免非整数跨度过密刻度,
+            # 但仍保持与 max_cum 同尺度的负向留白,不再用固定 10.0 把曲线压到图底窄条。
+            y_max_val = 1.0
+        if y_max_val - y_min_val < 1.0:
+            y_max_val = y_min_val + 1.0
 
         w, h = rect.width, rect.height
         chart_surf = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -576,8 +586,6 @@ def draw_multi_year_curve_chart(
 
         # 找到最长的时间跨度作为 x 轴基准
         max_total_hours = max(cv[3][2] for cv in curves)
-        # 按日历对齐：所有曲线按统一日历来映射 x 坐标
-        global_start = min(cv[3][0] for cv in curves)
 
         curve_overlays = []
         legend_info = []
@@ -587,12 +595,13 @@ def draw_multi_year_curve_chart(
                 continue
             color = _MULTI_CURVE_COLORS[ci % len(_MULTI_CURVE_COLORS)]
 
-            # 按日历对齐映射
+            # 多年叠加:每条曲线相对自身季初(start_dt)对齐到同一 x 轴,
+            # 使各年从 0 开始重叠,便于对比同期累积(修复 A22 绝对日历偏移出屏)。
             local_pts = []
             inv_ymax = 1.0 / y_max_val if y_max_val > 0 else 0.0
             inv_max_th = 1.0 / max_total_hours if max_total_hours > 0 else 0.0
             for dt, ace in pts:
-                ho = (dt - global_start).total_seconds() / 3600
+                ho = (dt - start_dt).total_seconds() / 3600
                 x_px = ho * inv_max_th * w
                 rel_y = ace * inv_ymax
                 y_px = h - rel_y * h
@@ -613,28 +622,43 @@ def draw_multi_year_curve_chart(
         cached['curve_overlays'] = curve_overlays
         cached['legend_info'] = legend_info
         cached['curves'] = curves
-        cached['global_start'] = global_start
         cached['max_total_hours'] = max_total_hours
 
         # 法11: 月份线+标签烘培进 overlay(相对坐标),每帧只 blit
+        # 月份网格必须与曲线保持同一“相对季初”参照系:曲线按 dt-start_dt 映射
+        # (各年自 0 起重叠),若网格仍按 global_start 的绝对日历累进(年份×12+月份),
+        # 跨越多年后月份线与曲线 x 坐标逐月错位——需改为以季初为参考、单季内枚举。
         month_overlay = pygame.Surface((w, h + 22), pygame.SRCALPHA)
         month_overlay.fill((0, 0, 0, 0))
         inv_max_th = 1.0 / max_total_hours if max_total_hours > 0 else 0.0
-        first = global_start.year * 12 + (global_start.month - 1)
-        last = first + int(max_total_hours / (24 * 28)) + 3
-        for k in range(first, last + 1):
-            yr, mo = divmod(k, 12)
-            mo += 1
-            ms = datetime(yr, mo, 1, 0)
-            if ms < global_start:
+        # 季初参考:取首条曲线的 start_dt(同一半球下各年季初的月/日一致),
+        # 从而与曲线上某年任一 dt 的 x = (dt - 该年start_dt)/max_total_hours*w 对齐。
+        ref_start = curves[0][3][0]
+        season_north = ref_start.month < 7   # 北半球季初为 1 月,南半球为 7 月
+        ref_end = ref_start + timedelta(hours=max_total_hours)
+        # 先收集落在单季窗口 [ref_start, ref_end] 内的候选月份起点再排序,
+        # 避免南半球(7/1 起始)把次年 1-6 月排到当年 7-12 月之前造成网格错位。
+        green_cands: List[Tuple[float, str]] = []
+        for m in range(1, 13):
+            if season_north:
+                ms = datetime(ref_start.year, m, 1, 0)
+            else:
+                ms = datetime(ref_start.year, m, 1, 0) if m >= 7 \
+                    else datetime(ref_start.year + 1, m, 1, 0)
+            if ms < ref_start or ms > ref_end:
                 continue
-            ho = (ms - global_start).total_seconds() / 3600
-            if ho > max_total_hours:
-                break
+            ho = (ms - ref_start).total_seconds() / 3600
             x_px = ho * inv_max_th * w
+            green_cands.append((x_px, f"{ms.month:02d}/01"))
+        green_cands.sort(key=lambda c: c[0])
+        for x_px, label in green_cands:
             draw_dashed_v(month_overlay, x_px, 0, h, chart_dash(), 4, 4)
-            ml = rt(f_s, f"{mo:02d}/01", chart_axis())
+            ml = rt(f_s, label, chart_axis())
             month_overlay.blit(ml, (x_px - ml.get_width() // 2, h + 2))
+        # 说明:单一共享月网格以参考季初的该历年历为基准,故不同闰/平年曲线在
+        # 3 月之后的月份线会有 ≤1 天的固有漂移(800px 下约 2-3px),这是跨闰/平年
+        # 叠加无法用单一网格消除的近似;它远小于原 global_start 绝对日历跨年累进
+        # 造成的 800-1600px 级错位(已随曲线改为相对季初映射一并消除)。
         cached['month_overlay'] = month_overlay
 
         if len(_multi_curve_cache) >= _MAX_CACHE:

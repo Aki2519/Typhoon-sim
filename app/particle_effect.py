@@ -82,6 +82,12 @@ def play_eri_sound(volume: float = 0.6) -> None:
         play_sound(snd, volume)
 
 
+def clear_caches() -> None:
+    """清空粒子特效静态缓存,配合资源重置调用(与 landfall/summary 一致)。"""
+    RIEffect._scaled_cache.clear()
+    RIEffect._faded_cache.clear()
+
+
 def play_note_ts_sound(volume: float = 0.6) -> None:
     snd = _load_note_ts_sound()
     if snd:

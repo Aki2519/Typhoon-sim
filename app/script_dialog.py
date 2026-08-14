@@ -1,4 +1,4 @@
-﻿# py/script_dialog.py
+# py/script_dialog.py
 """脚本选择与执行对话框 + 实时脚本编辑器。"""
 from __future__ import annotations
 
@@ -757,7 +757,9 @@ class ScriptDialog(DraggableDialog):
             btn_y = r.y + r.height - 40
             new_btn = pygame.Rect(r.x + 20, btn_y, 90, 28)
             if new_btn.collidepoint(x, y):
-                self._open_editor(self._editor_text if self._editor_text else _TEMPLATE)
+                # 新建 = 全新模板脚本;不复用上次编辑草稿(_editor_text),
+                # 否则保存脚本后点新建仍带旧内容,无法开始干净脚本
+                self._open_editor(_TEMPLATE)
                 return True
 
             # 关闭按钮

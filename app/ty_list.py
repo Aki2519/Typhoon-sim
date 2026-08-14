@@ -221,9 +221,13 @@ class TyList(DraggableDialog):
         return {'name': rt(f_m, disp, tc, 530), 'info': rt(f_s, info, tc, 530)}
 
     def _build_row_texts_cached(self, ty) -> Tuple[str, str]:
-        """法15: O(P) 扫描结果按 (pts id/len, tace, 显示模式, 首末点时间, 盆域, cust/n) 缓存。"""
+        """法15: O(P) 扫描结果按 (pts id/len, tace, 峰值, 显示模式, 首末点时间, 盆域, cust/n) 缓存。"""
         mode = self.sim.name_display_mode
-        key = (id(ty.pts), len(ty.pts), ty.tace, mode, self.dark_mode, ty.basin,
+        # 峰值风速/性质纳入键: 编辑低强度(全部 <35kt)报点的风速时 tace 不变,
+        # 单独靠 tace/长度无法捕捉"最大强度"变化,必须把峰值也纳入哈希键
+        mw, peak_st = _ty_peak(ty)
+        key = (id(ty.pts), len(ty.pts), ty.tace, mw, peak_st, mode, self.dark_mode,
+               ty.basin,
                ty.pts[0]['t'] if ty.pts else '',
                ty.pts[-1]['t'] if ty.pts else '',
                getattr(ty, 'cust', ''), getattr(ty, 'n', ''))

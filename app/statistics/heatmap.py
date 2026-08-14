@@ -157,7 +157,7 @@ class PathHeatmapDialog(DraggableDialog):
         # ── 底图 ──
         render_map_subset(surf, self.sim, mlon, Mlon, mlat, Mlat, bx, by, bw, bh)
 
-        # ── Phase 3: 径向累积 ACE 热力(向量化) ──
+        # ── Phase 3: 径向累积 ACE 热力(逐点 numpy,与旧纯 Python 浮点语义逐位等价) ──
         import numpy as np
         radius_px = 2.0 / (Mlat - mlat) * bh   # 2° 纬距 → 像素
         # K18: 核尺寸上限(π·r² 条元组),防止小纬度跨度+大 bh 时内存爆炸
@@ -168,40 +168,44 @@ class PathHeatmapDialog(DraggableDialog):
         inv_lat = bh / (Mlat - mlat)
         inv_r = 1.0 / radius_px
 
-        # 法14+P3向量化: 径向核预计算为固定偏移/权重组,不再每像素 sqrt/边界算术;
-        # 每点只需一次 numpy 切片累加(仅裁剪在窗口内的核元素),避免纯 Python 内层循环。
+        # 逐点向量化: 对每报点求其核包围盒内的整数像素偏移,用"像素坐标 - 浮点中心"
+        # 计算与旧实现完全一致的权重。中心不吸附到整数像素,去除 P3 吸附造成的
+        # 峰值偏置(R4),仍用 numpy 一次累加包围盒内所有核元素,免去纯 Python 内层循环。
         r_int = int(radius_px) + 1
-        k_ys = np.arange(-r_int, r_int + 1, dtype=np.int64)   # 显式整数偏移,避免 mgrid 负切片歧义
-        k_xs = np.arange(-r_int, r_int + 1, dtype=np.int64)
-        k_ys, k_xs = np.meshgrid(k_ys, k_xs, indexing='ij')
-        k_ys0 = k_ys.ravel()
-        k_xs0 = k_xs.ravel()
-        rsq = k_xs0.astype(np.float64) ** 2 + k_ys0.astype(np.float64) ** 2
-        kmask = rsq <= radius_sq                     # 圆形核掩码(与旧 `dx*dx+dy*dy <= radius_sq` 一致)
-        k_ys = k_ys0[kmask]
-        k_xs = k_xs0[kmask]
-        k_w = 1.0 - inv_r * np.sqrt(rsq[kmask])      # 同旧 `1.0 - inv_r*sqrt(dx*dx+dy*dy)`
-
+        span = Mlon - mlon
         for lon, lat, pace in ace_pts:
-            # K19: 跨 0 度线窗口内数据点归一到窗口坐标系(取最近等价位置)
+            # K19: 跨 0 度线窗口内数据点归一到窗口坐标系。回卷采用"最近等价位置":
+            # 仅当绕到西侧比留在东侧更靠近窗口时才回卷,避免把紧贴窗口东缘的点
+            # (仅溢出 ~1°)误判为对侧,导致部分核被丢弃(R4 修正)。
             d = (lon - mlon) % 360.0
-            if d > (Mlon - mlon):
-                d -= 360.0
+            if d > span:
+                east_out = d - span       # 留在东侧时超出的距离(>0)
+                west_out = 360.0 - d      # 绕到西侧时超过窗口西缘的距离(>0)
+                if west_out < east_out:
+                    d -= 360.0
+            # 浮点中心(与旧 `px=(lon-mlon)/(Mlon-mlon)*bw, py=...` 数值一致;
+            # 非跨窗口时 d==lon-mlon,故与旧实现逐位等价)
+            px = d * inv_lon
             py = (Mlat - lat) * inv_lat
-            # 转成整数目标坐标(与旧 `int(px)/int(py)` 结果一致;int 对负值截断向零,
-            # 但核越界裁剪会丢弃,等价旧实现——保留 xi/yi 由 np.add.at 累加。)
-            x0 = int(d * inv_lon)
-            y0 = int(py)
-            # 越界点完全在窗口外 → 核无贡献,直接跳过(仍与旧实现累加结果等价)
-            xs_full = x0 + k_xs
-            ys_full = y0 + k_ys
-            inb = (xs_full >= 0) & (xs_full < bw) & (ys_full >= 0) & (ys_full < bh)
-            if not inb.any():
+            # 包围盒: 与旧 `x0=max(0,int(px-r_int)) / int(px+r_int)+1` 截断语义一致
+            x0 = max(0, int(px - r_int))
+            y0 = max(0, int(py - r_int))
+            x1 = min(bw, int(px + r_int) + 1)
+            y1 = min(bh, int(py + r_int) + 1)
+            if x1 <= x0 or y1 <= y0:
                 continue
-            xv = xs_full[inb]
-            yv = ys_full[inb]
-            wv = k_w[inb] * pace
-            np.add.at(heat, (yv, xv), wv)
+            xs = np.arange(x0, x1, dtype=np.int64)   # 整数像素列
+            ys = np.arange(y0, y1, dtype=np.int64)   # 整数像素行
+            dx = xs[None, :] - px                    # (1, nx)
+            dy = ys[:, None] - py                    # (ny, 1)
+            d2 = dy * dy + dx * dx                   # (ny, nx)
+            m = d2 <= radius_sq                      # 与旧 `dist_sq <= radius_sq` 一致
+            if not m.any():
+                continue
+            yy = np.broadcast_to(ys[:, None], m.shape).astype(np.int64)
+            xx = np.broadcast_to(xs[None, :], m.shape).astype(np.int64)
+            wv = pace * (1.0 - np.sqrt(d2[m]) * inv_r)
+            np.add.at(heat, (yy[m], xx[m]), wv)      # 等价旧 `heat[y*bw+x] += ...`
         heat = heat.ravel()
 
         # ── Phase 4: 色彩映射到 Surface（numpy LUT 向量化，法14）──
@@ -361,7 +365,13 @@ class PathHeatmapDialog(DraggableDialog):
                 f.deactivate()
             self._ensure_custom_fields()
             return
-        self._custom_mlon, self._custom_Mlon = min(west, east), max(west, east)
+        # R4: 保留 西/东 边界字面次序以支持跨 0°/360° 窗口(西>东 = 回卷)。
+        # `_render` 会做 `mlon%360, Mlon%360, Mlon<=mlon→Mlon+=360` 归一到 0-360。
+        # 若仍用 min/max 会把"355→5"(跨 0,10°宽)错误放大成 350° 近全球窗口。
+        cross = west > east
+        self._custom_mlon, self._custom_Mlon = west, east
+        if not cross:
+            self._custom_mlon, self._custom_Mlon = min(west, east), max(west, east)
         self._custom_mlat, self._custom_Mlat = min(south, north), max(south, north)
         for f in self._custom_fields:
             f.deactivate()

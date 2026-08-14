@@ -333,7 +333,9 @@ class PlaybackController:
                     lf_scale = self.cfg.peak_label_size / 100.0
                     if self.cfg.icon_set == ICON_SET_SMCY:
                         from .smcy_icon import get_landfall_frames
-                        icon_factor = self.cfg.icon_size / 100.0
+                        # 用与预加载一致的因子(_icon_factor 含 fix_icon_point_size 缩放),
+                        # 否则 fix_icon_point_size 开启时运行尺寸≠预载尺寸 → 缓存失效 R3
+                        icon_factor = self._icon_factor()
                         lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
                         frames = get_landfall_frames(strength, lf_size, lf_size)
                         if frames:

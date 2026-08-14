@@ -225,8 +225,10 @@ class TySimKeyboardMixin:
                 self._edit_idx = idx
                 self.edit_typhoon = self.tys[idx]
                 self.edit_typhoon.rst()
-                # 切换编辑台风后复位选中点,避免旧索引越界
+                # 切换编辑台风后复位选中点,避免旧索引越界;
+                # _last_edited_point 是全局的,也一并清掉,防跨台风残留 idx
                 self._edit_selected_point = None
+                self._last_edited_point = None
             return True
         return False
 
@@ -241,8 +243,10 @@ class TySimKeyboardMixin:
                 self._edit_idx = idx
                 self.edit_typhoon = self.tys[idx]
                 self.edit_typhoon.rst()
-                # 切换编辑台风后复位选中点,避免旧索引越界
+                # 切换编辑台风后复位选中点,避免旧索引越界;
+                # _last_edited_point 是全局的,也一并清掉,防跨台风残留 idx
                 self._edit_selected_point = None
+                self._last_edited_point = None
             return True
         return False
 
@@ -274,11 +278,14 @@ class TySimKeyboardMixin:
                 moved = True
                 if hasattr(top, '_layout_valid'):
                     top._layout_valid = False
-                if hasattr(top, '_compute_layout'):
-                    top._compute_layout()
-                top.draw(tmp)
             try:
                 if top:
+                    # 重排布局+绘制+保存都在受保护块内:
+                    # 任一步抛异常,finally 都复位 bg_rect 并恢复 _layout_valid,
+                    # 避免把对话框永久移位到 (0,0) 且布局卡在失效态
+                    if hasattr(top, '_compute_layout'):
+                        top._compute_layout()
+                    top.draw(tmp)
                     pygame.image.save(tmp, fp)
                 elif self._ui_hidden:
                     tmp = pygame.Surface((self.screen_width, self.map_height))
@@ -290,7 +297,7 @@ class TySimKeyboardMixin:
                     pygame.image.save(tmp, fp)
             finally:
                 if moved:
-                    # K31: 无论绘制是否抛异常都恢复对话框位置
+                    # K31: 无论绘制/保存是否抛异常都恢复对话框位置
                     top.bg_rect.x = ox
                     top.bg_rect.y = oy
                     if hasattr(top, '_layout_valid'):
@@ -394,7 +401,13 @@ class TySimKeyboardMixin:
         elif self.md == self.MODE_EDIT:
             if not self.edit_typhoon and self.tys:
                 self.edit_typhoon = self.tys[0]
-            self._edit_selected_point = self._last_edited_point if self._last_edited_point is not None else 0
+            # CRO5: _last_edited_point 是全局的,可能残留别的台风 idx;
+            # 恢复选中索引时必须按当前 edit_typhoon 的点数夹紧,避免越界选中
+            sel = self._last_edited_point
+            n = len(self.edit_typhoon.pts) if self.edit_typhoon else 0
+            if sel is None or not (0 <= sel < n):
+                sel = 0 if n else None
+            self._edit_selected_point = sel
         else:
             pass
 

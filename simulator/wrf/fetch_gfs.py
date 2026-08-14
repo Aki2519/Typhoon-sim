@@ -13,10 +13,7 @@ from datetime import datetime, timedelta
 
 BASE = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl'
 
-# G2: 仅请求真实存在的变量(表面 RH 不存在; MSLET 应为 PRMSL; GUST 未使用)
-GFS_VARS = ['UGRD', 'VGRD', 'TMP', 'RH']                  # 气压层
-GFS_SURF_VARS = ['UGRD', 'VGRD', 'TMP', 'PRMSL',
-                 'PRES', 'SPFH', 'DSWRF', 'SST']          # 表面(变量名按需)
+# 变量通过 URL 的 var_*=on 显式声明(见 fetch_gfs), 层次含气压层 + 表面。
 GFS_LEVELS = [1000, 975, 950, 925, 900, 875, 850, 825, 800, 750,
               700, 650, 600, 550, 500, 450, 400, 350, 300, 250,
               225, 200, 175, 150, 125, 100]
@@ -55,12 +52,25 @@ def _get(url: str, path: str, retries: int = 3) -> bool:
     return False
 
 
+def _norm_lon(x: float) -> float:
+    """0~360 → [-180,180) 有符号经度(NOMADS filter 只接受 -180..180)。"""
+    return ((x + 180.0) % 360.0) - 180.0
+
+
 def fetch_gfs(out_dir: str, start: datetime, days: int, area: tuple) -> list:
     """按 6h 周期下载 GFS 0.25° 分析场(过去日期)或预报场。"""
     os.makedirs(out_dir, exist_ok=True)
     out = []
-    # G1: filter 服务要求逐层传参 lev_<p> mb=on, 不能用一个逗号串
-    lev_qs = ''.join(f'&lev_{urllib.parse.quote(f"{p} mb")}=on' for p in GFS_LEVELS)
+    # G5: area=(N,W,S,E) 经度为 0~360 约定; NOMADS filter 要求 -180..180。
+    # 0~360 西经(W,lon0) 与 东经(E,lon1) 各自折算到有符号值; 跨越 0° 时
+    # leftlon > rightlon(NOMADS 以该形态表示跨反经线箱子), 两者顺序不变即正确。
+    leftlon = _norm_lon(area[1])
+    rightlon = _norm_lon(area[3])
+    # G1: filter 服务要求逐层传参 lev_<p> mb=on, 不能用一个逗号串。
+    # G4: 表面变量(PRMSL/SPFH/DSWRF/SST/PRES/TMP)必须额外带 lev_surface=on,
+    #     否则 filter 只取气压层、表面变量被静默丢弃(仅标了 var_* 无对应 lev)。
+    lev_qs = (''.join(f'&lev_{urllib.parse.quote(f"{p} mb")}=on' for p in GFS_LEVELS)
+              + '&lev_surface=on')
     for i in range(days):
         day = start + timedelta(days=i)
         for hh in (0, 6, 12, 18):
@@ -70,7 +80,7 @@ def fetch_gfs(out_dir: str, start: datetime, days: int, area: tuple) -> list:
                    f'{lev_qs}'
                    f'&var_UGRD=on&var_VGRD=on&var_TMP=on&var_RH=on'
                    f'&var_PRMSL=on&var_SPFH=on&var_DSWRF=on&var_SST=on'
-                   f'&subregion=&leftlon={area[1]}&rightlon={area[3]}'
+                   f'&subregion=&leftlon={leftlon}&rightlon={rightlon}'
                    f'&toplat={area[0]}&bottomlat={area[2]}')
             path = os.path.join(out_dir, f'gfs.t{hh:02d}z.pgrb2.0p25.f000.{cycle}')
             if _is_valid_grib(path):

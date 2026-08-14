@@ -1,4 +1,4 @@
-﻿# py/point_edit_dialog.py
+# py/point_edit_dialog.py
 from __future__ import annotations
 
 import pygame
@@ -190,11 +190,28 @@ class PointEditDialog(DraggableDialog):
                     self.sim.show_error("时间格式不正确(需 YYYYMMDDHH 或 YYYYMMDDHHMM)")
                     return False
                 values[key] = t
+            elif key in ('wind', 'pressure'):
+                raw_s = raw.strip()
+                if raw_s:
+                    try:
+                        num = int(raw_s)
+                    except (TypeError, ValueError):
+                        self.sim.show_error("强度必须是数字" if key == 'wind' else "气压必须是数字")
+                        return False
+                    if num < 0:
+                        self.sim.show_error("强度不能为负数" if key == 'wind' else "气压不能为负数")
+                        return False
+                # 保留原始字符串(空=默认值),由回调统一按 _apply_point_change 语义解析
+                values[key] = raw
             else:
                 values[key] = raw
         # 校验独立于回调是否存在: 无回调时也不静默跳过校验
         if self.callback:
-            self.callback(values)
+            res = self.callback(values)
+            # 回调返回 False 表示应用失败(如点列表内部校验/应用异常):
+            # 保持对话框打开,避免用户输入被静默丢弃
+            if res is False:
+                return False
         return True
 
     def draw(self, surface: pygame.Surface):

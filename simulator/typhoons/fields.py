@@ -49,7 +49,10 @@ class VortexField:
         outer = ~inner
         a = math.log(34.0 / vmax_kt) / math.log(rmax / r34) if vmax_kt > 34 else 0.55
         v[outer] = vmax_kt * (rmax / r[outer]) ** a
-        ang = np.arctan2(self.LAT - clat, self.LON - clon)
+        # 方向用已回卷的 dlon(任意 clon 跨反经线 0°/360° 时,
+        # 直接 LON-clon 会得到虚假大经度差 → 切向风分量方向错乱。
+        # dlon 已统一为 [-180,180) 最短经度差, 与距离计算口径一致。)
+        ang = np.arctan2(self.LAT - clat, dlon)
         u = -v * np.sin(ang)
         vv = v * np.cos(ang)
         return u, vv
@@ -84,10 +87,14 @@ class VortexField:
         p_local = self.pressure_depression(vmax_kt, oci)
         t = T0 * (1.0 - R_CP * np.log(np.maximum(p_local, 850.0) / 1000.0))
         # 极地锋面带(随季节迁移): 冬(2-3月)~30°N → 夏(8-9月)~42°N
-        # E9: 南半球做镜像(南半球台风也可斜压化触发 EX)
+        # E9: 南半球做镜像(南半球台风也可斜压化触发 EX)。
+        #   仅取负号只镜像纬度,不镜像季节相位: 北半球冬(赤道侧 30°N)↔南半球夏(应极侧),
+        #   直接取负会把 2 月(南半球夏)推到 -30°(仍偏赤道)、8 月(南半球冬)推到 -41°(偏极),
+        #   方向恰恰相反。须先对季节相位移 6 个月(month+3)再取负:
+        #   2 月(南半球夏)→ -41°(偏极), 8 月(南半球冬)→ -30°(偏赤道)。
         front_lat = 36.0 - 6.0 * math.cos(2 * math.pi * (month - 3) / 12.0)
         if self.clat < 0:
-            front_lat = -front_lat
+            front_lat = -(36.0 - 6.0 * math.cos(2 * math.pi * (month + 3) / 12.0))
         d_fr = (lat - front_lat) / 1.2
         t = t - 8.0 * np.exp(-(d_fr ** 2))
         # 暖心增量(热带性质且 vmax≥55kt,眼墙 200km 内 ∝ Vmax)
@@ -124,7 +131,7 @@ class VortexField:
         return tc - tr
 
     def front_contact(self, t_field: np.ndarray, radius_km: float = 200.0) -> bool:
-        """锋面接入: 中心半径内是否存在真实温度梯度带(|∇T| > 1.5°C/100km)。
+        """锋面接入: 中心半径内是否存在真实温度梯度带(|∇T| > 2.5°C/100km)。
         梯度换算物理单位(像素 = res°)。"""
         g = np.gradient(np.nan_to_num(t_field), axis=(0, 1))
         grad = np.hypot(g[0], g[1]) / (DEG_KM * self.res)      # °C/km
@@ -154,15 +161,17 @@ def build_synthetic_field(sim, api) -> dict:
         uu = np.roll(uv[0], -lo_i, axis=1)
         vv = np.roll(uv[1], -lo_i, axis=1)
         la0, la1 = max(0, la_i - 5), min(120, la_i + 6)
-        # E5: 经度取环绕中心 ±5°(西侧 11 列 + 东侧 10 列,原实现只取东侧 0..10 偏东)
-        win_u = np.concatenate([uu[la0:la1, -11:], uu[la0:la1, :11]], axis=1).copy()
-        win_v = np.concatenate([vv[la0:la1, -11:], vv[la0:la1, :11]], axis=1).copy()
+        # E5(+)E12: 经度取环绕中心 ±5°,与纬度窗口(la_i±5, 共 11 行)对称。
+        #   回卷后 lo_i 位于列 0: 取循环列 -5..+5 → 左半[-5:](西侧 5 列)+ 右半[:6](中心+东侧 5 列)。
+        #   旧实现 [-11:]+[:11] 为 22 列(~21°)且西 11/东 11 不对称, 与注释"±5°/10°×10°"不符。
+        win_u = np.concatenate([uu[la0:la1, -5:], uu[la0:la1, :6]], axis=1).copy()
+        win_v = np.concatenate([vv[la0:la1, -5:], vv[la0:la1, :6]], axis=1).copy()
         # 排除中心 2°(la_i-1..la_i+1, lo 中心±2),边缘时钳制避免负索引
         c_la = la_i - la0
         r0, r1 = max(0, c_la - 1), min(win_u.shape[0], c_la + 2)
-        # 拼接后列 11 为中心; 排除列 9..14(中心±2 附近)
-        win_u[r0:r1, 9:14] = np.nan
-        win_v[r0:r1, 9:14] = np.nan
+        # 拼接后本地列 5 为中心(lo_i); 排除本地列 3..7(中心±2 附近)
+        win_u[r0:r1, 3:8] = np.nan
+        win_v[r0:r1, 3:8] = np.nan
         # 窗口全为 NaN(如 uv 缺失/边缘)时保持 env 为 0(与 uv 缺失时一致)
         if np.isfinite(win_u).any():
             env_u = float(np.nanmean(win_u)) * 1.944

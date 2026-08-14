@@ -125,15 +125,17 @@ class DataRepository:
                 # 空 pts 台风(新建占位)豁免过滤,避免重载后丢失
                 self.tys = [ty for ty in self.tys if not ty.pts or any(
                     area.contains(p['la'], p['lo']) for p in ty.pts)]
-        self._sort_by_basin()
-        self._refresh_ace()
-        self._fill_point_categories()
-        # N20: 应用持久化的自定义名称(cfg.tn 按 盆域+编号 键)
+        # N20: 先应用持久化自定义名称(cfg.tn 按 盆域+编号 键)再排序,
+        # 使 _sort_by_basin 以最终显示名(cust)作为名称排序键,避免自定义名称
+        # 后列表名次与实际显示不一致。
         tn = getattr(self.cfg, 'tn', None) or {}
         for ty in self.tys:
             cust = tn.get(f"{ty.b}{ty.n}")
             if cust:
                 ty.cust = cust
+        self._sort_by_basin()
+        self._refresh_ace()
+        self._fill_point_categories()
 
     def parse_typhoon_file(self, filepath: str, add_to_list: bool = True) -> Optional[Typhoon]:
         encodings = ['utf-8', 'gbk', 'latin-1', 'cp1252']
@@ -181,8 +183,15 @@ class DataRepository:
                 new_marker = True
                 m2 = re.match(r'# NEW\s+(\S+)\s+(\S+)\s*(.*)', line.strip())
                 if m2:
-                    ty.basin = m2.group(1)
-                    ty.n = m2.group(2)
+                    basin_code = m2.group(1)
+                    num = m2.group(2)
+                    # 同步身份字段: b(系统盆域)保持构造值"WP"(全网统一,不可随
+                    # 文件内容变化),仅 basin(显示盆域)/n/name 跟随文件身份;否则
+                    # b 在 NEW 占位与数据行两种解析路径间不一致,导致 cfg.tn 的自
+                    # 定义名称键 f"{b}{n}" 跨重载错位(占位→加点后键从 AL05 变 WP05)。
+                    ty.basin = basin_code
+                    ty.n = num
+                    ty.name = f"{ty.b}{num}"
                     nm = m2.group(3).strip()
                     if nm:
                         ty.cust = ty.sname = nm
@@ -226,6 +235,11 @@ class DataRepository:
 
         if last_basin:
             ty.basin = last_basin
+
+        # 解析过程中 ty.n 被每条数据行的第2列覆盖(如 "2026 D5W wpD52026" → n="D5"),
+        # 此时构造时生成的 ty.name(=f"{b}{文件名编号}") 已过期,按最终身份刷新。
+        if ty.n and ty.b:
+            ty.name = f"{ty.b}{ty.n}"
 
         if ty.pts:
             if ty.pts[-1]['name']:

@@ -114,17 +114,43 @@ class SeasonController:
                          - datetime(self.sy, 1, 1)).total_seconds()
                 year_seconds = min(year_seconds, w)
             if self.ste >= year_seconds:
-                self.ste -= year_seconds
                 self.sy += 1
                 if self.sy > self.edy:
                     self.sy = self.sty
                     wrapped = True
+                if self.cfg.hemisphere == HEMISPHERE_SOUTH and wrapped:
+                    # 南半球仅在"回卷"(进入下一 ACE 年/循环)时把 ste 重编码为
+                    # 当年 7/1 偏移(R1)。非回卷跨年必须走 ste -= year_seconds,
+                    # 让时钟落到次年 1/1 继续播放 1-6 月(南半球活跃季);
+                    # 否则每季只播 7-12 月,1-6 月被永久跳过(R2 回归修复)。
+                    base = (datetime(self.sy, 7, 1, 0)
+                            - datetime(self.sy, 1, 1, 0)).total_seconds()
+                    first = getattr(self, '_sh_first_second', None)
+                    if first is not None and first < base:
+                        # 首年 1-6 月已有报点:从最早报点前 1 小时起播,
+                        # 与 reset_to_first_year 完全一致(M4),否则回卷后
+                        # 首年 1-6 月(上一 ACE 年)数据被永久跳过(R3)。
+                        self.ste = max(0.0, first - 3600.0)
+                    elif self.sty == self.edy:
+                        # 单年数据:精确落到当年 7/1(与 reset_to_first_year 及
+                        # 多年 else 分支一致)。回卷点 _sh_wrap_second 必不小于
+                        # 当年 7/1+1h(末报在 7-12 月),故 ste=base < 回卷点,
+                        # 不会恒真死循环;且避免 base-3600 落地后首帧 ACE 年
+                        # 瞬时误标为上一 ACE 年、与 reset 起播点错位(R4)。
+                        self.ste = base
+                    else:
+                        # 多年数据:精确落到当年 7/1,与 reset_to_first_year 一致
+                        self.ste = base
+                else:
+                    self.ste -= year_seconds
+                if wrapped:
+                    # 彻底回卷:ACE 累计无条件重置。南半球回卷落到当年 7/1,
+                    # 北半球回到 1/1(尾部 July-1 翻转在 wrapped 时被跳过)。
                     if self.cfg.hemisphere == HEMISPHERE_SOUTH:
-                        # 南半球季节从 7 月 1 日开始:回卷后 ste 编码 7 月偏移(R1);
-                        # -3600 保证 < 回卷点(单年数据时避免恒真死循环)
-                        self.ste = (datetime(self.sy, 7, 1, 0)
-                                    - datetime(self.sy, 1, 1, 0)).total_seconds() - 3600.0
-                        new_ace_year = self.ace_engine.ace_year(datetime(self.sy, 7, 1, 0))
+                        # 用实际起播时间反推 ACE 年(首年 1-6 月起播时即上一
+                        # ACE 年),与 reset_to_first_year 的 current_ace_year 一致
+                        restart_dt = self._year_start(self.sy) + timedelta(seconds=self.ste)
+                        new_ace_year = self.ace_engine.ace_year(restart_dt)
                     else:
                         new_ace_year = self.ace_engine.ace_year(datetime(self.sy, 1, 1, 0))
                     self.csa = 0.0
@@ -132,21 +158,24 @@ class SeasonController:
                     self.current_ace_year = new_ace_year
                     if self._dialog_mgr and self._dialog_mgr.ace_chart.active:
                         self._dialog_mgr.ace_chart.needs_update = True
-                else:
-                    new_dt = datetime(self.sy, 1, 1, 0)
-                    new_ace_year = self.ace_engine.ace_year(new_dt)
+                elif self.cfg.hemisphere != HEMISPHERE_SOUTH:
+                    # 北半球每个日历年即一季:非回卷跨年必重置累计。
+                    new_ace_year = self.ace_engine.ace_year(datetime(self.sy, 1, 1, 0))
                     if new_ace_year != self.current_ace_year:
                         self.csa = 0.0
                         self._csa_base = 0.0
                         self.current_ace_year = new_ace_year
                         if self._dialog_mgr and self._dialog_mgr.ace_chart.active:
                             self._dialog_mgr.ace_chart.needs_update = True
+                # (南半球非回卷:ste 现已落到次年 1/1 附近,ACE 年尚未变,
+                # 由下方 "July-1 翻转" 在真实跨入 7/1 时再重置,避免本帧重复重置。)
                 if self.sy == self.sty:
                     if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
                         pb = self._dialog_mgr.sim.playback_ctrl
                         pb.landfall_records.clear()
                         try:
                             pb._lf_last.clear()
+                            pb._was_fin.clear()
                         except Exception:
                             pass
                     for ty in self.repo.tys:
@@ -245,12 +274,14 @@ class SeasonController:
         self._start_cache.clear()
         self._pending = None
         self.yf = False
-        # 跳转回拨后清空登陆记录/去重位置,避免同一段路径被重复统计
+        # 跳转回拨后清空登陆记录/去重位置/完成提示,避免同一段路径被重复统计、
+        # 或重新播完该台风时被 _was_fin=True 抑制 ACE 结束提示(R4)
         if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
             pb = self._dialog_mgr.sim.playback_ctrl
             pb.landfall_records.clear()
             try:
                 pb._lf_last.clear()
+                pb._was_fin.clear()
             except Exception:
                 pass
         for ty in self.repo.tys:

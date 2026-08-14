@@ -174,7 +174,11 @@ class TySimEventMixin:
                 return True
         elif e.type == pygame.MOUSEMOTION and self.right_button_dragging:
             mx, my = e.pos
-            if my >= self.map_height:
+            # 钳到地图区域: 顶部 my<0 与底部 my>=map_height 都要钳,
+            # 否则鼠标快速甩出窗口上下沿时 dy 突变使画面跳动/累积偏移
+            if my < 0:
+                my = 0
+            elif my >= self.map_height:
                 my = self.map_height - 1
             dx = mx - self.right_drag_start_pos[0]
             dy = my - self.right_drag_start_pos[1]
@@ -379,7 +383,10 @@ class TySimEventMixin:
                         init,
                         lambda vals, idx=i: self.update_point_in_edit_typhoon(vals, idx)
                     )
+                    # 与地图左键选中路径一致: 长按编辑的报点同步为选中点,
+                    # 否则 _edit_selected_point 残留旧 idx,后续 Alt+方向 或 Delete 会操作错误报点
                     self._last_edited_point = i
+                    self._edit_selected_point = i
                     return
                 la, lo = self.screen_to_latlon(mx, my)
                 current_name = (self.edit_typhoon.pts[-1]['name'] if self.edit_typhoon.pts

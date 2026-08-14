@@ -55,7 +55,7 @@
   "show_ri_effect": true,
   "show_ace_bar": true,
   "show_ace_total": false,
-  "disable_dpi_scaling": false,
+  "disable_dpi_scaling": true,
   "dark_mode": true,
   "icon_set": "smcy",
   "color_scheme": 2,

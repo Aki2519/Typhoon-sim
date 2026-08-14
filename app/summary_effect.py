@@ -71,6 +71,16 @@ def _truncate_bar(font, text: str, max_w: int) -> pygame.Surface:
     return result
 
 
+def clear_caches() -> None:
+    """清空摘要静态缓存(紫滤镜/边框/描边/截断),配合资源重置调用。
+
+    紫滤镜结果以 tier[1] 入键:图标设置切换后旧强度桶不再有对应资源,清空防窜用。"""
+    _purple_summary_cache.clear()
+    _border_cache.clear()
+    _outlined_cache.clear()
+    _trunc_cache.clear()
+
+
 class TyphoonSummary:
 
     BAR_H = 64
@@ -170,7 +180,10 @@ class TyphoonSummary:
         if not self._started:
             self._try_start(current_time)
             return True
-        self._frame_idx += 1
+        # 帧进度按真实经过时间推导(int(elapsed*60))而非渲染调用次数累加:
+        # 高帧率(120FPS/不封顶)下若逐帧 +1 会跑超视频总长导致后半段空白,
+        # 低帧率下则慢放——与淡入/位移(均按 elapsed)脱节。
+        self._frame_idx = int((current_time - self.start_time) / 1000.0 * 60.0)
         alive = (current_time - self.start_time) / 1000.0 < self._total
         if not alive and _slot_registry.get(self._slot) is self:
             _slot_registry.pop(self._slot, None)

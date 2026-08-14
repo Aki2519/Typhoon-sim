@@ -145,17 +145,19 @@ class TyphoonSim:
         return self._bilinear(fld, la, lo)
 
     def _bilinear(self, fld, la, lo):
-        """双线性插值。E1: 行数取实际网格(121),NaN 返回 None(防全链 NaN 崩溃)。"""
+        """双线性插值。E1: 行/列数取实际网格(默认 121×360),NaN 返回 None。
+        E13: 经度维数取 fld.shape[1] 而非硬编码 360(与 basin._sample_bilinear
+        口径一致),避免某字段并非标准 1°×360 列时越界/错位采样。"""
         if fld is None:
             return None
-        h = fld.shape[0]
-        x = (lo % 360.0) / 360.0 * 360.0
+        h, w = fld.shape[0], fld.shape[1]
+        x = (lo % 360.0) / 360.0 * w
         y = (la + 60.0) / 120.0 * (h - 1)
         x0, y0 = int(x), int(y)
-        x0 = min(max(x0, 0), 359)
+        x0 = min(max(x0, 0), w - 1)
         y0 = min(max(y0, 0), h - 2)
         fx, fy = x - x0, y - y0
-        x1, y1 = (x0 + 1) % 360, y0 + 1
+        x1, y1 = (x0 + 1) % w, y0 + 1
         v = (fld[y0, x0] * (1 - fx) * (1 - fy) + fld[y0, x1] * fx * (1 - fy)
              + fld[y1, x0] * (1 - fx) * fy + fld[y1, x1] * fx * fy)
         if v != v:      # NaN
@@ -196,7 +198,9 @@ class TyphoonSim:
             v = sv * 1.944 if sv is not None else 0.0
         # β漂移(向赤道侧偏西 + 向极)
         beta_lat = 2.5 + 1.5 * math.exp(-((abs(self.la) - 20) / 8.0) ** 2)
-        u_beta = -beta_lat * (1 if self.la >= 0 else 1)
+        # 东西分量: 南北半球均偏西(赤道侧偏西是固定地理方向,β项无半球号)
+        u_beta = -beta_lat
+        # 向极分量: 北半球向北(+)南半球向南(-)
         v_beta = (1.0 + 0.5 * math.exp(-((abs(self.la) - 20) / 8.0) ** 2)) \
             * (1 if self.la >= 0 else -1)
         # 红噪声扰动(AR(1))
@@ -222,15 +226,22 @@ class TyphoonSim:
         sst_cur = self._sample(self._field('sst'), self.la, self.lo) or 28.5
         self._cold_collapse = bool(self.S > 0.55 and teq is not None
                                    and teq < sst_cur - 2.5 and self.vmax >= 90)
-        # 峰值后结构弱化: 从峰值回落 3kt 起累积衰退进程,增强效率持续下降,
-        # 系统自然下沉直至并入背景(无寿命上限,消散由模拟自然发生);
-        # 再增强(暖水/入海/斜压)时进程恢复
+        # 峰值后结构弱化: 从峰值回落 3kt 且当前 PI 已不足以维持强度时,
+        # 累积衰退进程,增强效率持续下降,系统自然下沉直至并入背景
+        # (无寿命上限,消散由模拟自然发生);环境恢复(PI 重新高于 vmax,
+        # 暖水/入海/斜压)时结构重建,衰退进程快速消退 → 再增强不被累计衰减锁死。
+        # 修复: 原实现仅以"回到峰值-3kt 以上"为唯一恢复条件,而衰减抑制了
+        # pi_eff 使 vmax 永远回不到峰值-3 → 累计衰退无解,即便环境转好也
+        # 永久塌到 5% 上限,真实再增强(先减弱后暖水增强)不可能发生。
         decay = getattr(self, '_decay', 0.0)
-        if self.vmax_peak >= 55 and self.vmax <= self.vmax_peak - 3:
+        below = self.vmax_peak >= 55 and self.vmax <= self.vmax_peak - 3
+        if below and pi_eff <= self.vmax:
+            # 峰值后且环境已不足以维持当前强度: 结构持续衰退(累积)
             decay += 0.5
             pi_eff *= max(0.05, 1.0 - 0.03 * decay)
         else:
-            decay = max(0.0, decay - 0.25)
+            # 环境恢复(pi_eff > vmax): 结构重建, 衰退进程消退 → 允许再增强
+            decay = max(0.0, decay - 0.5)
         self._decay = decay
         tau = 36.0 if pi_eff > self.vmax else 18.0
         dv = (pi_eff - self.vmax) / tau * 6.0
@@ -510,11 +521,14 @@ class TyphoonSim:
         lines = []
         for st in self.states:
             la_s = f"{int(abs(st['la']) * 10):3d}{'N' if st['la'] >= 0 else 'S'}"
-            # C7: 与 xrq/回放程序惯例一致,经度 >180 写 W
-            if st['lo'] > 180:
-                lo_s = f"{int((360 - st['lo']) * 10):4d}W"
+            # C7: 与 xrq/回放程序惯例一致,经度 >180 写 W;
+            # B: lo 已 %360,但 _snapshot 的 round 可使 359.9x 进位到 360.0,
+            # 先 %360 归一避免 dateline 处写出 '0W'(实际为 0°E/日界线)
+            lo = st['lo'] % 360.0
+            if lo > 180:
+                lo_s = f"{int((360 - lo) * 10):4d}W"
             else:
-                lo_s = f"{int(st['lo'] * 10):4d}E"
+                lo_s = f"{int(lo * 10):4d}E"
             lines.append(f"{self.basin}, {self.no:02d}, {st['t']},   , XRQA,   0,"
                          f" {la_s}, {lo_s}, {st['w']:3d}, {st['p']:4d}, {st['st']}")
         with open(path, 'w', encoding='utf-8') as f:

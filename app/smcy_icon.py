@@ -662,3 +662,20 @@ def clear_smcy_cache() -> None:
         stream.release()
     _landed_streams.clear()
     _landfall_cache.clear()
+    # R6 闭环: 清理以 id(源图)/强度桶为键的静态特效缓存,避免源图回收后
+    # id 复用命中陈旧条目渲染旧图标。均用局部导入避免模块级循环依赖。
+    try:
+        from .landfall_effect import clear_caches as _clear_landfall
+        _clear_landfall()
+    except Exception:
+        pass
+    try:
+        from .summary_effect import clear_caches as _clear_summary
+        _clear_summary()
+    except Exception:
+        pass
+    try:
+        from .particle_effect import clear_caches as _clear_particle
+        _clear_particle()
+    except Exception:
+        pass

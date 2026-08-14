@@ -139,6 +139,13 @@ class TargetRegion:
         Mla = self.lat + lat_span
         return mlo, Mlo, mla, Mla
 
+    def get_move_speed(self, prev: Optional['TargetRegion']) -> float:
+        if prev is not None and prev._has_departure_speed:
+            return prev.departure_speed
+        if self._has_arrive_speed:
+            return self.approach_speed
+        return self.approach_speed
+
     def __repr__(self):
         return (f"<Target[{self.index}] lon={self.lon} lat={self.lat} w={self.width_deg} "
                 f"arr={self.move_to_date} dep={self.move_from_date}>")
@@ -191,13 +198,6 @@ class _Parser:
                 if stripped.startswith('#') and not self._script.description:
                     self._script.description = stripped[1:].strip()
                 continue
-
-            # 行尾内联注释: 去掉 ` # xxx`(README 示例在命令后带 # 注释)。
-            # 任何合法命令都不含 '#',首个 '#' 即注释起点;仅注释则视为空行。
-            if '#' in stripped:
-                stripped = stripped.split('#', 1)[0].rstrip()
-                if not stripped:
-                    continue
 
             indent = len(line) - len(line.lstrip())
             if indent > 0:
@@ -303,12 +303,6 @@ class _Parser:
 
             if not stripped or stripped.startswith('#'):
                 continue
-
-            # 行尾内联注释(与顶层 dispatch 一致,见 parse())
-            if '#' in stripped:
-                stripped = stripped.split('#', 1)[0].rstrip()
-                if not stripped:
-                    continue
 
             if stripped.startswith('*'):
                 speed = _parse_speed(stripped[1:])
@@ -574,7 +568,7 @@ class ScriptEngine:
         end_abs = self._dt_to_abs_ste(tgt.move_from_date)
         if self._sim_abs_ste() >= end_abs:
             # 仅当 depart 是脚本显式给出的真实日期时才把模拟时间拨到该时刻;
-            # 自动回退日期(2000-01-01)不得反向重写 sim 时间(否则无日期 target
+            # 自动回退日期(2000-01-01)不能反向重写 sim 时间(否则无日期 target
             # 会被强制跳回 2000 年,R3 修复)。
             if tgt._has_explicit_move_from:
                 self._ensure_date(tgt.move_from_date)
@@ -630,12 +624,7 @@ class ScriptEngine:
             for ty in self.sim.tys:
                 self.sim._clear_drag_cache(ty)
             self._snap_to_target(tgt)
-            # 与 _update_dwell 的 _has_explicit_move_from 守卫对称:
-            # 仅当 arrive 是脚本显式真实日期时才把模拟时间拨到该时刻;
-            # 自动回退日期(2000-01-01)不得反向重写 sim 时间,
-            # 否则无 arrive 日期的 target 会经移动完成路径强制跳回 2000 年。
-            if tgt._has_explicit_move_to:
-                self._ensure_date(tgt.move_to_date)
+            self._ensure_date(tgt.move_to_date)
             if tgt._has_dwell_speed:
                 self._set_speed(tgt.dwell_speed)
             elif tgt._has_arrive_speed:
@@ -784,22 +773,13 @@ def scan_scripts(script_dir: str) -> List[dict]:
             continue
         try:
             with open(fpath, 'r', encoding='utf-8') as f:
-                first_line = ""
-                # 与 Script.parse 简介一致: 跳过首部空行/纯空白行,
-                # 第一个 # 注释即简介(否则简介写在第二行时列表漏显)
-                while True:
-                    line = f.readline()
-                    if not line:
-                        break
-                    if line.strip():
-                        first_line = line
-                        break
+                first_line = f.readline()
         except Exception:
             first_line = ""
 
         description = ""
-        if first_line.strip().startswith('#'):
-            description = first_line.strip()[1:].strip()
+        if first_line.startswith('#'):
+            description = first_line[1:].strip()
 
         scripts.append({
             'filename': fname,

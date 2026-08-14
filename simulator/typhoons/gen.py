@@ -115,9 +115,16 @@ class Generator:
                               counts: Optional[Dict[str, np.ndarray]] = None) -> Dict[str, int]:
         counts = counts or B.basin_monthly_counts()
         n_years = len(B.BASE_YEARS)      # 累计计数 → 年均
+        # 索引越界防护: month 为 1-12 时映射到 arr[0..11];越界钳位避免 IndexError/负索引回绕。
+        # 统一收敛为 int(年份均按 26 年且逐月生成均传 int;但浮点/None 等非法入参不再
+        # 触发 numpy 浮点索引 IndexError 或负索引回绕)。
+        try:
+            idx = max(0, min(11, int(month) - 1))
+        except (TypeError, ValueError):
+            idx = 0
         out = {}
         for basin, arr in counts.items():
-            mu = float(arr[month - 1]) / max(1, n_years)
+            mu = float(arr[idx]) / max(1, n_years)
             if mu <= 0:
                 out[basin] = 0
                 continue
@@ -134,7 +141,12 @@ class Generator:
         return 31 if m in (1, 3, 5, 7, 8, 10, 12) else 30
 
     def _sample_time(self, year: int, month: int) -> datetime:
-        # L1: 整月日期分布(原 randint(1,28) 使 29-31 日永不出现)
+        # L1: 整月日期分布(原 randint(1,28) 使 29-31 日永不出现)。
+        # 月份钳位(1-12)+ int 收敛: 避免越界/浮点调用 datetime 抛 ValueError 或 TypeError。
+        try:
+            month = max(1, min(12, int(month)))
+        except (TypeError, ValueError):
+            month = 1
         day = self.rng.randint(1, self._month_len(year, month) + 1)
         hour = self.rng.choice((0, 6, 12, 18))
         return datetime(year, month, day, hour)
@@ -184,8 +196,11 @@ class Generator:
     def generate(self, mode: str = 'D', *, year: Optional[int] = None,
                  month: Optional[int] = None, coord: Optional[Tuple[float, float]] = None,
                  t0: Optional[datetime] = None, basin: Optional[str] = None,
-                 counts: Optional[Dict[str, np.ndarray]] = None) -> List[dict]:
-        """mode: A 决定生成点 / B 决定生成时间 / C 两者给定 / D 完全随机。"""
+                 counts: Optional[Dict[str, np.ndarray]] = None,
+                 window_months: Optional[int] = None) -> List[dict]:
+        """mode: A 决定生成点 / B 决定生成时间 / C 两者给定 / D 完全随机。
+        window_months: 仅模式 D 使用。从 (year, month) 起连续覆盖的月数(跨年递增),
+        与环境场窗口逐月一致。缺省 = 当前年剩余月数(13-month0), 保持旧 1 年语义。"""
         if mode == 'C':
             if coord is None or t0 is None:
                 raise ValueError('模式 C 需给定坐标与时间')
@@ -213,16 +228,34 @@ class Generator:
                     break
         else:   # D 完全随机(整季无人值守)
             y = year or 2026
-            # D8: 月份窗口从 month(接续段起始月)对齐到 12 月,不再固定 1 月起
-            # (run.py GUI/headless 均按接续段起始月传参,避免环境场窗口错位)
-            for mo in range(month or 1, 13):
-                cnt = self.sample_monthly_counts(y, mo, counts)
+            # D8: 月份窗口从 month(接续段起始月)对齐整窗(跨年递增), 不再固定 1 月起
+            # (run.py GUI/headless 均按接续段起始月传参,避免环境场窗口错位)。
+            # 越界防护: month 为空/0 → 1;负值/超 12 → 钳位到合法月
+            # (否则 range 空窗不生成,或 sample_monthly_counts/_sample_time 索引/日期越界)。
+            try:
+                mo0 = max(1, min(12, int(month or 1)))
+            except (TypeError, ValueError):
+                mo0 = 1
+            # window_months: 连续覆盖月数(跨年递增, 与 run.py 环境场窗口严格一致)。
+            # 默认 = 首年剩余月数(13-mo0)→ 保持旧 1 年行为; 显式传入才能覆盖多年窗。
+            try:
+                nwin = max(1, int(window_months) if window_months is not None
+                           else (13 - mo0))
+            except (TypeError, ValueError):
+                nwin = 13 - mo0
+            cy, cm = y, mo0
+            for _ in range(nwin):
+                cnt = self.sample_monthly_counts(cy, cm, counts)
                 for b, n in cnt.items():
                     la_band, lon_band = _basin_band(b)
                     for _ in range(n):
-                        t = self._sample_time(y, mo)
+                        t = self._sample_time(cy, cm)
                         la, lo = self._sample_position(t, la_band, lon_band)
                         self._try_gen(t, la, lo, 'D')
+                cm += 1
+                if cm > 12:
+                    cm = 1
+                    cy += 1
         self._sort_records()
         # 需求1: 每次生成自动写日志(文件 + 直接输出到 cmd 窗口)
         print(f"[gen] 生成完成: {len(self.records)} 个系统, 拒绝 {len(self.rejections)} 次 "

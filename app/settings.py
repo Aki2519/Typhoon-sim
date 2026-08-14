@@ -154,6 +154,7 @@ class Settings(DraggableDialog):
                  100, self._cb_map_range, None),
                 ('section', '角点+大小'),
                 ('field', 'bl_lon'), ('field', 'bl_lat'), ('field', 'span'),
+                ('note', 'corner_lat_note'),
             ]
         if self.tab_index == 3:  # 播放
             return [
@@ -269,10 +270,23 @@ class Settings(DraggableDialog):
             self._hemisphere_changed = True
 
     def _cb_ace_limit(self, m):
+        if m == self.ace_limit_mode:
+            return
+        # 先把当前(经纬)字段的编辑写回 self,再切换模式;否则即时路径读到的是
+        # 尚未落回 self 的旧句柄,且 LATLON 字段在切走后从 validated 循环消失。
+        self._flush_fields()
         self.ace_limit_mode = m
         self._ace_changed = True
+        # 切至不显示经纬字段的模式后,apply_settings 的 validated 循环再也看不到这些字段;
+        # 若上面 flush 已把编辑后的界值写回 self 且与 sim 已应用值不同,则须置脏,
+        # 让确认时按最终同步值真正重算一次(保证“编辑界值+切模式+确认”不漏重算)。
+        if (self.ace_min_lon != self.sim.ace_min_lon
+                or self.ace_max_lon != self.sim.ace_max_lon
+                or self.ace_min_lat != self.sim.ace_min_lat
+                or self.ace_max_lat != self.sim.ace_max_lat):
+            self._ace_recalc_dirty = True
         self._apply_filter_now()
-        self.rebuild_fields()
+        self.rebuild_fields(flush=False)
 
     def _cb_dark_mode(self, d):
         self.sim.dark_mode = d
@@ -430,6 +444,10 @@ class Settings(DraggableDialog):
         self.bl_lon_label = rt(f_m, "左下角经度:", TX)
         self.bl_lat_label = rt(f_m, "左下角纬度:", TX)
         self.span_lon_label = rt(f_m, "地图宽度 (°):", TX)
+        # R4: 角点+大小模式无北界(最北纬度)输入控件,北界沿用“经纬范围”模式的 Mla。
+        # 说明此处,避免用户对该数值的约束来源困惑(否则“最南纬度必须小于最北纬度”报错无从下手)。
+        self.corner_lat_note = rt(f_s, "北界(最北纬度)沿用“经纬范围”中设置,如报错请切回该模式调整。",
+                                  TD, 400)
         self.map_range_modes = [rt(f_m, "经纬范围", (255, 255, 255)), rt(f_m, "角点+大小", (255, 255, 255))]
 
         self.hemisphere_label = rt(f_m, "半球:", TX)
@@ -1099,6 +1117,20 @@ class Settings(DraggableDialog):
         self._ace_changed = False
         self._ace_recalc_dirty = False
         self._hemisphere_changed = False
+        # 恢复默认会整体重置 ACE 配置；hemisphere 亦影响 ACE 累计口径,经重置成北半球
+        # 后须一并重算(此前漏检)+ 台风季下重定位季节指针,避免 ACE 数据仍旧半球口径。
+        if self.hemisphere != self.sim.hemisphere:
+            self._hemisphere_changed = True
+            self._ace_recalc_dirty = True
+        # ace_limit_mode/basin 不经 validated 字段，与被恢复的 sim 已应用值不一致时须置脏，
+        # 确保 apply_settings 正确重组/重算。
+        if (self.ace_limit_mode != self.sim.ace_limit_mode
+                or self.ace_limit_basin != self.sim.ace_limit_basin
+                or self.ace_min_lon != self.sim.ace_min_lon
+                or self.ace_max_lon != self.sim.ace_max_lon
+                or self.ace_min_lat != self.sim.ace_min_lat
+                or self.ace_max_lat != self.sim.ace_max_lat):
+            self._ace_recalc_dirty = True
         self.rebuild_fields()
         self._update_bg_rect()
 
@@ -1792,7 +1824,11 @@ class Settings(DraggableDialog):
             setattr(self, key, value)
             if key.startswith('ace_'):
                 self._ace_changed = True
-                self._ace_recalc_dirty = True
+                # 仅当值与 sim 当前已应用值不同才置位重算：
+                # 即时路径(_apply_filter_now)已就地 recalc，若文本未实际改动
+                # 则不再二次重算，消除“切模式+确认”路径的双 recalc。
+                if value != getattr(self.sim, key, None):
+                    self._ace_recalc_dirty = True
 
         # 角点+大小模式：左下角经/纬 + 跨度 映射回 mlo/mla/Mlo
         if self._map_range_mode == 1:
@@ -1832,6 +1868,12 @@ class Settings(DraggableDialog):
             if span <= 0.1:
                 self._mark_error_field('span')
                 self.sim.show_error("地图宽度必须大于 0.1°")
+                return False
+            # 角点+大小模式无北界输入,但左下纬(mla)仍须小于现存北界(Mla),
+            # 否则地图垂直范围失效(该分支此前漏检 mla>=Mla 的非法组合)。
+            if not self.mla < self.Mla:
+                self._mark_error_field('bl_lat')
+                self.sim.show_error("最南纬度必须小于最北纬度")
                 return False
 
         # ACE 经纬范围交叉校验

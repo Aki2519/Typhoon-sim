@@ -189,7 +189,7 @@ def rt(f, text, color, max_width=None):
             lines.append(cur.rstrip(' '))
             cur = ""
         # 单个词(可能为无空格的中文整段/超长拉丁词)自身超宽 → 逐字符拆分
-        fill, run = "", ""
+        run = ""
         for ch in wd:
             trial = run + ch
             if _width(trial) > max_width:

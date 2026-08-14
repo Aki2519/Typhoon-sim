@@ -138,6 +138,11 @@ class AppConfig:
             cfg.ace_min_lon, cfg.ace_max_lon = cfg.ace_max_lon, cfg.ace_min_lon
         if cfg.ace_max_lat < cfg.ace_min_lat:
             cfg.ace_min_lat, cfg.ace_max_lat = cfg.ace_max_lat, cfg.ace_min_lat
+        # 陆地范围同样需要保持 max≥min,避免未来下游 (max-min) 除零
+        if cfg.land_max_lon < cfg.land_min_lon:
+            cfg.land_min_lon, cfg.land_max_lon = cfg.land_max_lon, cfg.land_min_lon
+        if cfg.land_max_lat < cfg.land_min_lat:
+            cfg.land_min_lat, cfg.land_max_lat = cfg.land_max_lat, cfg.land_min_lat
         return cfg
 
     @staticmethod
@@ -159,12 +164,20 @@ class AppConfig:
         if t == 'int':
             if isinstance(v, bool):
                 return AppConfig._default_for(fld)
+            # int() 遇到 nan/inf(JSON 字面量或 1e999)直接抛 OverflowError,
+            # 先归一化再折算,避免 load() 崩溃(与下方 float NaN/Inf 守卫一致)
             try:
+                try:
+                    fv = float(v)
+                except (TypeError, ValueError):
+                    fv = None
+                if fv is not None and (math.isnan(fv) or math.isinf(fv)):
+                    return AppConfig._default_for(fld)
                 out = int(v)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 try:
                     out = int(float(v))
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     return AppConfig._default_for(fld)
             if fld.name in ('screen_width',):
                 out = max(800, min(out, 3840))
@@ -172,6 +185,14 @@ class AppConfig:
                 out = max(600, min(out, 2160))
             elif fld.name in ('point_size', 'icon_size', 'name_size', 'peak_label_size'):
                 out = max(1, out)
+            elif fld.name == 'fps_cap':
+                # 0 = 不限帧(settings UI 提供 60/120/0 三档)。首轮修复误用
+                # max(1,·),导致手改/重启后 0 被钳成 1 FPS;必须放行 0。
+                out = max(0, min(out, 500))
+            elif fld.name == 'smooth_path_segments':
+                # 与 settings.py 的 200 上限对齐:避免手改 config 注入
+                # 每段 1000 点的昂贵样条(全站 ~8 处调用点)。<=0 仍钳 1。
+                out = max(1, min(out, 200))
             return out
         if t == 'float':
             try:
@@ -199,6 +220,13 @@ class AppConfig:
             return AppConfig._default_for(fld)
         if t == 'Optional[str]':
             return v if v is None or isinstance(v, str) else AppConfig._default_for(fld)
+        if fld.name == 'hemisphere':
+            # 下半球开关靠严格 == 'south' 判断；手改 config 写成 'North'/'S' 会
+            # 静默让南半球季节、ACE 年界全部翻转,这里做小写 + 白名单归一化(防御)。
+            if isinstance(v, str):
+                v = v.strip().lower()
+                return v if v in (HEMISPHERE_NORTH, 'south') else AppConfig._default_for(fld)
+            return AppConfig._default_for(fld)
         return v if isinstance(v, str) else AppConfig._default_for(fld)
 
     def save(self, path: str) -> None:

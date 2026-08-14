@@ -24,6 +24,7 @@ CODE_STYLE.md
 simulator/output/
 simulator/env/library/
 simulator/env/climate/
+simulator/env/generated/
 simulator/env/wrfdir/
 simulator/env/realdir/
 simulator/wrf/case/input/

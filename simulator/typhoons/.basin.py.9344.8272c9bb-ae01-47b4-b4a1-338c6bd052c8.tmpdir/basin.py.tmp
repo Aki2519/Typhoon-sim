@@ -76,20 +76,16 @@ def load_miwu(years: range = range(1979, 2026)) -> List[dict]:
 
 
 def extratropical_pairs(tys: Optional[List[dict]] = None) -> List[Tuple[int, int, str]]:
-    """EX/SS/SD 段的 (w, p, 性质) 联合分布(风压解耦约束域)。
-    缓存仅作用于默认 miwu 全集: 显式传入 tys 时按实参重新计算,
-    避免全局 _EX_CACHE 使显式样本集失效(混入其他月份/盆地样本)。"""
+    """EX/SS/SD 段的 (w, p, 性质) 联合分布(风压解耦约束域)。"""
     global _EX_CACHE
-    if tys is None and _EX_CACHE is not None:
+    if _EX_CACHE is not None:
         return _EX_CACHE
-    src = tys if tys is not None else load_miwu()
+    tys = tys if tys is not None else load_miwu()
     out = []
-    for ty in src:
+    for ty in tys:
         for t, la, lo, w, p, st in _pts_of(ty):
             if st in ('EX', 'SS', 'SD') and w > 0 and p > 0:
                 out.append((w, p, st))
-    if tys is not None:
-        return out
     _EX_CACHE = out
     return out
 
@@ -323,7 +319,7 @@ def season_ace(tys: Optional[List[dict]] = None) -> List[float]:
 def _sample_bilinear(fld: np.ndarray, la: float, lo: float) -> float:
     """对 60°S..60°N / 0-360°E 1° 网格场做双线性采样(与 gen._bilinear_at 一致)。
     返回值: 实 NaN 时返回 np.nan(调用方须忽略);纬度越界时钳到边界行并线性外推
-    (与 gen 口径一致;gpi 采样点均落在 60°S..60°N 网格内,实际不会触发)。"""
+    (与 gen 口径一致,gpi 采样点均落在 60°S..60°N 网格内,实际不会触发)。"""
     h, w = fld.shape
     x = (lo % 360.0) / 360.0 * w
     y = (la + 60.0) / 120.0 * (h - 1)

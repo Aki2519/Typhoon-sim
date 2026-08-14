@@ -1,4 +1,4 @@
-﻿# py/time_jump.py
+# py/time_jump.py
 """时间跳跃对话框（台风季模式）。"""
 from __future__ import annotations
 
@@ -137,6 +137,19 @@ class TimeJump(DraggableDialog):
         if not (1 <= m <= 12 and 1 <= d <= 31 and 0 <= h <= 23):
             self.sim.show_error("日期或时间超出范围")
             return False
+        # 年份钳制: 只允许在风季数据年代区间(绝对兜底 1900-2099,按数据扩展)
+        # 内跳转,避免跳到无数据的极远年代导致时钟/ACE 累计状态失真(R4)
+        lo, hi = 1900, 2099
+        sty = getattr(self.sim, 'sty', None)
+        edy = getattr(self.sim, 'edy', None)
+        if isinstance(sty, int) and isinstance(edy, int):
+            # 仅在数据年代区间 [sty, edy] 内跳转(与注释一致), 1900/2099 仅作无数据时的兜底
+            lo = max(lo, sty)
+            hi = min(hi, edy)
+        if y < lo:
+            y = lo
+        elif y > hi:
+            y = hi
         try:
             target = datetime(y, m, d, h)
         except ValueError:

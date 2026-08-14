@@ -91,10 +91,11 @@ class WrfFieldAPI:
             # 域内无数据 → 回填 real_source
             return self.fallback.get_field(var, dt)
         out = np.array(fld, dtype=np.float32)
-        # 域外 NaN → real_source 全球场补缺
+        # 域外 NaN → real_source 全球场补缺(先做形状守卫, 网格不一致时降级保留原场,
+        # 避免不同分辨率 domain 与全球场逐索引拷贝越界)
         fb = self.fallback.get_field(var, dt)
-        if fb is not None:
-            if out.ndim == 3:                      # uv_steer
+        if fb is not None and fb.shape == out.shape:
+            if out.ndim == 3:                      # uv_steer 双分量
                 for i in range(out.shape[0]):
                     bad = ~np.isfinite(out[i])
                     if bad.any():

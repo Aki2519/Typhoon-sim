@@ -263,16 +263,19 @@ class RealFieldAPI:
                         out[var] = np.full((len(lat_list), len(lon_list)),
                                            np.nan, dtype=np.float32)
                     if var == 'precipitation':
-                        # 降水: 日累计 → 24h 总量 = 目标日末时次 − 目标日首时次的累计差
-                        # (Open-Meteo precipitation 为积分累计值; 取>=0 防下洗负值)。
+                        # 降水: Open-Meteo 每小时 precipitation 为"前 1 小时降水量"
+                        # (mm, 逐小时量, 非跨日跑和累计)。24h 总量 = 目标当日全部时次之和
+                        # (0-23 逐小时求和 ≈ 日总量), 而非"末时次−首时次"的累计差
+                        # (对逐小时量该差分≈0, 无意义)。
                         # 仅取目标当日全部时次, 不复用 idxs 的 0/6/12/18 子集。
                         pidx = [q for q, t in enumerate(times)
                                 if len(t) >= 13 and t[:10] == day_str
-                                and q < len(col) and col[q] is not None]
+                                and q < len(col) and col[q] is not None
+                                and not np.isnan(col[q])]
                         if len(pidx) >= 2:
                             olo = (base + j) % len(lon_list)
                             out[var][lat_idx[la], olo] = float(
-                                max(0.0, col[pidx[-1]] - col[pidx[0]]))
+                                max(0.0, sum(float(col[q]) for q in pidx)))
                         continue
                     ok = [col[i] for i in idxs if i < len(col) and col[i] is not None]
                     if ok:
@@ -332,11 +335,15 @@ class RealFieldAPI:
             out['precip24'] = np.maximum(0.0, np.asarray(pc, dtype=float))
         t500 = raw.get('temperature_500hPa')
         if t500 is not None:
-            out['t500'] = t500
+            # BUG-F10: Open-Meteo 未指定 temperature_unit 时默认返回 Celsius,
+            # 而契约要求 t500 单位为 K → +273.15。
+            out['t500'] = np.asarray(t500, dtype=float) + 273.15
         rh850 = raw.get('relative_humidity_850hPa')
         t850 = raw.get('temperature_850hPa')
         if rh850 is not None and t850 is not None:
-            out['qv850'] = _rh_to_q(rh850, t850, _QV850_P)     # g/kg
+            # BUG-F10: temperature_850hPa 同为 Celsius, _rh_to_q 需 Kelvin 输入。
+            out['qv850'] = _rh_to_q(rh850, np.asarray(t850, dtype=float) + 273.15,
+                                    _QV850_P)     # g/kg
         hgt100 = raw.get('geopotential_height_100hPa')
         if hgt100 is not None:
             out['hgt100'] = np.asarray(hgt100, dtype=float) / 10.0     # m → dam

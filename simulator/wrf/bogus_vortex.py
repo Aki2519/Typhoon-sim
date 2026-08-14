@@ -77,20 +77,28 @@ def inject_bogus(path: str, lat: float, lon: float, vmax_kt: float,
             return np.hypot((la_g - lat) * 111000.0,
                             dlo * 111000.0 * np.cos(np.radians(lat)))
 
+        # 旋转方向: 北/南半球气旋式相反。北半球逆时针, 南半球顺时针。
+        # 统一取 "风向切向分量沿气旋方向" 的符号翻转: cyc=+1(北半球逆时针), -1(南半球顺时针)。
+        # (北半球东点 V>0、北点 U<0; 南半球翻转使东点 V<0、北点 U>0)
+        cyc = 1.0 if lat >= 0 else -1.0
+
+        def _ang(dla_g, dlo_g):
+            # 用回卷后的经度差(±180°)算方位角, 避免跨反经线(0/360)时 atan2 偏了 ~360°
+            return np.arctan2(dla_g, ((dlo_g + 180) % 360) - 180)
+
         # ── 风场(Rankine, 叠加到原场)──
         for k in range(nz):
-            # 气旋式(北半球): ang 从正东起沿逆时针, u=-v·sin, v=+v·cos。
-            # (旧式 atan2(dlo, dla) + pi/2 使 V 分量反号 → 反气旋位相, 已修正)
+            # 气旋式: ang 从正东起沿逆时针(北半球), u=-v·sin, v=+v·cos; 南半球整体取反。
             r = _dist2(la_u, lo_u)
             vtan = np.where(r <= rmw, vmax * r / max(rmw, 1.0),
                             vmax * (rmw / np.maximum(r, 1.0)) ** 0.6)
-            ang = np.arctan2(la_u - lat, lo_u - lon)
-            u[k] += -vtan * np.sin(ang)
+            ang = _ang(la_u - lat, lo_u - lon)
+            u[k] += cyc * (-vtan * np.sin(ang))
             r = _dist2(la_v, lo_v)
             vtan = np.where(r <= rmw, vmax * r / max(rmw, 1.0),
                             vmax * (rmw / np.maximum(r, 1.0)) ** 0.6)
-            ang = np.arctan2(la_v - lat, lo_v - lon)
-            v[k] += vtan * np.cos(ang)
+            ang = _ang(la_v - lat, lo_v - lon)
+            v[k] += cyc * (vtan * np.cos(ang))
 
         # ── 暖核(位温异常, 高度衰减)──
         r_m = _dist2(la_m, lo_m)

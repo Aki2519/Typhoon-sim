@@ -205,7 +205,11 @@ class ACEEngine:
                     continue
                 if not self.point_in_limit(pt['la'], pt['lo']):
                     continue
-                if not _ace_eligible(pt):
+                # R-4轮: 活跃日口径与 ACE 累计(pace)对齐 —— 仅正式报(官方小时
+                # 00/06/12/18)才使当日记为该台风活跃。此前 strict=False 会把
+                # 非正式插值报(如 03z) 计入活跃日而 pace 为 0,造成活跃数与
+                # daily_ace 口径分叉。与 active_periods 的 strict=True 一致。
+                if not _ace_eligible(pt, strict=True):
                     continue
                 pt_dt = _parse_dt(pt['t'])
                 if pt_dt and pt_dt <= cutoff:

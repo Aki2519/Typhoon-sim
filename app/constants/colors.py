@@ -26,6 +26,77 @@ C3_MINUS = (255, 136, 0)
 C4_ST = (255, 0, 191)
 WV = (0, 191, 255)
 
+# ── 绘画模式颜色方案(源自 Typhoon4 / WikiProject 路径图) ──
+# 经典 Wiki 色阶(英语维基百科 track map 长期使用的 Saffir-Simpson 标色):
+#   Depression #5EB0FF / Storm #00FAFA / Cat1 #FFFF00 / Cat2 #FFD800 /
+#   Cat3 #FF9C00 / Cat4 #FF4D00 / Cat5 #FF00FF
+WIKI_SCALE = {
+    "DB": (150, 150, 150),
+    "TD": (94, 176, 255),
+    "TS": (0, 250, 250),
+    "STS": (255, 255, 0),
+    "C1": (255, 255, 0),
+    "C2": (255, 216, 0),
+    "C3": (255, 156, 0),
+    "C4": (255, 77, 0),
+    "C5": (255, 0, 255),
+    "EX": (130, 190, 255),
+    "WV": (0, 191, 255),
+    "LO": (160, 160, 160),
+    "MD": (0, 255, 0),
+    "SS": (200, 140, 100),
+    "SD": (130, 190, 255),
+}
+# 2023 新版色阶(与 _ty4_legend.png 图例采样一致,较柔和的 7 档)
+COLOR_2023_SCALE = {
+    "DB": (180, 180, 180),
+    "TD": (110, 193, 234),
+    "TS": (77, 255, 255),
+    "STS": (255, 255, 217),
+    "C1": (255, 255, 217),
+    "C2": (255, 217, 140),
+    "C3": (255, 158, 89),
+    "C4": (255, 115, 138),
+    "C5": (141, 117, 230),
+    "EX": (160, 210, 250),
+    "WV": (120, 220, 240),
+    "LO": (190, 190, 190),
+    "MD": (120, 230, 150),
+    "SS": (220, 170, 120),
+    "SD": (160, 210, 250),
+}
+# 色阶方案注册: 'app' = 应用现有主色阶; 'wiki' = 经典 Wiki; '2023' = 2023 新版
+COLOR_SCALE_SCHEMES = {
+    "app": "应用现有色阶",
+    "wiki": "经典 Wiki 色阶",
+    "2023": "2023 新版色阶",
+}
+# 绘画图例 7 档(与 Ty4 英文图例顺序一致)
+WIKI_LEGEND_ENTRIES = [
+    ("Depression", "TD"),
+    ("Storm", "TS"),
+    ("Category 1", "C1"),
+    ("Category 2", "C2"),
+    ("Category 3", "C3"),
+    ("Category 4", "C4"),
+    ("Category 5", "C5"),
+]
+# 图例位置
+LEGEND_POS_NONE = "none"
+LEGEND_POS_TL = "tl"
+LEGEND_POS_BL = "bl"
+LEGEND_POS_TR = "tr"
+LEGEND_POS_BR = "br"
+LEGEND_POS_AUTO = "auto"
+LEGEND_POS_NAMES = {
+    LEGEND_POS_NONE: "不绘画",
+    LEGEND_POS_TL: "左上",
+    LEGEND_POS_BL: "左下",
+    LEGEND_POS_TR: "右上",
+    LEGEND_POS_BR: "右下",
+    LEGEND_POS_AUTO: "自动",
+}
+
 BUTTON_BORDER = (70, 130, 180)
 BUTTON_BG = (100, 150, 200)
 BUTTON_DISABLED = (150, 150, 150)

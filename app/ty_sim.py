@@ -28,6 +28,7 @@ from .ty_sim_mixins import (
     TySimDrawMixin, TySimEventMixin,
 )
 from .ty_sim_mixins.keyboard_mixin import TySimKeyboardMixin
+from .ty_sim_mixins.sim_mode_mixin import SimModeMixin
 from .script_engine import ScriptEngine
 from .script_dialog import ScriptDialog
 from .particle_effect import preload_particles
@@ -87,11 +88,12 @@ class _RepoProperty:
 
 class TySim(TySimUtilsMixin,
             TySimDrawMixin, TySimEventMixin, TySimKeyboardMixin,
-            TySimTrackMixin):
+            TySimTrackMixin, SimModeMixin):
 
     MODE_NORMAL = MODE_NORMAL
     MODE_SEASON = MODE_SEASON
     MODE_EDIT = MODE_EDIT
+    MODE_SIM = "sim"
 
     _REPO_FIELDS = frozenset({'tys', 'cti', 'edit_typhoon', '_all_tys_backup'})
 
@@ -152,6 +154,7 @@ class TySim(TySimUtilsMixin,
         self.cfg = cfg if cfg is not None else AppConfig.load(CONFIG_FILE)
 
         self._init_attributes()
+        self._init_sim_mode()
         self._init_resource_managers()
 
         self._install_descriptors()
@@ -329,7 +332,7 @@ class TySim(TySimUtilsMixin,
         self.new_text = rt(f_s, "新建台风", W)
         self.point_list_text = rt(f_s, "报点列表", W)
         self.normal_mode_text = rt(f_s, "正常", W)
-        self.season_mode_text = rt(f_s, "台风季", W)
+        self.season_mode_text = rt(f_s, "风季", W)
         self.edit_mode_text = rt(f_s, "编辑", W)
         self.ty_list_text = rt(f_s, "台风列表", W)
         self.settings_text = rt(f_s, "设置", W)
@@ -339,8 +342,9 @@ class TySim(TySimUtilsMixin,
         self.undo_text = rt(f_s, "撤销", W)
         self.redo_text = rt(f_s, "重做", W)
         self.script_text = rt(f_s, "脚本", W)
+        self.paint_text = rt(f_s, "绘画", (255, 255, 255))
         self.mode_desc_normal = rt(f_s, "模式: 正常", TXT)
-        self.mode_desc_season = rt(f_s, "模式: 台风季", TXT)
+        self.mode_desc_season = rt(f_s, "模式: 风季", TXT)
         self.mode_desc_edit = rt(f_s, "模式: 编辑", TXT)
 
     def save_config(self, force: bool = False) -> None:
@@ -520,6 +524,12 @@ class TySim(TySimUtilsMixin,
             # 任意界面打开时季节时钟一律冻结，避免时钟与台风运动脱节
             self.season_ctrl._pl = self.pl and not dialog_open
             self.season_ctrl.update(dt)
+
+        if getattr(self, 'md', None) == self.MODE_SIM:
+            self._sim_update(dt)
+            # 模拟模式: 暂停真实回放/季节状态更新, 避免污染 repo 状态
+            self.script_engine.update(dt)
+            return
 
         self.script_engine.update(dt)
 

@@ -8,6 +8,7 @@ import pygame
 from datetime import datetime
 
 from ..constants import f_s, rt, HEMISPHERE_SOUTH, CONFIG_FILE
+from .sim_mode_mixin import SIM_LAYER_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -214,21 +215,26 @@ class TySimKeyboardMixin:
             self._edit_idx = idx
         return idx
 
+    def _switch_edit_typhoon(self, delta: int) -> None:
+        """编辑模式切换编辑台风([ / ])。"""
+        idx = self._edit_ty_idx()
+        idx = (idx + delta) % len(self.tys)
+        self._edit_idx = idx
+        self.edit_typhoon = self.tys[idx]
+        self.edit_typhoon.rst()
+        # 切换编辑台风后复位选中点,避免旧索引越界;
+        # _last_edited_point 是全局的,也一并清掉,防跨台风残留 idx
+        self._edit_selected_point = None
+        self._last_edited_point = None
+
     def _key_left_bracket(self) -> bool:
         if self.md in (self.MODE_NORMAL, self.MODE_EDIT) and self.tys:
             if self.md == self.MODE_NORMAL:
                 self.cti = (self.cti - 1) % len(self.tys)
                 self.current_typhoon().rst()
-            elif self.md == self.MODE_EDIT:
-                idx = self._edit_ty_idx()
-                idx = (idx - 1) % len(self.tys)
-                self._edit_idx = idx
-                self.edit_typhoon = self.tys[idx]
-                self.edit_typhoon.rst()
-                # 切换编辑台风后复位选中点,避免旧索引越界;
-                # _last_edited_point 是全局的,也一并清掉,防跨台风残留 idx
-                self._edit_selected_point = None
-                self._last_edited_point = None
+            else:
+                # 编辑模式: [ 切换上一个编辑台风
+                self._switch_edit_typhoon(-1)
             return True
         return False
 
@@ -237,16 +243,9 @@ class TySimKeyboardMixin:
             if self.md == self.MODE_NORMAL:
                 self.cti = (self.cti + 1) % len(self.tys)
                 self.current_typhoon().rst()
-            elif self.md == self.MODE_EDIT:
-                idx = self._edit_ty_idx()
-                idx = (idx + 1) % len(self.tys)
-                self._edit_idx = idx
-                self.edit_typhoon = self.tys[idx]
-                self.edit_typhoon.rst()
-                # 切换编辑台风后复位选中点,避免旧索引越界;
-                # _last_edited_point 是全局的,也一并清掉,防跨台风残留 idx
-                self._edit_selected_point = None
-                self._last_edited_point = None
+            else:
+                # 编辑模式: ] 切换下一个编辑台风
+                self._switch_edit_typhoon(1)
             return True
         return False
 
@@ -364,6 +363,12 @@ class TySimKeyboardMixin:
             self.md = self.MODE_SEASON
         elif self.md == self.MODE_SEASON:
             self.md = self.MODE_EDIT
+        elif self.md == self.MODE_EDIT:
+            self.md = self.MODE_SIM
+            # 进入模拟模式: 初始化 SimCore 模拟会话
+            self.sim_playing = False
+            self._sim_sync_play_text()
+            self._sim_reset(msg=False)
         else:
             self.md = self.MODE_NORMAL
 
@@ -419,6 +424,8 @@ class TySimKeyboardMixin:
         speed_ratio = cp.hit_test_speed_bar(pos)
         if speed_ratio is not None:
             self.sp = round(self.mis + speed_ratio * (self.mas - self.mis), 1)
+            if getattr(self, 'md', None) == self.MODE_SIM:
+                self._sim_notice(f"速度: {self.sp:g}×")
             return True
         btn_key = cp.hit_test(pos)
         if btn_key is None:
@@ -429,11 +436,21 @@ class TySimKeyboardMixin:
         return False
 
     def _btn_play(self) -> bool:
+        if getattr(self, 'md', None) == self.MODE_SIM:
+            self.sim_playing = not self.sim_playing
+            self._sim_sync_play_text()
+            return True
         # R4-3: 统一走 _set_playing(清理单点完成标志/记录对话框期间手动切换)
         self._set_playing(not self.pl)
         return True
 
     def _btn_reset(self) -> bool:
+        if getattr(self, 'md', None) == self.MODE_SIM:
+            # 重置: 停止播放并新建 SimCore 模拟会话
+            self.sim_playing = False
+            self._sim_reset()
+            self._sim_sync_play_text()
+            return True
         if not self.tys:
             return True
         if self.md == self.MODE_NORMAL:
@@ -460,6 +477,50 @@ class TySimKeyboardMixin:
             self.current_typhoon().rst()
             self.pst = 0
             self.po = 0
+        return True
+
+    # ── 模拟模式按钮 ──
+    def _btn_sim_layer(self) -> bool:
+        idx = SIM_LAYER_IDS.index(self.sim_layer)
+        self._sim_set_layer(SIM_LAYER_IDS[(idx + 1) % len(SIM_LAYER_IDS)])
+        return True
+
+    def _btn_sim_spd(self) -> bool:
+        # 速度档位循环(与全局速度条共用 self.sp, 不依赖档位列表索引)
+        steps = [0.5, 1.0, 2.0, 4.0, 8.0]
+        nxt = steps[0]
+        if self.sp < steps[-1] - 1e-9:
+            for s in steps:
+                if self.sp < s - 1e-9:
+                    nxt = s
+                    break
+                nxt = s
+        self.sp = min(self.mas, max(self.mis, nxt))
+        self._sim_notice(f"速度: {self.sp:g}×")
+        return True
+
+    def _btn_sim_gen(self) -> bool:
+        self._sim_spawn(17.0, 131.5)
+        return True
+
+    def _btn_sim_nat(self) -> bool:
+        self.sim_natural_gen = not self.sim_natural_gen
+        # 同步 SimCore 生成开关
+        if self.sim_v4 is not None:
+            self.sim_v4['params']['genesis'] = self.sim_natural_gen
+        self._sim_notice("自然生成: " + ("开" if self.sim_natural_gen else "关"))
+        return True
+
+    def _btn_sim_sett(self) -> bool:
+        self.dialog_mgr.sim_settings.activate()
+        return True
+
+    def _btn_sim_export(self) -> bool:
+        try:
+            fn = self._sim_export(6)
+            self._sim_notice(f"已导出: {os.path.basename(fn)}")
+        except Exception as exc:
+            self._sim_notice(f"导出失败: {exc}")
         return True
 
     def _btn_new_typhoon(self) -> bool:
@@ -510,4 +571,8 @@ class TySimKeyboardMixin:
 
     def _btn_script(self) -> bool:
         self.script_dialog.activate()
+        return True
+
+    def _btn_paint(self) -> bool:
+        self.dialog_mgr.paint_dialog.activate()
         return True

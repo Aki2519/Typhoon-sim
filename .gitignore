@@ -11,6 +11,9 @@ picture/
 script/
 tests/
 
+# 参考实现(用户提供的 V4f 网页模拟器, 仅学习用)
+.ref_v4f/
+
 assets/SMCY/
 *.zip
 
@@ -28,7 +31,13 @@ simulator/env/generated/
 simulator/env/wrfdir/
 simulator/env/realdir/
 simulator/wrf/case/input/
+simulator/v4f/land_0.5.npz
+sim_output/
 simulator/logs/
 video/
 assets/ty_history/
 wget-log
+
+# Ghidra 反汇编产物(大文件不入库, 保留 .txt 分析输出)
+ty4_extract/proj/
+ty4_extract/_bin/

@@ -22,6 +22,8 @@ from .statistics.season_stats_dialog import SeasonStatsDialog
 from .statistics.intensity_comparison import IntensityComparisonDialog
 from .statistics.summary_list import SummaryListDialog
 from .statistics.multi_year_chart import MultiYearDialog
+from .sim_settings_dialog import SimSettingsDialog
+from .paint_dialog import PaintDialog
 
 
 class DialogManager:
@@ -43,6 +45,8 @@ class DialogManager:
         self.intensity_comparison = IntensityComparisonDialog(sim)
         self.summary_list = SummaryListDialog(sim)
         self.multi_year = MultiYearDialog(sim)
+        self.sim_settings = SimSettingsDialog(sim)
+        self.paint_dialog = PaintDialog(sim)
         self._active_count: Optional[int] = None
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -70,6 +74,7 @@ class DialogManager:
             self.ace_chart,
             self.intensity_chart, self.path_comparison, self.heatmap,
             self.path_length_viewer, self.season_stats, self.intensity_comparison,
-            self.summary_list, self.multi_year,
+            self.summary_list, self.multi_year, self.sim_settings,
+            self.paint_dialog,
             getattr(self.sim, 'script_dialog', None),
         ) if d is not None)

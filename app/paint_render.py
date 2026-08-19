@@ -274,37 +274,40 @@ class TrackMapRenderer:
             self._draw_map_crop_into(surf, _map_img, bounds, inner)
 
     def _draw_map_crop_into(self, surf, map_img, bounds, inner):
-        """把地图裁剪到内容区 inner(等距圆柱): 保持源图比例, 不拉伸。"""
+        """把地图裁剪到内容区 inner(等距圆柱): 按经纬范围裁剪, 保持源图比例不拉伸。
+
+        地图图源 (map/map.png) 为 0..360 x -90..90 等距圆柱, 需同时按经度与纬度
+        范围裁剪后再平滑缩放, 否则(只按经度裁剪/用全高)会把纬向拉伸(地图明显拉长)。
+        """
         lon_min, lon_max, lat_min, lat_max = bounds
         mw, mh = map_img.get_size()
         span_lon = max(1e-6, lon_max - lon_min)
         span_lat = max(1e-6, lat_max - lat_min)
-        # 目标内容区比例
-        inner_asp = inner.w / max(1, inner.h)
-        geo_asp = span_lon / span_lat
-        if geo_asp != 0:
-            clamp = inner_asp / geo_asp
-            # 源图上截取与 geo 同比例的区域, 避免因投影拉伸
-        # 源图等距圆柱: 直接按经纬比例裁剪
-        sx = int((lon_min % 360.0) / 360.0 * mw)
+        # 源图经纬 -> 像素: 0..360 -> 0..mw, 90..-90 -> 0..mh
+        sx = int(((lon_min % 360.0) % 360.0) / 360.0 * mw)
         sw = max(1, int(span_lon / 360.0 * mw))
-        # 经度环绕拆两段
+        sy = int((90.0 - lat_max) / 180.0 * mh)
+        sh = max(1, int(span_lat / 180.0 * mh))
+        sy = max(0, min(sy, mh - 1))
+        sh = max(1, min(sh, mh - sy))
+        # 经度环绕拆两段(目标宽度按源宽比例分配)
         if sx >= mw:
             sx = sx % mw
         if sx + sw > mw:
             seg1_w = mw - sx
             seg2_w = sw - seg1_w
-            c1 = map_img.subsurface((sx, 0, seg1_w, mh))
             d1_w = max(1, int(seg1_w / mw * inner.w))
             d2_w = max(1, inner.w - d1_w)
+            c1 = map_img.subsurface((sx, sy, max(1, mw - sx), sh))
             t1 = pygame.transform.smoothscale(c1, (d1_w, inner.h))
             surf.blit(t1, (inner.x, inner.y))
-            if seg2_w > 0:
-                c2 = map_img.subsurface((0, 0, seg2_w, mh))
+            if seg2_w > 0 and sy + sh <= mh:
+                c2 = map_img.subsurface((0, sy, min(seg2_w, mw), sh))
                 t2 = pygame.transform.smoothscale(c2, (d2_w, inner.h))
                 surf.blit(t2, (inner.x + d1_w, inner.y))
         else:
-            crop = map_img.subsurface((sx, 0, sw, mh))
+            crop_rect = (sx, sy, max(1, min(sw, mw - sx)), sh)
+            crop = map_img.subsurface(crop_rect)
             scaled = pygame.transform.smoothscale(crop, (inner.w, inner.h))
             surf.blit(scaled, (inner.x, inner.y))
 

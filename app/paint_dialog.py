@@ -142,8 +142,8 @@ class PaintDialog(DraggableDialog):
         self.title_bar_height = TITLE_BAR_H
 
         self.scheme = "wiki"
-        self.path_width = 2
-        self.point_size = 5
+        self.path_width = 4
+        self.point_size = 6
         self.margin_w = 0.0
         self.margin_h = 0.0
         self.min_w = 1920
@@ -211,7 +211,8 @@ class PaintDialog(DraggableDialog):
             self._browser._build_layout()
 
     def _row_y(self, idx):
-        return self.y0 + idx * (ROW_H + ROW_GAP)
+        # 左列内容从面板内顶部(留出「绘制范围」标题)开始
+        return self.y0 + 24 + idx * (ROW_H + ROW_GAP)
 
     def _rebuild_fields(self):
         for f in self._fields.values():
@@ -702,15 +703,13 @@ class PaintDialog(DraggableDialog):
         lp = self._left_panel_rect()
         pygame.draw.rect(surface, _pb(dark, 1), lp, border_radius=8)
         pygame.draw.rect(surface, _bd(dark), lp, 1, border_radius=8)
-        t = rt(f_m, "参数设置", _light(dark, True) if dark else (30, 60, 110))
-        surface.blit(t, (lp.x + 10, lp.y - 34))
         # 面板内左边距 = lp.x + 12, 文字不超左界
         lx = lp.x + 12
         inp_x = lx + LABEL_W
         row = self._row_y
 
-        # 范围
-        self._label(surface, "范围", lx, row(0) - 22, dark, bright=True, font=f_m)
+        # 绘制范围(模式选择)
+        self._label(surface, "绘制范围", lx, row(0) - 22, dark, bright=True, font=f_m)
         for mode, lab in (("normal", "普通"), ("region", "区域"), ("global", "全局")):
             r = self._mode_btn_rect(mode)
             r = pygame.Rect(r.x + 12, r.y, r.w, r.h)

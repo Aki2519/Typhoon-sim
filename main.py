@@ -10,11 +10,12 @@ os.chdir(script_dir)
 
 def _apply_dpi():
     # 必须在 pygame.init() 之前调用；此阶段不能导入 py.*（constants.fonts 需要 font 已初始化）
-    disable = True
+    # 缺省 False = 程序 DPI aware(UI 1:1 不放大),与 AppConfig 默认一致
+    disable = False
     if os.path.exists("config.json"):
         try:
             with open("config.json", 'r', encoding='utf-8') as f:
-                disable = json.load(f).get("disable_dpi_scaling", True)
+                disable = json.load(f).get("disable_dpi_scaling", False)
         except Exception:
             pass
     if not disable:
@@ -45,6 +46,27 @@ from app.ty_sim import TySim
 # 启动时只解析一次配置文件（窗口尺寸等全部由此派生）
 _cfg = AppConfig.load(constants.CONFIG_FILE)
 
+_WIN_TITLE = "台风路径模拟系统"
+
+
+def _maximize_window(title: str = _WIN_TITLE):
+    """最大化已创建的窗口并返回客户区尺寸 (w, h)；失败返回 None。"""
+    try:
+        import ctypes.wintypes as wt
+        hwnd = ctypes.windll.user32.FindWindowW(None, title)
+        if not hwnd:
+            return None
+        # SW_MAXIMIZE = 3
+        ctypes.windll.user32.ShowWindow(hwnd, 3)
+        rect = wt.RECT()
+        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(rect))
+        w, h = rect.right, rect.bottom
+        if w > 0 and h > 0:
+            return int(w), int(h)
+    except Exception:
+        return None
+    return None
+
 
 def main():
     sw, sh = _cfg.screen_width, _cfg.screen_height
@@ -59,7 +81,22 @@ def main():
         pass
 
     screen = pygame.display.set_mode((sw, sh), pygame.RESIZABLE, vsync=0)
-    pygame.display.set_caption("台风路径模拟系统")
+    pygame.display.set_caption(_WIN_TITLE)
+
+    # 启动即最大化：同步客户区尺寸到 pygame surface / 配置 / 布局常量
+    if getattr(_cfg, "start_maximized", True):
+        wpair = _maximize_window()
+        if wpair:
+            mw, mh = wpair
+            if (mw, mh) != (sw, sh):
+                try:
+                    screen = pygame.display.set_mode((mw, mh), pygame.RESIZABLE, vsync=0)
+                except Exception:
+                    pass
+                sw, sh = mw, mh
+                constants.SW, constants.SH = sw, sh
+                constants.MH = sh - constants.CPH
+                _cfg.screen_width, _cfg.screen_height = sw, sh
 
     sim = TySim(screen, cfg=_cfg)
     clock = pygame.time.Clock()

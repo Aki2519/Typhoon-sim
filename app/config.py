@@ -31,8 +31,9 @@ class AppConfig:
 
     show_info_box_normal: bool = True
     show_info_box_season: bool = True
-    screen_width: int = 1360
-    screen_height: int = 885
+    screen_width: int = 2560
+    screen_height: int = 1540
+    start_maximized: bool = True
     window_topmost: bool = False
 
     ace_display_mode: str = "progress_bar"
@@ -52,6 +53,15 @@ class AppConfig:
     main_rotation_speed: float = 1.0
     level3_rotation_speed: float = 1.5
     volume: float = 0.6
+    # 登陆音效随强度增强(可开关;曲线参数均可调整)
+    landfall_vol_scale: bool = True
+    landfall_vol_base_kt: int = 65
+    landfall_vol_lo_kt: int = 35
+    landfall_vol_lo_db: float = -2.0
+    landfall_vol_hi_kt: int = 112
+    landfall_vol_hi_db: float = 5.0
+    landfall_vol_cap_kt: int = 200
+    landfall_vol_cap_db: float = 15.0
     name_display_mode: int = 0
     point_name_mode: bool = False
     hemisphere: str = HEMISPHERE_NORTH
@@ -79,7 +89,7 @@ class AppConfig:
     show_ace_bar: bool = True
     show_ace_total: bool = True
 
-    disable_dpi_scaling: bool = True
+    disable_dpi_scaling: bool = False
     dark_mode: bool = True
 
     icon_set: str = ICON_SET_DEFAULT

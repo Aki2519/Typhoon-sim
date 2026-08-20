@@ -11,13 +11,30 @@ from typing import Dict, Optional, Callable
 
 
 class PointEditDialog(DraggableDialog):
-    FIELD_KEYS = ['wind', 'pressure', 'type', 'lat', 'lon', 'time']
+    # 字段集: point=编辑模式地图编辑(强度/气压/类型/纬度/经度/时间);
+    # full=报点列表编辑(参考自评工具: 洋区/编号/时间/纬度/经度/强度/气压/类型/名字)
+    FIELD_SETS = {
+        'point': ['wind', 'pressure', 'type', 'lat', 'lon', 'time'],
+        'full': ['basin', 'number', 'time', 'lat', 'lon',
+                 'wind', 'pressure', 'type', 'name'],
+    }
+    FIELD_LABELS = {
+        'wind': '强度 (节):', 'pressure': '气压 (hPa):', 'type': '类型:',
+        'lat': '纬度:', 'lon': '经度:', 'time': '时间:',
+        'basin': '洋区:', 'number': '编号:', 'name': '名字:',
+    }
 
     def __init__(self, sim):
         super().__init__(sim)
-        self.labels = ['强度 (节):', '气压 (hPa):', '类型:', '纬度:', '经度:', '时间:']
+        self.field_keys = list(self.FIELD_SETS['point'])
+        self.labels = [self.FIELD_LABELS[k] for k in self.field_keys]
+        self._latlon_idx = [i for i, k in enumerate(self.field_keys)
+                            if k in ('lat', 'lon')]
         self.callback: Optional[Callable] = None
         self.fields: list[InputField] = []
+        self.point_nav: Optional[Callable] = None
+        self.point_index: int = 0
+        self.point_total: int = 0
         self.confirm_text = rt(f_s, "确认", (255,255,255))
         self.cancel_text = rt(f_s, "取消", (255,255,255))
         self.title = rt(f_m, "编辑报点", TXT)
@@ -42,9 +59,24 @@ class PointEditDialog(DraggableDialog):
             max_y - min_y + title_height + button_height + 2 * padding
         )
 
-    def activate(self, initial_values: Optional[Dict] = None, callback: Optional[Callable] = None):
+    def activate(self, initial_values: Optional[Dict] = None, callback: Optional[Callable] = None,
+                 point_nav: Optional[Callable] = None, point_index: int = 0,
+                 point_total: int = 0, field_set: str = 'point'):
+        """打开编辑报点对话框。
+
+        point_nav: 可选, callable(cur_index, delta) → (init_values, callback, new_index) 或 None。
+        提供后支持按 , / . 切换上一/下一个报点。
+        field_set: 'point'=编辑模式地图编辑(6 字段); 'full'=报点列表编辑
+        (9 字段, 含洋区/编号/名字, 参考自评工具)。"""
         super().activate()
         self.callback = callback
+        self.point_nav = point_nav
+        self.point_index = point_index
+        self.point_total = point_total
+        self.field_keys = list(self.FIELD_SETS.get(field_set, self.FIELD_SETS['point']))
+        self.labels = [self.FIELD_LABELS[k] for k in self.field_keys]
+        self._latlon_idx = [i for i, k in enumerate(self.field_keys)
+                            if k in ('lat', 'lon')]
         self._sw = self.sim.screen_width
         self._sh = self.sim.screen_height
         cols = 3
@@ -53,7 +85,7 @@ class PointEditDialog(DraggableDialog):
         spacing = 15
         total_width = cols * field_width + (cols - 1) * spacing
         start_x = (self._sw - total_width) // 2
-        start_y = (self._sh - 200) // 2
+        start_y = (self._sh - 220) // 2
 
         self.fields.clear()
         for i, label in enumerate(self.labels):
@@ -63,20 +95,45 @@ class PointEditDialog(DraggableDialog):
             y = start_y + 40 + row * 60
             field = InputField((x, y, field_width, field_height), label=label,
                                max_length=30, dark=self.dark_mode)
-            if initial_values:
-                key = self.FIELD_KEYS[i]
-                if key in initial_values:
-                    val = initial_values[key]
-                    # 经纬度用 NSEW 格式显示
-                    if key == 'lat' and val != "":
-                        val = lat_to_display(float(val))
-                    elif key == 'lon' and val != "":
-                        val = lon_to_display(float(val))
-                    field.set_text(val)
             self.fields.append(field)
+        self._populate_fields(initial_values)
         self.fields[0].activate()
         self.current_field = 0
+        self._update_pos_title()
         self._update_bg_rect()
+
+    def _populate_fields(self, initial_values: Optional[Dict]) -> None:
+        """把初始值写入输入框(经纬度转 NSEW 显示格式)。"""
+        for i, key in enumerate(self.field_keys):
+            val = ""
+            if initial_values and key in initial_values:
+                val = initial_values[key]
+                if key == 'lat' and val != "":
+                    val = lat_to_display(float(val))
+                elif key == 'lon' and val != "":
+                    val = lon_to_display(float(val))
+            self.fields[i].set_text(val)
+
+    def _update_pos_title(self) -> None:
+        if self.point_total > 0:
+            t = f"编辑报点 ({self.point_index + 1}/{self.point_total})"
+            self.title = rt(f_m, t, TXT)
+            self.title_dark = rt(f_m, t, SETTINGS_TEXT_LIGHT)
+
+    def _nav_point(self, delta: int) -> bool:
+        """按 , / . 切换上一/下一个报点(重填字段、替换提交回调)。"""
+        if not self.point_nav:
+            return False
+        res = self.point_nav(self.point_index, delta)
+        if res is None:
+            return False
+        init, cb, new_idx = res
+        self.point_index = new_idx
+        self.callback = cb
+        self._populate_fields(init)
+        self._update_pos_title()
+        self._update_bg_rect()
+        return True
 
     def deactivate(self):
         # 必须调用基类复位 active，否则对话框残留绘制(只有面板无输入框/文字)
@@ -85,6 +142,13 @@ class PointEditDialog(DraggableDialog):
             f.deactivate()
         self.fields.clear()
         self.callback = None
+        self.point_nav = None
+        self.point_index = 0
+        self.point_total = 0
+        self.field_keys = list(self.FIELD_SETS['point'])
+        self.labels = [self.FIELD_LABELS[k] for k in self.field_keys]
+        self._latlon_idx = [i for i, k in enumerate(self.field_keys)
+                            if k in ('lat', 'lon')]
         self.dragging = False
 
     def handle_event(self, e: pygame.event.Event) -> bool:
@@ -100,6 +164,19 @@ class PointEditDialog(DraggableDialog):
                     field.rect.x += dx
                     field.rect.y += dy
             return True
+        # , / .: 切换上一/下一个报点(须在字段消费按键前拦截,
+        # 否则激活字段会把可打印的 , . 吞掉)
+        # 例外: 纬度/经度字段需要输入小数点(如 15.5N),. 不拦截;
+        # 未提供导航时也不拦截,一律落入下方字段处理
+        if e.type == pygame.KEYDOWN and e.key in (pygame.K_COMMA, pygame.K_PERIOD):
+            active_idx = next((i for i, f in enumerate(self.fields) if f.active), -1)
+            if not (e.key == pygame.K_PERIOD and active_idx in self._latlon_idx):
+                delta = -1 if e.key == pygame.K_COMMA else 1
+                if self._nav_point(delta):
+                    return True
+                if self.point_nav is not None:
+                    return True  # 有导航但已到边界: 消费按键,不切换
+            # 未拦截: 落入下方字段处理(输入框可正常输入 , / .)
         # 鼠标点击切换输入框
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             for i, field in enumerate(self.fields):
@@ -154,7 +231,7 @@ class PointEditDialog(DraggableDialog):
 
     def submit(self) -> bool:
         values = {}
-        for i, key in enumerate(self.FIELD_KEYS):
+        for i, key in enumerate(self.field_keys):
             raw = self.fields[i].get_text()
             # 经纬度从 NSEW 格式解析回浮点数
             if key == 'lat':

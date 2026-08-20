@@ -21,12 +21,51 @@ from ..ace_engine import _ace_eligible
 _box_font = SmartFont(_load_font(FONT_FILE, 28, 28), _load_font(FONT_FILE, 28, 28))
 _peak_font = SmartFont(_load_font(FONT_FILE, 19, 19), _load_font(FONT_FILE, 19, 19))
 
-_OUTLINE8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-
 # 法9/G2: 普通/编辑信息框"实时ACE"数字缓存(量化到 4 位小数,数值字面量跨帧极少变化)。
 # 与 draw_info_boxes_mixin 的 _ace_digit_cache 独立,避免跨模块共享同一 key 空间。
 _box_ace_digit_cache: dict = {}
 _BOX_ACE_DIGIT_CACHE_MAX = 64
+
+
+def _text_shadow(surf, color=(0, 0, 0), alpha=120):
+    """由带 alpha 的文字 surface 生成同形阴影(去背景信息框的对比度保障)。"""
+    try:
+        mask = pygame.mask.from_surface(surf)
+        sh = mask.to_surface(setcolor=color, unsetcolor=(0, 0, 0, 0))
+        sh.set_alpha(120)
+        return sh
+    except Exception:
+        return None
+
+
+_STROKE_OFFSETS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+_info_box_font_cache: dict = {}
+
+
+def _info_box_font(size: int):
+    """按字号缓存 SmartFont(信息框字体缩放用)。"""
+    f = _info_box_font_cache.get(size)
+    if f is None:
+        f = SmartFont(_load_font(FONT_FILE, size, size), _load_font(FONT_FILE, size, size))
+        if len(_info_box_font_cache) > 24:
+            _info_box_font_cache.pop(next(iter(_info_box_font_cache)))
+        _info_box_font_cache[size] = f
+    return f
+
+
+def _outline_text(surf, outline_color=(0, 0, 0)):
+    """给已渲染文字 surface 加 8 向描边(含换行), 返回 (w+2, h+2)。"""
+    try:
+        w, h = surf.get_size()
+        out = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
+        mask = pygame.mask.from_surface(surf)
+        shade = mask.to_surface(setcolor=outline_color, unsetcolor=(0, 0, 0, 0))
+        for dx, dy in _STROKE_OFFSETS:
+            out.blit(shade, (dx + 1, dy + 1))
+        out.blit(surf, (1, 1))
+        return out
+    except Exception:
+        return surf
 
 
 # ── 155+/170+ 紫色滤镜与辉光 ──
@@ -89,6 +128,70 @@ def _apply_purple_filter(surf: pygame.Surface, strength: float) -> pygame.Surfac
     return out
 
 
+# ── TS 弱强度青绿滤镜(45kt 以下逐渐加深) ──
+
+_TS_GRAD_MIN_WIND = 34
+_TS_GRAD_MAX_WIND = 50
+
+
+def _ts_gradient_t(wind) -> float:
+    """TS 图标滤镜渐变进度: 34kt→0(蓝端), 50kt→1(绿端, 与 STS 同色)。
+    50kt 为渐变端点; 实际 TS 到 48kt 封顶, 49kt 起为 STS。"""
+    if wind <= _TS_GRAD_MIN_WIND:
+        return 0.0
+    if wind >= _TS_GRAD_MAX_WIND:
+        return 1.0
+    return (wind - _TS_GRAD_MIN_WIND) / (_TS_GRAD_MAX_WIND - _TS_GRAD_MIN_WIND)
+
+
+_TS_GRAD_LUTS: dict = {}
+
+
+def _ts_grad_luts(t_q: int):
+    """TS 渐变滤镜 LUT(与 _purple_luts 同构): 每档进度 t 预计算通道系数。
+
+    蓝端(34kt): 压红、微压绿、提蓝+附加蓝(比旧版略蓝);
+    绿端(48kt): 压蓝为主、微提红绿 → 与 STS(0,255,0) 同色系;
+    中间按 t 线性插值, 通道系数连续, 无瞬变。"""
+    luts = _TS_GRAD_LUTS.get(t_q)
+    if luts is None:
+        t = t_q / 100.0
+        r_c = -1.00 * (1 - t) - 0.60 * t      # 蓝端压红 → 黄端微压红
+        g_c = -0.15 * (1 - t) + 0.25 * t      # 蓝端微压绿 → 黄端提绿
+        b_c = 0.45 * (1 - t) - 1.00 * t       # 蓝端提蓝 → 黄端压蓝
+        b_a = 0.35 * (1 - t)                  # 蓝端附加蓝(比旧版 0.25 略蓝)
+        d = np.arange(256, dtype=np.float32)
+        f = d / 255.0
+        # perm 上限放至 1.4: 渐变黄端需要提绿(>1), 与 b_add 不同, 不能 clip 到 1.0
+        r_perm = np.rint(np.clip(1.0 + r_c * f, 0.0, 1.4) * 1000).astype(np.int16)
+        g_perm = np.rint(np.clip(1.0 + g_c * f, 0.0, 1.4) * 1000).astype(np.int16)
+        b_perm = np.rint(np.clip(1.0 + b_c * f, 0.0, 1.4) * 1000).astype(np.int16)
+        b_add = np.rint(255.0 * b_a * f * 1000).astype(np.int32)
+        luts = (r_perm, g_perm, b_perm, b_add)
+        _TS_GRAD_LUTS[t_q] = luts
+        if len(_TS_GRAD_LUTS) > 20:
+            _TS_GRAD_LUTS.pop(next(iter(_TS_GRAD_LUTS)))
+    return luts
+
+
+def _apply_ts_gradient_filter(surf: pygame.Surface, wind) -> pygame.Surface:
+    """按风速把彩色部分在 蓝(34kt)↔绿(48kt) 间渐变着色, 白/灰部分基本不受影响。"""
+    t = _ts_gradient_t(wind)
+    t_q = int(round(t * 100))
+    r_perm, g_perm, b_perm, b_add = _ts_grad_luts(t_q)
+    out = surf.copy()
+    px = pygame.surfarray.pixels3d(out)
+    r = px[..., 0].astype(np.uint16)
+    g = px[..., 1].astype(np.uint16)
+    b = px[..., 2].astype(np.uint16)
+    d = np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b)
+    px[..., 0] = np.clip(r * r_perm[d] // 1000, 0, 255).astype(np.uint8)
+    px[..., 1] = np.clip(g * g_perm[d] // 1000, 0, 255).astype(np.uint8)
+    px[..., 2] = np.clip((b * b_perm[d] + b_add[d]) // 1000, 0, 255).astype(np.uint8)
+    del px
+    return out
+
+
 class TySimDrawIconMixin:
     """台风图标、名称、信息框的绘制。"""
 
@@ -98,6 +201,7 @@ class TySimDrawIconMixin:
     _ring_scale_cache: dict = {}
     _center_scale_cache: dict = {}
     _l3_scale_cache: dict = {}
+    _ts_grad_cache: dict = {}   # TS 渐变滤镜结果缓存 (w, h, 风速kt)
 
     @classmethod
     def _clear_icon_scale_caches(cls):
@@ -105,6 +209,7 @@ class TySimDrawIconMixin:
         cls._center_scale_cache.clear()
         cls._l3_scale_cache.clear()
         cls._purple_frame_cache.clear()
+        cls._ts_grad_cache.clear()
 
     @classmethod
     def _get_scaled_image(cls, img, new_w, new_h, cat, cache_dict):
@@ -313,6 +418,17 @@ class TySimDrawIconMixin:
         scale = target_size / max(orig_w, orig_h)
         new_w, new_h = max(1, int(orig_w * scale)), max(1, int(orig_h * scale))
         base_ring = self._get_scaled_image(ring_img, new_w, new_h, cat, self._ring_scale_cache)
+        # TS 强度渐变滤镜: 34kt 蓝 → 50kt 黄(与 STS 同色), 结果按 (尺寸,风速) 缓存
+        if cat == 'TS':
+            wq = int(round(cp['w']))
+            ckey = (new_w, new_h, wq)
+            cring = self._ts_grad_cache.get(ckey)
+            if cring is None:
+                cring = _apply_ts_gradient_filter(base_ring, wq)
+                if len(self._ts_grad_cache) > 40:
+                    self._ts_grad_cache.pop(next(iter(self._ts_grad_cache)))
+                self._ts_grad_cache[ckey] = cring
+            base_ring = cring
         total_rotation = ty.ra + ty.sa
 
         # tint 并入旋转缓存（避免每帧 tint_image 新建 Surface）
@@ -458,6 +574,7 @@ class TySimDrawIconMixin:
         ts = (max(1, int(orig[0] * scale)), max(1, int(orig[1] * scale)))
         # 155+/170+ 紫色滤镜（不影响白色部分），结果按帧缓存
         tier = _purple_tier(wind) if cat == 'C5' else None
+        is_ts = cat == 'TS'
         if tier is not None:
             key = (cat, hemi, frame_idx, ts, tier[1])
             cache = TySimDrawIconMixin._purple_frame_cache
@@ -467,6 +584,20 @@ class TySimDrawIconMixin:
                 if raw is None:
                     return
                 frame = _apply_purple_filter(raw, tier[1])
+                if len(cache) >= self._PURPLE_FRAME_CACHE_MAX:
+                    cache.pop(next(iter(cache)))
+                cache[key] = frame
+        elif is_ts:
+            # TS 强度渐变滤镜（34kt 蓝 → 50kt 黄, 与 STS 同色），结果按帧缓存
+            wq = int(round(wind))
+            key = ('tsg', cat, hemi, frame_idx, ts, wq)
+            cache = TySimDrawIconMixin._purple_frame_cache
+            frame = cache.get(key)
+            if frame is None:
+                raw = get_smcy_manager().get_frame(cat, hemi, frame_idx, ts)
+                if raw is None:
+                    return
+                frame = _apply_ts_gradient_filter(raw, wq)
                 if len(cache) >= self._PURPLE_FRAME_CACHE_MAX:
                     cache.pop(next(iter(cache)))
                 cache[key] = frame
@@ -625,13 +756,8 @@ class TySimDrawIconMixin:
         key = ('peak', label, color, name_factor)
         surf = self._name_shadow_cache.get(key)
         if surf is None:
-            fg = _peak_font.render(label, True, (255, 255, 255))
-            bk = _peak_font.render(label, True, color)
-            w, h = fg.get_size()
-            surf = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
-            for dx, dy in _OUTLINE8:
-                surf.blit(bk, (dx + 1, dy + 1))
-            surf.blit(fg, (1, 1))
+            from ..utils import render_glow_text
+            surf = render_glow_text(_peak_font, label, color)
             if name_factor != 1.0:
                 nw = max(1, int(surf.get_width() * name_factor))
                 nh = max(1, int(surf.get_height() * name_factor))
@@ -660,13 +786,8 @@ class TySimDrawIconMixin:
         key = (name, color, name_factor)
         surf = self._name_shadow_cache.get(key)
         if surf is None:
-            fg = _box_font.render(name, True, (255, 255, 255))
-            bk = _box_font.render(name, True, color)
-            w, h = fg.get_size()
-            surf = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
-            for dx, dy in _OUTLINE8:
-                surf.blit(bk, (dx + 1, dy + 1))
-            surf.blit(fg, (1, 1))
+            from ..utils import render_glow_text
+            surf = render_glow_text(_box_font, name, color)
             if name_factor != 1.0:
                 nw = max(1, int(surf.get_width() * name_factor))
                 nh = max(1, int(surf.get_height() * name_factor))
@@ -716,14 +837,16 @@ class TySimDrawIconMixin:
 
         offset_x, offset_y = int(30 * icon_factor), int(-20 * icon_factor)
         text_x, ty_pos = x + offset_x, y + offset_y
+        # 辉光版表面含 4px 透明边距(缩放后为 4*name_factor),平移回原文字位置
+        name_off = int(6 * name_factor)
 
         shadow_surf = self._get_name_surf(display_name, name_color, name_factor)
         name_alpha = int(alpha * appear * switch_t)
-        self._blit_faded(surface, shadow_surf, (text_x - 1, ty_pos - 1), name_alpha)
+        self._blit_faded(surface, shadow_surf, (text_x - name_off, ty_pos - name_off), name_alpha)
         if switch_t < 1.0 and state['prev'] is not None:
             old_surf = self._get_name_surf(state['prev'][0], state['prev'][1], name_factor)
             old_alpha = int(alpha * appear * (1.0 - switch_t))
-            self._blit_faded(surface, old_surf, (text_x - 1, ty_pos - 1), old_alpha)
+            self._blit_faded(surface, old_surf, (text_x - name_off, ty_pos - name_off), old_alpha)
 
         # ── 巅峰标注（名称下方，巅峰前后短暂显示，淡入淡出）──
         peaks = self._get_peaks(ty)
@@ -750,7 +873,8 @@ class TySimDrawIconMixin:
                 if pk['p']:
                     label += f" {pk['p']}mb"
                 surf_pk = self._get_peak_label_surf(label, pk['color'], pk_factor)
-                self._blit_faded(surface, surf_pk, (text_x - 1, py_pos), pk_alpha)
+                pk_off = int(6 * pk_factor)
+                self._blit_faded(surface, surf_pk, (text_x - pk_off, py_pos), pk_alpha)
                 py_pos += surf_pk.get_height() - 2
 
     # ── 信息框 ──
@@ -767,6 +891,13 @@ class TySimDrawIconMixin:
         peak = peak_point(ty.pts)
         peak_t = peak['t'] if peak else ''
         mv = movement_speed_kt(ty.pts, ty.points_time, ty.ci)
+        # ── S0 行配置(顺序 + 显隐 + 平滑) + 背景/阴影开关 ──
+        rows_cfg = self.info_box_rows or []
+        bg_on = bool(getattr(self, 'info_box_bg', False))
+        shadow_on = bool(getattr(self, 'info_box_text_shadow', True))
+        scale = float(getattr(self, 'info_box_scale', 1.2) or 1.0)
+        cfg_fp = (tuple((r['key'], bool(r.get('on', True)), bool(r.get('smooth', True)))
+                        for r in rows_cfg), bg_on, shadow_on, scale)
         key_data = (
             ty.b, ty.n, ty.cust, ty.sname, ty.start_time, point['t'],
             point['la'], point['lo'], point['w'], point['p'], point['st'],
@@ -774,153 +905,215 @@ class TySimDrawIconMixin:
             mw,
             ty.pts[0]['t'] if ty.pts else '',
             ty.basin,
-            point.get('official', True), point.get('cat', ''),
+            point.get('cat', ''),
             self.screen_width,      # 宽度随窗口缩放(避免 resize 后宽度陈旧)
             len(ty.pts), idx, round(mv or 0, 2), peak_t,
+            cfg_fp,
         )
         if ty in self._info_box_cache_typhoon and self._info_box_last_data.get(ty) == key_data:
-            box, ace_x, ace_y, ace_tc = self._info_box_cache_typhoon[ty]
+            box, ace_x, ace_y, ace_tc, ace_visible = self._info_box_cache_typhoon[ty]
         else:
-            ifs, ifm = f_name, _box_font
+            # 信息框字体: 按 info_box_scale 缩放(默认 1.2, 比旧版略大)
+            scale = float(getattr(self, 'info_box_scale', 1.2) or 1.0)
+            ifs = _info_box_font(max(12, int(round(21 * scale))))
+            ifm = _info_box_font(max(12, int(round(28 * scale))))
 
             if dark:
                 box_bg = (22, 28, 44, 220)
                 box_border = (55, 85, 130)
                 tc = (215, 225, 245)
-                off_ok = (90, 210, 120)
-                off_no = (235, 110, 110)
                 trend_up = (255, 150, 70)
                 trend_dn = (110, 170, 250)
+                shadow_col = (0, 0, 0)
             else:
                 box_bg = INFO_BOX_BG
                 box_border = INFO_BOX_BORDER
                 tc = TXT
-                off_ok = (0, 150, 0)
-                off_no = (150, 0, 0)
                 trend_up = (200, 90, 0)
                 trend_dn = (0, 90, 200)
+                shadow_col = (255, 255, 255)
 
-            # 小窗口下信息框宽度受 ACE 进度条左缘限制,避免遮挡;
-            # 下限取 160(极窄窗口宁可更窄也不遮进度条)
+            # 小窗口下信息框宽度受 ACE 进度条左缘限制,避免遮挡
             ace_left = max(0, self.screen_width - 10 - 495)
-            box_w = min(375, max(160, ace_left - 30))
+
+            def build_row(key, smooth, max_w):
+                """按行 key 生成 (surface, gap, is_ace); 无内容返回 None。
+                所有文字带黑描边(加粗可读); 风速行用对应趋势色描边。"""
+                def rt_o(font, text, color, outline=(0, 0, 0)):
+                    return _outline_text(rt(font, text, color, max_w, smooth), outline)
+
+                if key == 'name':
+                    name = self.get_display_name(ty, self.name_display_mode)
+                    return (rt_o(ifm, name, tc), 6, False)
+                if key == 'time':
+                    t = point['t']
+                    with_year = bool(ty.pts and t[:4] != ty.pts[0]['t'][:4])
+                    return (rt_o(ifs, f"时间: {fmt_short_time(t, with_year)}", tc), 3, False)
+                if key == 'pos':
+                    la = point['la']
+                    lo = point['lo']
+                    lat_dir = 'N' if la >= 0 else 'S'
+                    lat_val = abs(la)
+                    if lo > 180.0:
+                        lon_disp, lon_dir = 360.0 - lo, 'W'
+                    elif lo < -180.0:
+                        lon_disp, lon_dir = lo + 360.0, 'W'
+                    elif lo < 0:
+                        lon_disp, lon_dir = -lo, 'W'
+                    else:
+                        lon_disp, lon_dir = lo, 'E'
+                    return (rt_o(ifs, f"位置: {lat_val:.1f}°{lat_dir}, {lon_disp:.1f}°{lon_dir}", tc), 3, False)
+                if key == 'wind':
+                    wind_line = f"风速: {point['w']} kt"
+                    wind_color = tc
+                    if prev_pt is not None and point['w'] != prev_pt['w']:
+                        d = point['w'] - prev_pt['w']
+                        wind_line += f"  {'↑' if d > 0 else '↓'}{abs(d)}"
+                        wind_color = trend_up if d > 0 else trend_dn
+                    return (rt_o(ifs, wind_line, wind_color, wind_color), 3, False)
+                if key == 'cat':
+                    cat = point.get('cat', self.get_strength_category(point['w'], point['st']))
+                    pres_str = f"{point['p']} hPa" if point['p'] != 0 else "未知"
+                    return (rt_o(ifs, f"等级: {display_category(cat)}   气压: {pres_str}", tc), 3, False)
+                if key == 'speed':
+                    if not mv:
+                        return None
+                    return (rt_o(ifs, f"移速: {mv:.0f} kt", tc), 3, False)
+                if key == 'peak':
+                    if not peak:
+                        return None
+                    return (rt_o(ifs, f"巅峰: {peak['w']} kt ({fmt_short_time(peak_t)})", tc), 3, False)
+                if key == 'tace':
+                    return (rt_o(ifs, f"总ACE: {ty.tace:.4f}", tc), 3, False)
+                if key == 'cace':
+                    return (rt_o(ifs, "实时ACE: ", tc), 3, True)
+                return None
+
+            # 第一遍: 无换行取自然宽度 → 自适应 box_w
+            nat_rows = []
+            for r in rows_cfg:
+                if not r.get('on', True):
+                    continue
+                row = build_row(r['key'], bool(r.get('smooth', True)), None)
+                if row is not None:
+                    nat_rows.append(row)
+            content_w = max((s.get_width() for s, _, _ in nat_rows), default=0)
+            box_w = int(min(375, max(160, content_w + 30)))
+            box_w = min(box_w, max(160, ace_left - 30))
+
+            # 第二遍: 按 box_w 换行(仅当内容超宽时)
             max_w = box_w - 30
-
-            # ── 组装行: (surface, 下行间距) ──
+            need_wrap = any(s.get_width() > max_w for s, _, _ in nat_rows)
             rows = []
-
-            # 第1行: 台风标签
-            rows.append((rt(ifs, "台风:", tc, max_w), 1))
-
-            # 第2行: 台风名称(粗体,独立一行)
-            if self.name_display_mode == 0:
-                start_year = ty.pts[0]['t'][:4] if ty.pts else "????"
-                base_name = f"{ty.basin}{ty.n}" if ty.basin else ty.n
-                if ty.sname:
-                    display_name = f"{start_year} {base_name} ({ty.sname})"
-                elif ty.cust:
-                    display_name = f"{start_year} {ty.cust}"
-                else:
-                    display_name = f"{start_year} {base_name}"
-            else:
-                display_name = self.get_display_name(ty)
-            rows.append((rt(ifm, display_name, tc, max_w), 6))
-
-            # 第3行: 时间(可读) + 报点进度
-            t = point['t']
-            with_year = bool(ty.pts and t[:4] != ty.pts[0]['t'][:4])
-            rows.append((rt(ifs, f"时间: {fmt_short_time(t, with_year)}   [报点 {idx + 1}/{len(ty.pts)}]", tc, max_w), 3))
-
-            # 第4行: 位置
-            la = point['la']
-            lo = point['lo']
-            lat_dir = 'N' if la >= 0 else 'S'
-            lat_val = abs(la)
-            if lo > 180.0:
-                lon_disp = 360.0 - lo
-                lon_dir = 'W'
-            elif lo < -180.0:
-                lon_disp = lo + 360.0
-                lon_dir = 'W'
-            elif lo < 0:
-                lon_disp = -lo
-                lon_dir = 'W'
-            else:
-                lon_disp = lo
-                lon_dir = 'E'
-            rows.append((rt(ifs, f"位置: {lat_val:.1f}°{lat_dir}, {lon_disp:.1f}°{lon_dir}", tc, max_w), 3))
-
-            # 第5行: 风速 + 强度趋势(相对上一报点)
-            wind_line = f"风速: {point['w']} kt"
-            wind_color = tc
-            if prev_pt is not None and point['w'] != prev_pt['w']:
-                d = point['w'] - prev_pt['w']
-                wind_line += f"  {'↑' if d > 0 else '↓'}{abs(d)}"
-                wind_color = trend_up if d > 0 else trend_dn
-            st = point['st'].upper()
-            if st in ('EX', 'MD', 'SS', 'SD', 'LO', 'DB'):
-                wind_line += f"  [{st}]"
-            rows.append((rt(ifs, wind_line, wind_color, max_w), 3))
-
-            # 第6行: 等级 + 气压
-            cat = point.get('cat', self.get_strength_category(point['w'], point['st']))
-            pres_str = f"{point['p']} hPa" if point['p'] != 0 else "未知"
-            rows.append((rt(ifs, f"等级: {display_category(cat)}   气压: {pres_str}", tc, max_w), 3))
-
-            # 第7行: 移速
-            if mv:
-                rows.append((rt(ifs, f"移速: {mv:.0f} kt", tc, max_w), 3))
-
-            # 第8行: 巅峰(带时间)
-            if peak:
-                rows.append((rt(ifs, f"巅峰: {peak['w']} kt @ {fmt_short_time(peak_t)}", tc, max_w), 3))
-
-            # 第9行: 报别
-            off_text = "正式报" if point.get('official', True) else "非正式报"
-            off_color = off_ok if point.get('official', True) else off_no
-            rows.append((rt(ifs, f"报别: {off_text}", off_color, max_w), 3))
-
-            # 第10行: 总ACE
-            rows.append((rt(ifs, f"总ACE: {ty.tace:.4f}", tc, max_w), 3))
-
-            # 第11行: 实时ACE(数字每帧单独绘制)
-            ace_prefix = rt(ifs, "实时ACE: ", tc, max_w)
-            rows.append((ace_prefix, 3))
+            row_keys = []
+            for r in rows_cfg:
+                if not r.get('on', True):
+                    continue
+                row = build_row(r['key'], bool(r.get('smooth', True)),
+                                max_w if need_wrap else None)
+                if row is not None:
+                    rows.append(row)
+                    row_keys.append(r['key'])
 
             # ── 动态高度 + 绘制 ──
-            box_h = 14 + sum(s.get_height() + g for s, g in rows) + 6
+            box_h = 14 + sum(s.get_height() + g for s, g, _ in rows) + 6
             bg = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
-            pygame.draw.rect(bg, box_bg, (0, 0, box_w, box_h), 0, 15)
-            # 左侧强度色条(当前报点风速颜色)
-            if 'color' in point:
-                bar_c = point['color']
-                if len(bar_c) == 3:
-                    bar_c = (*bar_c, 220)
-                pygame.draw.rect(bg, bar_c, (0, 0, 8, box_h), 0, 14, 0, 0, 14)
-            pygame.draw.rect(bg, box_border, (0, 0, box_w, box_h), 2, 15)
+            if bg_on:
+                pygame.draw.rect(bg, box_bg, (0, 0, box_w, box_h), 0, 15)
+                if 'color' in point:
+                    bar_c = point['color']
+                    if len(bar_c) == 3:
+                        bar_c = (*bar_c, 220)
+                    pygame.draw.rect(bg, bar_c, (0, 0, 8, box_h), 0, 14, 0, 0, 14)
+                pygame.draw.rect(bg, box_border, (0, 0, box_w, box_h), 2, 15)
 
             y = 10
             ace_x = ace_y = 0
-            for i, (surf_ln, gap) in enumerate(rows):
+            ace_visible = False
+            name_rect = None
+            for i, (surf_ln, gap, is_ace) in enumerate(rows):
+                if shadow_on:
+                    sh = _text_shadow(surf_ln, shadow_col)
+                    if sh is not None:
+                        bg.blit(sh, (16, y + 1))
                 bg.blit(surf_ln, (15, y))
-                if i == len(rows) - 1:
+                if row_keys[i] == 'name':
+                    # 名称行屏幕矩形(供双击编辑 B4)
+                    name_rect = pygame.Rect(22 + 15, 22 + y,
+                                            surf_ln.get_width(), surf_ln.get_height())
+                if is_ace:
                     ace_x = 15 + surf_ln.get_width()
                     ace_y = y
+                    ace_visible = True
                 y += surf_ln.get_height() + gap
+            self._info_box_name_rect = name_rect
 
-            self._info_box_cache_typhoon[ty] = (bg, ace_x, ace_y, tc)
+            self._info_box_cache_typhoon[ty] = (bg, ace_x, ace_y, tc, ace_visible)
             self._info_box_last_data[ty] = key_data
             box = bg
             ace_tc = tc
 
         surface.blit(box, (22, 22))
-        # 实时ACE数字每帧单独绘制（ASCII，底层字体绕过 SmartFont 缓存）。
-        # 按量化值缓存,避免每帧裸 Font.render(法9/G2)。
-        digit_key = (round(ty.cace, 4), ace_tc)
-        digits = _box_ace_digit_cache.get(digit_key)
-        if digits is None:
-            digits = f_name.en_font.render(f"{ty.cace:.4f}", True, ace_tc)
-            if len(_box_ace_digit_cache) >= _BOX_ACE_DIGIT_CACHE_MAX:
-                _box_ace_digit_cache.pop(next(iter(_box_ace_digit_cache)))
-            _box_ace_digit_cache[digit_key] = digits
-        surface.blit(digits, (22 + ace_x, 22 + ace_y))
+        if ace_visible:
+            # 实时ACE数字每帧单独绘制（ASCII，底层字体绕过 SmartFont 缓存）。
+            digit_key = (round(ty.cace, 4), ace_tc)
+            digits = _box_ace_digit_cache.get(digit_key)
+            if digits is None:
+                digits = f_name.en_font.render(f"{ty.cace:.4f}", True, ace_tc)
+                if len(_box_ace_digit_cache) >= _BOX_ACE_DIGIT_CACHE_MAX:
+                    _box_ace_digit_cache.pop(next(iter(_box_ace_digit_cache)))
+                _box_ace_digit_cache[digit_key] = digits
+            surface.blit(digits, (22 + ace_x, 22 + ace_y))
+        # 名称编辑态: 在名称行处叠加输入框
+        if getattr(self, '_name_edit_ty', None) is ty:
+            self._draw_name_edit(surface)
+
+    # ── 名称行双击编辑(S0 B4) ──
+    def _start_name_edit(self, ty, rect) -> None:
+        from ..input_field import InputField
+        self._name_edit_ty = ty
+        f = InputField(rect, max_length=40, dark=getattr(self, 'dark_mode', True))
+        f.set_text(ty.cust or ty.sname or '')
+        f.activate()
+        self._name_edit_field = f
+
+    def _commit_name_edit(self) -> None:
+        ty = getattr(self, '_name_edit_ty', None)
+        f = getattr(self, '_name_edit_field', None)
+        if ty is not None and f is not None:
+            text = f.get_text().strip()
+            if text:
+                ty.cust = text
+                try:
+                    key = f"{ty.b}{ty.n}"
+                    tn = self.cfg.tn or {}
+                    tn[key] = text
+                    self.cfg.tn = tn
+                    self.save_config()
+                except Exception:
+                    pass
+            self._info_box_cache_typhoon.pop(ty, None)
+            self._info_box_last_data.pop(ty, None)
+        self._name_edit_ty = None
+        self._name_edit_field = None
+
+    def _draw_name_edit(self, surface) -> None:
+        f = getattr(self, '_name_edit_field', None)
+        if f is not None:
+            f.draw(surface)
+
+    def _handle_name_edit_event(self, e) -> bool:
+        f = getattr(self, '_name_edit_field', None)
+        if f is None:
+            return False
+        if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_RETURN,
+                                                  pygame.K_KP_ENTER):
+            self._commit_name_edit()
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if not f.rect.collidepoint(e.pos):
+                self._commit_name_edit()
+                return False      # 点击输入框外 → 提交并放行给其它逻辑
+        if f.handle_event(e):
+            return True
+        return True

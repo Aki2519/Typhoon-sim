@@ -1,5 +1,5 @@
 # py/time_jump.py
-"""时间跳跃对话框（台风季模式）。"""
+"""时间跳跃对话框（风季模式）。"""
 from __future__ import annotations
 
 import pygame
@@ -17,11 +17,12 @@ class TimeJump(DraggableDialog):
     def __init__(self, s):
         super().__init__(s)
         self.fields: list[InputField] = []
-        self.title = rt(f_m, "时间跳跃 (台风季模式)", TXT)
+        self.title = rt(f_m, "时间跳跃 (风季模式)", TXT)
         self.confirm_text = rt(f_s, "确认", (255, 255, 255))
         self.cancel_text = rt(f_s, "取消", (255, 255, 255))
         self._hint_light = rt(f_s, "使用Tab切换字段，Enter确认，ESC取消", TXT)
         self._hint_dark = rt(f_s, "使用Tab切换字段，Enter确认，ESC取消", SETTINGS_TEXT_DIM)
+        self._quick_rects = {}
         self.title_bar_height = DIALOG_TITLE_BAR_HEIGHT
 
     def activate(self):
@@ -56,7 +57,7 @@ class TimeJump(DraggableDialog):
         if self.dark_mode:
             self.draw_dark_overlay(surface)
             self.draw_dark_panel(surface, self.dialog_rect)
-            self.draw_dark_title(surface, "时间跳跃 (台风季模式)", self.dialog_rect)
+            self.draw_dark_title(surface, "时间跳跃 (风季模式)", self.dialog_rect)
             hint_color = SETTINGS_TEXT_DIM
             label_color = SETTINGS_TEXT_LIGHT
         else:
@@ -72,6 +73,16 @@ class TimeJump(DraggableDialog):
         for i, label in enumerate(['年份:', '月份:', '日期:', '小时:']):
             lb = rt(f_s, label, label_color)
             surface.blit(lb, (self.dialog_rect.x + 30, self.dialog_rect.y + 80 + i * 45 + 2))
+        # 快捷预填按钮(P1-12): 季节开始/结束(只预填, 不直接跳转)
+        quick = [('季节开始', 0), ('季节结束', 1)]
+        for name, k in quick:
+            r = pygame.Rect(self.dialog_rect.x + 30 + k * 110, self.dialog_rect.y + 250, 100, 26)
+            if self.dark_mode:
+                self.draw_dark_button(surface, r, name)
+            else:
+                self.draw_button(surface, (r.x, r.y, r.w, r.h),
+                                 rt(f_s, name, TXT), BUTTON_BORDER)
+            self._quick_rects[k] = r
         if self.dark_mode:
             self.draw_dark_button(surface, pygame.Rect(self.dialog_rect.x + 100, self.dialog_rect.y + 340, 80, 30), "确认", accent=True)
             self.draw_dark_button(surface, pygame.Rect(self.dialog_rect.x + 220, self.dialog_rect.y + 340, 80, 30), "取消")
@@ -92,6 +103,11 @@ class TimeJump(DraggableDialog):
 
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             x, y = e.pos
+            # 快捷预填按钮
+            for k, r in getattr(self, '_quick_rects', {}).items():
+                if r.collidepoint(x, y):
+                    self._fill_quick(k)
+                    return True
             if pygame.Rect(self.dialog_rect.x + 100, self.dialog_rect.y + 340, 80, 30).collidepoint(x, y):
                 if self._jump():
                     self.deactivate()
@@ -127,6 +143,20 @@ class TimeJump(DraggableDialog):
             if f.handle_event(e):
                 return True
         return False
+
+    def _fill_fields(self, y: int, m: int, d: int, h: int) -> None:
+        for f, v in zip(self.fields, (str(y), f"{m:02d}", f"{d:02d}", f"{h:02d}")):
+            f.set_text(v)
+            f.deactivate()
+
+    def _fill_quick(self, k: int) -> None:
+        south = getattr(self.sim, 'hemisphere', 'north') == 'south'
+        sty = int(getattr(self.sim, 'sty', self.sim.sy) or self.sim.sy)
+        edy = int(getattr(self.sim, 'edy', self.sim.sy) or self.sim.sy)
+        if k == 0:      # 季节开始
+            self._fill_fields(sty, 7 if south else 1, 1, 0)
+        elif k == 1:    # 季节结束
+            self._fill_fields(edy, 6 if south else 12, 30 if south else 31, 23)
 
     def _jump(self):
         try:

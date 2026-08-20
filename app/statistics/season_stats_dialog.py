@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 # py/statistics/season_stats_dialog.py
 """洋区统计数据独立对话框。"""
@@ -31,13 +31,16 @@ class SeasonStatsDialog(DraggableDialog):
         self._title_key = None
         self._hl_cache: dict = {}
 
-    def activate(self):
+    def activate(self, basin: Optional[str] = None):
+        """basin: 统计洋区代码(主洋区或子洋区); None 时跟随 ACE 限制。"""
         super().activate()
         year = self.sim.current_ace_year
         self._year = year
-        lm = getattr(self.sim, 'ace_limit_mode', 'none')
-        bc = getattr(self.sim, 'ace_limit_basin', '')
-        basin = bc if lm == 'basin' else None
+        if basin is None:
+            lm = getattr(self.sim, 'ace_limit_mode', 'none')
+            bc = getattr(self.sim, 'ace_limit_basin', '')
+            basin = bc if lm == 'basin' else None
+        self._basin_code = basin
         self._stats_data = calculate_season_stats(self.sim, year, basin)
         self._stats_hover_rects = []
         self._last_hover_rect = None
@@ -133,13 +136,12 @@ class SeasonStatsDialog(DraggableDialog):
         box_w = self.bg_rect.width
 
         # 标题（缓存）
-        title_key = (self._year, dark)
+        title_key = (self._year, dark, getattr(self, '_basin_code', None))
         if self._title_surf is None or self._title_key != title_key:
-            lm = getattr(self.sim, 'ace_limit_mode', 'none')
-            bc = getattr(self.sim, 'ace_limit_basin', '')
-            if lm == 'basin' and bc:
-                a = self.sim.res_mgr.ocean_areas.get_by_code(bc)
-                bname = a.name_full if a else bc
+            bcode = getattr(self, '_basin_code', None)
+            if bcode:
+                a = self.sim.res_mgr.ocean_areas.get_by_code(bcode)
+                bname = a.name_full if a else bcode
                 title_str = f"统计数据 — {self._year} {bname}"
             else:
                 title_str = f"统计数据 — {self._year} 全球"
@@ -234,3 +236,4 @@ class SeasonStatsDialog(DraggableDialog):
         self._stats_data = None
         self._stats_hover_rects = []
         self._last_hover_rect = None
+        self._basin_code = None

@@ -8,7 +8,6 @@ from typing import Callable, List, Tuple
 from .constants.fonts import _load_font, SmartFont, FONT_FILE
 
 _label_font = SmartFont(_load_font(FONT_FILE, 20, 20), _load_font(FONT_FILE, 20, 20))
-_OUTLINE = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 _LABEL_DURATION = 2.0
 _LABEL_FADE = 0.3
@@ -21,13 +20,9 @@ def _get_label_surf(label: str, color, scale: float = 1.0) -> pygame.Surface:
     key = (label, color, round(scale, 2))
     surf = _label_cache.get(key)
     if surf is None:
-        # 白字 + 强度色描边
-        fg = _label_font.render(label, True, (255, 255, 255))
-        bk = _label_font.render(label, True, color)
-        surf = pygame.Surface((fg.get_width() + 2, fg.get_height() + 2), pygame.SRCALPHA)
-        for dx, dy in _OUTLINE:
-            surf.blit(bk, (dx + 1, dy + 1))
-        surf.blit(fg, (1, 1))
+        # 白字 + 降亮强度色描边 + 向外辉光渐变
+        from .utils import render_glow_text
+        surf = render_glow_text(_label_font, label, color)
         if scale != 1.0:
             nw = max(1, int(surf.get_width() * scale))
             nh = max(1, int(surf.get_height() * scale))
@@ -52,7 +47,9 @@ def _draw_strength_label(surface, label: str, color, x: int, y_top: int,
         surf = surf.copy()
         surf.set_alpha(alpha)
     r = surf.get_rect(midtop=(x, y_top))
-    surface.blit(surf, r)
+    # 辉光版表面含 6px 透明边距(缩放后 6*scale),平移回原 1px 边距的文字位置
+    pad_off = int(5 * scale)
+    surface.blit(surf, (r.x - pad_off, r.y - pad_off))
 
 
 def clear_caches() -> None:
@@ -70,6 +67,7 @@ def clear_caches() -> None:
 
 _MARKER_MAP = {
     'TD': 'landfall_TD', 'SD': 'landfall_TD',
+    'DB': 'landfall_TD', 'LO': 'landfall_TD', 'WV': 'landfall_TD',
     'TS': 'landfall_TS',
     'STS': 'landfall_STS', 'SS': 'landfall_STS',
     'C1': 'landfall_C1',

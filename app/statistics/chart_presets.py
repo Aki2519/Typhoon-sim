@@ -76,6 +76,10 @@ def draw_daily_ace_chart(
         pygame.draw.line(chart_surf, chart_axis(), (0, 0), (0, h), bw_line)
         pygame.draw.line(chart_surf, chart_axis(), (w - 1, 0), (w - 1, h), bw_line)
         pygame.draw.line(chart_surf, chart_axis(), (0, h - 1), (w, h - 1), bw_line)
+        # 参考面板样式: 最大日 ACE 黄色贯穿竖线
+        if max_daily > 0:
+            max_x_px = int(max_i * bar_w + bar_w / 2)
+            pygame.draw.line(chart_surf, (240, 220, 60), (max_x_px, 0), (max_x_px, h - 1), 2)
 
         tick_labels = []
         y_tick_step = nice_step(y_max, 4)
@@ -419,7 +423,13 @@ def draw_curve_chart(
         curve_overlay = pygame.Surface((w, h), pygame.SRCALPHA)
         curve_overlay.fill((0, 0, 0, 0))
         if len(pts) > 1:
+            # 普通折线(参考面板样式); 曲线本身的"阶梯感"来自台风活动间隔的数据,
+            # 无需人为阶梯化。下方浅蓝填充。
             pygame.draw.lines(curve_overlay, CURVE_BLUE, False, pts, 2)
+            # 填充: 折线到底部的多边形(暗色下用深蓝半透明)
+            fill_c = (36, 84, 168) if not chart_dark() else (26, 60, 118)
+            poly = [(0, h)] + pts + [(w, h)]
+            pygame.draw.polygon(curve_overlay, (*fill_c, 120), poly)
         cached['curve_overlay'] = curve_overlay
 
         if len(_curve_cache) >= _MAX_CACHE:

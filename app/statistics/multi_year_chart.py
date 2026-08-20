@@ -214,13 +214,15 @@ class MultiYearDialog(DraggableDialog):
     def handle_event(self, e: pygame.event.Event) -> bool:
         if not self.active:
             return False
+        # 优先检测关闭按钮(禁止事件穿透; 关闭按钮位于标题栏区域, 需在拖动逻辑之前)
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if self._close_btn_rect.collidepoint(e.pos):
+                self.deactivate()
+                return True
         if self.handle_drag_event(e):
             return True
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             x, y = e.pos
-            if self._close_btn_rect.collidepoint(x, y):
-                self.deactivate()
-                return True
             for name, rect in self._tab_rects.items():
                 if rect.collidepoint(x, y):
                     if name.startswith("年度 ACE"):

@@ -1,6 +1,6 @@
 """布局常量：窗口尺寸、控件大小、对话框尺寸、列表尺寸"""
-DEFAULT_SW = 1360
-DEFAULT_SH = 885
+DEFAULT_SW = 2560
+DEFAULT_SH = 1540
 SW = DEFAULT_SW
 SH = DEFAULT_SH
 CPH = 100
@@ -12,6 +12,7 @@ HEMISPHERE_SOUTH = "south"
 MODE_NORMAL = "normal"
 MODE_SEASON = "season"
 MODE_EDIT = "edit"
+MODE_SIM = "sim"
 
 FADE_DURATION = 30.0
 FADE_DURATION_QUICK = 1.5

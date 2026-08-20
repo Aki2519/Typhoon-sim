@@ -1,5 +1,5 @@
 # py/monthly_summary.py
-"""台风季月度总结弹窗：按月统计风暴、台风、MH、C5、ACE、最强风暴。"""
+"""风季月度总结弹窗：按月统计风暴、台风、MH、C5、ACE、最强风暴。"""
 import pygame
 
 from .constants import rt, TXT, INFO_BOX_BG, INFO_BOX_BORDER

@@ -1,5 +1,5 @@
 # py/ty_sim_mixins/track_mixin.py
-"""台风季镜头跟踪 Mixin：跟随指定/全部活跃台风平移地图，结束后总览路径。"""
+"""风季镜头跟踪 Mixin：跟随指定/全部活跃台风平移地图，结束后总览路径。"""
 from __future__ import annotations
 
 import math

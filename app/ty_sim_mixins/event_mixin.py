@@ -26,6 +26,11 @@ class TySimEventMixin:
             self._drag_needs_save = False
             return False
 
+        # 名称行编辑态: 优先路由(否则中文输入/退格会误触发全局快捷键)
+        if getattr(self, '_name_edit_field', None) is not None:
+            if self._handle_name_edit_event(e):
+                return True
+
         # 脚本引擎 WAIT_USER：任意按键/点击恢复
         # R2-5: WAIT_USER 期间若打开了对话框,事件交给对话框分发,
         # 否则对话框键盘操作死锁且任意按键误恢复脚本
@@ -110,8 +115,19 @@ class TySimEventMixin:
             return True
 
         if e.type == pygame.KEYDOWN:
+            # 模拟模式: 先处理模拟模式按键, 未消费则交给通用键盘
+            if getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim'):
+                if self._sim_handle_event(e):
+                    return True
             return self._handle_keydown(e)
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            # 模拟模式: 地图左键点击 → 生成/选中台风
+            if (getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim')
+                    and not self.dialog_mgr.any_active()):
+                mx, my = e.pos
+                if my < self.map_height:
+                    if self._sim_handle_click(mx, my):
+                        return True
             if self._ms.active:
                 # R3-4: 总结可见期间控制面板区域点击放行(面板按钮可正常使用),
                 # 仅地图区域点击用于关闭总结
@@ -127,6 +143,14 @@ class TySimEventMixin:
                 if my < self.map_height:
                     i = self._hit_point_index(self.edit_typhoon.screen_points, mx, my)
                     if i >= 0:
+                        # 双击报点 → 打开报点列表(P1-9, 编辑模式)
+                        now = pygame.time.get_ticks()
+                        last = getattr(self, '_last_pt_dbl', None)
+                        if (last and now - last[0] < 400
+                                and math.hypot(mx - last[1][0], my - last[1][1]) < 6):
+                            self.dialog_mgr.point_list.activate(self.edit_typhoon, readonly=False)
+                            return True
+                        self._last_pt_dbl = (now, (mx, my))
                         self._edit_selected_point = i
                         self._last_edited_point = i
                         # C9: 地图选中 ↔ 报点列表联动
@@ -139,6 +163,30 @@ class TySimEventMixin:
                     # A4: 未命中报点 → 点击路径线段,弹出添加对话框(插值默认值)
                     if self._try_click_segment_insert(mx, my):
                         return True
+            # 双击台风图标开强度折线图(P1-9, 正常模式)
+            if self.md == self.MODE_NORMAL and not self.dialog_mgr.any_active():
+                ty = self.current_typhoon()
+                sp = getattr(ty, 'screen_points', None) if ty else None
+                if sp and ty.pts and 0 <= ty.ci < len(sp):
+                    ix, iy = sp[ty.ci]
+                    if math.hypot(e.pos[0] - ix, e.pos[1] - iy) < 18:
+                        now = pygame.time.get_ticks()
+                        last = getattr(self, '_last_ty_dbl', None)
+                        if (last and now - last[0] < 400
+                                and math.hypot(e.pos[0] - last[1][0], e.pos[1] - last[1][1]) < 6):
+                            self.dialog_mgr.intensity_chart.activate()
+                            return True
+                        self._last_ty_dbl = (now, e.pos)
+            # 名称行双击编辑(S0 B4)
+            nr = getattr(self, '_info_box_name_rect', None)
+            if self.md == self.MODE_NORMAL and nr is not None and nr.collidepoint(e.pos):
+                now = pygame.time.get_ticks()
+                last = getattr(self, '_name_last_click', None)
+                if (last and now - last[0] < 400
+                        and math.hypot(e.pos[0] - last[1][0], e.pos[1] - last[1][1]) < 6):
+                    self._start_name_edit(self.current_typhoon(), nr)
+                    return True
+                self._name_last_click = (now, e.pos)
             return self._handle_click(e.pos)
         return False
 
@@ -381,7 +429,10 @@ class TySimEventMixin:
                     }
                     self.dialog_mgr.point_edit_dialog.activate(
                         init,
-                        lambda vals, idx=i: self.update_point_in_edit_typhoon(vals, idx)
+                        lambda vals, idx=i: self.update_point_in_edit_typhoon(vals, idx),
+                        point_nav=self._point_edit_nav,
+                        point_index=i,
+                        point_total=len(ty.pts),
                     )
                     # 与地图左键选中路径一致: 长按编辑的报点同步为选中点,
                     # 否则 _edit_selected_point 残留旧 idx,后续 Alt+方向 或 Delete 会操作错误报点

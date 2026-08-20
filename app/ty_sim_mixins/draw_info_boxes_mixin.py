@@ -115,7 +115,7 @@ def _faded_copy(surf: pygame.Surface, alpha: int) -> pygame.Surface:
 
 
 class TySimDrawInfoBoxesMixin:
-    """台风季模式下的多台风信息框 + 季节时钟 + ACE + 控制面板。"""
+    """风季模式下的多台风信息框 + 季节时钟 + ACE + 控制面板。"""
 
     _season_info_box_cache: dict = {}
     _season_info_box_last_data: dict = {}
@@ -363,7 +363,19 @@ class TySimDrawInfoBoxesMixin:
                 surface.blit(box, (x, y))
                 surface.blit(digits, (x + ace_x, y + ace_y))
 
-    def draw_season_clock(self, surface: pygame.Surface) -> None:
+        # 8 槽溢出提示(P1-10): 有活跃台风未分配到槽位时在框区底部提示
+        unslotted = [t for t in active_typhoons if t not in self.info_box_slots]
+        if unslotted:
+            tip = f"另有 {len(unslotted)} 个活跃台风未显示信息框"
+            ts = rt(_font_box, tip, (255, 210, 110))
+            surface.blit(ts, (SEASON_INFO_BOX_START_X,
+                              start_y + per_col * (box_h + spacing_y)))
+
+    def draw_season_clock(self, surface: pygame.Surface, origin=(0, 0),
+                          time_tuple=None) -> None:
+        """左上角时间轴(圆环钟)。origin: 绘制位置(各模式可不同);
+        time_tuple: (year, month, day, hour, minute, day_progress) 自定义时间
+        (模拟模式传模拟日历); 缺省用风季模式的 self.sy/self.st/self.ste。"""
         if TySimDrawInfoBoxesMixin._clock_arc_surf is None:
             TySimDrawInfoBoxesMixin._clock_arc_surf = pygame.Surface((240, 240), pygame.SRCALPHA)
         tr = 80
@@ -372,13 +384,27 @@ class TySimDrawInfoBoxesMixin:
         arc_inner = inner_r + 5
         arc_outer = tr - 2
 
-        ste = getattr(self, 'ste', 0)
-        day_seconds = ste % (24 * 3600)
-        progress = day_seconds / (24 * 3600)
+        if time_tuple is not None:
+            sy2, st_month, st_day, hour, minute, progress = time_tuple
+            year_str = str(sy2)
+            month_str = _MONTHS[st_month] if 1 <= st_month <= 12 else str(st_month)
+            day_str = str(st_day)
+        else:
+            ste = getattr(self, 'ste', 0)
+            day_seconds = ste % (24 * 3600)
+            progress = day_seconds / (24 * 3600)
+            year_str = str(self.sy)
+            month_idx = int(self.st[0:2])
+            month_str = _MONTHS[month_idx] if 1 <= month_idx <= 12 else self.st[0:2]
+            day_str = str(int(self.st[2:4]))
+            hour = int(day_seconds / 3600)
+            minute = int((day_seconds % 3600) / 60)
+
+        tmp = pygame.Surface((240, 240), pygame.SRCALPHA)
 
         # 外环 + 内环（白色空心）
-        pygame.draw.circle(surface, (255, 255, 255), (cx, cy), tr, 2)
-        pygame.draw.circle(surface, (255, 255, 255), (cx, cy), inner_r, 2)
+        pygame.draw.circle(tmp, (255, 255, 255), (cx, cy), tr, 2)
+        pygame.draw.circle(tmp, (255, 255, 255), (cx, cy), inner_r, 2)
 
         # 进度弧（多边形精确填充，两环之间留缝隙）
         if progress > 0.001:
@@ -393,19 +419,15 @@ class TySimDrawInfoBoxesMixin:
             pts_in = [(cx + arc_inner * c, cy + arc_inner * s)
                       for c, s in zip(reversed(cos_a), reversed(sin_a))]
             pygame.draw.polygon(arc_surf, (255, 255, 255), pts_out + pts_in)
-            surface.blit(arc_surf, (0, 0))
+            tmp.blit(arc_surf, (0, 0))
 
         # 年份（上方，紧贴外环）
-        year_str = str(self.sy)
         year_surf = _stroked(_font_sub, year_str, (255, 255, 255))
         yx = cx - (year_surf.get_width() - 2) // 2 - 1
         yy = cy - tr - (year_surf.get_height() - 2) - 1
-        surface.blit(year_surf, (yx, yy))
+        tmp.blit(year_surf, (yx, yy))
 
         # 月份 + 日期（偏下）
-        month_idx = int(self.st[0:2])
-        month_str = _MONTHS[month_idx] if 1 <= month_idx <= 12 else self.st[0:2]
-        day_str = str(int(self.st[2:4]))
         month_surf = _stroked(_font_month, month_str, (255, 255, 255))
         day_surf = _stroked(_font_date, day_str, (255, 255, 255))
         gap_md = 2
@@ -416,17 +438,17 @@ class TySimDrawInfoBoxesMixin:
         mx = cx - (month_surf.get_width() - 2) // 2
         dx = cx - (day_surf.get_width() - 2) // 2
         dy_s = md_top + month_h + gap_md
-        surface.blit(month_surf, (mx - 1, md_top - 1))
-        surface.blit(day_surf, (dx - 1, dy_s - 1))
+        tmp.blit(month_surf, (mx - 1, md_top - 1))
+        tmp.blit(day_surf, (dx - 1, dy_s - 1))
 
         # 时分（下方）
-        hour = int(day_seconds / 3600)
-        minute = int((day_seconds % 3600) / 60)
         time_str = f"{hour:02d}{minute:02d}Z"
         time_surf = _stroked(_font_sub, time_str, (255, 255, 255))
         text_x = cx - (time_surf.get_width() - 2) // 2 - 1
         text_y = cy + tr + 5 - 1
-        surface.blit(time_surf, (text_x, text_y))
+        tmp.blit(time_surf, (text_x, text_y))
+
+        surface.blit(tmp, origin)
 
     def draw_control_panel(self, surface) -> None:
         if not hasattr(self, '_panel') or self._panel is None:
@@ -513,7 +535,9 @@ class TySimDrawInfoBoxesMixin:
             return
         txt = (f"{note['name']} " if note['name'] else "") + f"+{note['ace']:.4f}"
         white = rt(_font_ace_note, txt, (255, 255, 255))
-        colored = rt(_font_ace_note, txt, note['color'])
+        # 描边用加深的强度色(原台风色过亮, 与白字对比不足; 再深一档提高可读性)
+        sc = tuple(int(c * 0.55) for c in (note['color'] or (255, 255, 255))[:3])
+        colored = rt(_font_ace_note, txt, sc)
         remain = _ACE_NOTE_DURATION_MS - elapsed
         if remain < _ACE_NOTE_FADE_MS:
             alpha = max(0, int(255 * remain / _ACE_NOTE_FADE_MS))

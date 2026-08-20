@@ -1,4 +1,4 @@
-﻿# py/data_repo.py
+# py/data_repo.py
 """台风数据仓库：列表管理、文件加载、颜色/显示映射。"""
 from __future__ import annotations
 
@@ -107,16 +107,25 @@ class DataRepository:
             ty.format_type = FILE_FORMAT_SIMPLE_BDECK
             ty.original_jtwc_source = None
 
-    def load_typhoon_files(self) -> None:
+    def load_typhoon_files(self, on_progress=None) -> None:
         self.tys.clear()
         if not os.path.exists(TYPHOON_DIR):
             os.makedirs(TYPHOON_DIR)
             return
-        # 单次目录遍历收集 .txt/.dat,避免对两种扩展名各做一次全目录递归扫描
+        # 单次目录遍历收集 .txt/.dat(先统计总数以支持启动进度条)
+        targets = []
         for root, _dirs, files in os.walk(TYPHOON_DIR):
             for fn in files:
                 if fn.lower().endswith(('.txt', '.dat')):
-                    self.parse_typhoon_file(os.path.join(root, fn))
+                    targets.append(os.path.join(root, fn))
+        total = len(targets)
+        for i, fp in enumerate(targets):
+            self.parse_typhoon_file(fp)
+            if on_progress is not None:
+                try:
+                    on_progress(i + 1, total)
+                except Exception:
+                    pass
         self._all_tys_backup = list(self.tys)
         if (getattr(self._sim, 'basin_filter_enabled', True) and
                 self.cfg.ace_limit_mode == "basin" and self.cfg.ace_limit_basin):

@@ -1,5 +1,5 @@
 # py/ty_list.py
-"""台风列表对话框（支持搜索、洋区排序、翻页、台风季时间跳转）。"""
+"""台风列表对话框（支持搜索、洋区排序、翻页、风季时间跳转）。"""
 from __future__ import annotations
 
 import os
@@ -84,9 +84,14 @@ class TyList(DraggableDialog):
         self.name_btn_text = rt(f_s, "编辑名称", (255, 255, 255))
         self.number_btn_text = rt(f_s, "编辑编号", (255, 255, 255))
         self.filename_btn_text = rt(f_s, "编辑文件名", (255, 255, 255))
+        self.new_btn_text = rt(f_s, "新建", (255, 255, 255))
+        self.delete_btn_text = rt(f_s, "删除", (255, 255, 255))
         self.jump_text = rt(f_s, "跳页", (255, 255, 255))
         self.confirm_text = rt(f_s, "确认", (255, 255, 255))
         self.cancel_text = rt(f_s, "取消", (255, 255, 255))
+
+        self.delete_pending = None
+        self._tys_len = -1
 
         self._row_cache: Dict[int, Dict[str, pygame.Surface]] = {}
         self._row_hashes: Dict[int, str] = {}
@@ -119,6 +124,8 @@ class TyList(DraggableDialog):
             start = self.get_page_start()
             self.si = self._filtered_indices[start] if start < len(self._filtered_indices) else -1
 
+        self.delete_pending = None
+        self._tys_len = len(self.sim.tys)
         self._clear_row_cache()
         self._update_bg_rect()
 
@@ -136,6 +143,7 @@ class TyList(DraggableDialog):
         super().deactivate()
         self._clear_edit_field()
         self.dragging = False
+        self.delete_pending = None
         self.search_field.deactivate()
 
     def _clear_edit_field(self):
@@ -194,20 +202,15 @@ class TyList(DraggableDialog):
                             sim.get_display_name(sim.tys[idx]).lower())
 
     def _build_row_texts(self, ty) -> Tuple[str, str]:
-        base = self.sim.get_display_name(ty)
         mode = self.sim.name_display_mode
-        if mode == 0:
-            sy = ty.pts[0]['t'][:4] if ty.pts else "????"
-            disp = f"{sy} {base}"
-        else:
-            disp = base
+        disp = self.sim.get_display_name(ty, mode)
         mw, peak_st = _ty_peak(ty)
         cat = self.sim.gsc(mw, peak_st) if mw else "N/A"
         st = ty.pts[0]['t'] if ty.pts else "????"
         et = ty.pts[-1]['t'] if ty.pts else "????"
         span = _fmt_timespan(st, et) if ty.pts else ""
         area_name = self._area_name_map.get(ty.basin, ty.basin)
-        info = f"{display_category(cat)} {mw}kt  ACE:{ty.tace:.4f}  {span}  {len(ty.pts)}点  {area_name}"
+        info = f"{display_category(cat)} {mw}kt  ACE:{ty.tace:.2f}  {span}  {len(ty.pts)}点  {area_name}"
         return disp, info
 
     def _row_hash(self, ty):
@@ -218,7 +221,7 @@ class TyList(DraggableDialog):
     def _row_surfs(self, ty):
         disp, info = self._build_row_texts_cached(ty)
         tc = SETTINGS_TEXT_LIGHT if self.dark_mode else TXT
-        return {'name': rt(f_m, disp, tc, 530), 'info': rt(f_s, info, tc, 530)}
+        return {'name': rt(f_m, disp, tc, 530), 'info': rt(f_s, info, tc, 600)}
 
     def _build_row_texts_cached(self, ty) -> Tuple[str, str]:
         """法15: O(P) 扫描结果按 (pts id/len, tace, 峰值, 显示模式, 首末点时间, 盆域, cust/n) 缓存。"""
@@ -256,19 +259,21 @@ class TyList(DraggableDialog):
 
     def _action_buttons(self):
         lx, ly, lw, lh = self.bg_rect
-        box_w, box_h, gap = 80, 25, 10
-        tw = 3 * box_w + 2 * gap
+        box_w, box_h, gap = 72, 25, 8
+        tw = 5 * box_w + 4 * gap
         sx = lx + (lw - tw) // 2
-        y = ly + lh - 45
+        y = ly + lh - 70
         return {
-            'name': pygame.Rect(sx, y, box_w, box_h),
-            'number': pygame.Rect(sx + box_w + gap, y, box_w, box_h),
-            'filename': pygame.Rect(sx + 2 * (box_w + gap), y, box_w, box_h),
+            'new': pygame.Rect(sx, y, box_w, box_h),
+            'delete': pygame.Rect(sx + box_w + gap, y, box_w, box_h),
+            'name': pygame.Rect(sx + 2 * (box_w + gap), y, box_w, box_h),
+            'number': pygame.Rect(sx + 3 * (box_w + gap), y, box_w, box_h),
+            'filename': pygame.Rect(sx + 4 * (box_w + gap), y, box_w, box_h),
         }
 
     def _jump_btn(self):
         return pygame.Rect(self.bg_rect.right - 30 - 80 - 5 - _ARROW_SIZE,
-                           self.bg_rect.bottom - 40, 80, 25)
+                           self.bg_rect.bottom - 38, 80, 25)
 
     def _page_left_btn(self):
         return pygame.Rect(self._jump_btn().left - _ARROW_SIZE - 5,
@@ -324,6 +329,9 @@ class TyList(DraggableDialog):
             return False
         if self.handle_drag_event(e):
             return True
+
+        if self.delete_pending is not None:
+            return self._handle_delete_confirm(e)
 
         if self.jump_active:
             return self._handle_jump(e)
@@ -383,7 +391,16 @@ class TyList(DraggableDialog):
                 return True
 
             for action, rect in self._action_buttons().items():
-                if rect.collidepoint(e.pos) and self.si != -1:
+                if not rect.collidepoint(e.pos):
+                    continue
+                if action == 'new':
+                    # 新建台风: 打开新建对话框(无需选中行)
+                    self.sim.dialog_mgr.new_typhoon_dialog.activate()
+                    return True
+                if self.si != -1:
+                    if action == 'delete':
+                        self.delete_pending = self.sim.tys[self.si]
+                        return True
                     self.ei = self.si
                     self.edit_type = action
                     self._clear_edit_field()
@@ -488,6 +505,11 @@ class TyList(DraggableDialog):
                 self._apply_edit()
             elif self.si != -1:
                 self._select(self.si)
+            return True
+
+        if e.key == pygame.K_DELETE and self.si != -1 and self.ei == -1:
+            # 删除选中台风: 进入确认弹层
+            self.delete_pending = self.sim.tys[self.si]
             return True
 
         if self.ei != -1:
@@ -620,6 +642,48 @@ class TyList(DraggableDialog):
             self.jump_input = ""
         self.jump_active = False
 
+    # ── 删除台风(确认弹层) ──
+
+    def _delete_confirm_btns(self):
+        w, h = 440, 130
+        x = (self.sim.screen_width - w) // 2
+        y = (self.sim.screen_height - h) // 2
+        return (pygame.Rect(x + w // 2 - 90, y + h - 40, 80, 30),
+                pygame.Rect(x + w // 2 + 10, y + h - 40, 80, 30))
+
+    def _handle_delete_confirm(self, e):
+        """删除确认弹层: 确认/取消/Esc 关闭,其余事件消费不再透传列表。"""
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            self.delete_pending = None
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            cb, ca = self._delete_confirm_btns()
+            if cb.collidepoint(e.pos):
+                self._do_delete()
+            elif ca.collidepoint(e.pos):
+                self.delete_pending = None
+            return True
+        return True
+
+    def _do_delete(self):
+        ty = self.delete_pending
+        self.delete_pending = None
+        if ty is None or ty not in self.sim.tys:
+            return
+        self.sim.delete_typhoon(ty)
+        self._after_list_mutation()
+
+    def _after_list_mutation(self):
+        """台风增删后刷新过滤/页码/选中,并清理编辑状态(索引可能已移位)。"""
+        self._apply_filter(reset_page=False)
+        self.current_page = min(self.current_page, self.get_total_pages() - 1)
+        start = self.get_page_start()
+        self.si = self._filtered_indices[start] if start < len(self._filtered_indices) else -1
+        self.ei = -1
+        self.edit_type = None
+        self._clear_edit_field()
+        self._tys_len = len(self.sim.tys)
+
     # ═══════════════════════════════════════════════
     #  绘制
     # ═══════════════════════════════════════════════
@@ -627,6 +691,9 @@ class TyList(DraggableDialog):
         if not self.active:
             return
         self._handle_key_repeat()
+        # 台风增删(新建/删除对话框)后自动刷新过滤结果与选中行
+        if len(self.sim.tys) != getattr(self, '_tys_len', -1):
+            self._after_list_mutation()
         lx, ly, lw, lh = self.bg_rect
         dark = self.dark_mode
         tc = SETTINGS_TEXT_LIGHT if dark else TXT
@@ -680,15 +747,18 @@ class TyList(DraggableDialog):
             self.edit_field.draw(surface)
 
         page_info = f"第 {self.current_page + 1}/{self.get_total_pages()} 页  共 {len(self._filtered_indices)} 条"
-        surface.blit(rt(f_s, page_info, tc), (lx + 20, ly + lh - 80))
+        surface.blit(rt(f_s, page_info, tc), (lx + 20, ly + lh - 95))
 
         for action, rect in self._action_buttons().items():
-            texts = {'name': self.name_btn_text, 'number': self.number_btn_text,
+            texts = {'new': self.new_btn_text, 'delete': self.delete_btn_text,
+                     'name': self.name_btn_text, 'number': self.number_btn_text,
                      'filename': self.filename_btn_text}
+            enabled = (action == 'new') or (self.si != -1)
             if dark:
                 self.draw_dark_button(surface, rect, texts[action])
             else:
-                self.draw_button(surface, rect, texts[action], BUTTON_BG)
+                self.draw_button(surface, rect, texts[action],
+                                 BUTTON_BG if enabled else BUTTON_DISABLED)
 
         pl = self._page_left_btn()
         pr = self._page_right_btn()
@@ -729,6 +799,35 @@ class TyList(DraggableDialog):
                 self.draw_button(surface, ca, self.cancel_text, BUTTON_DISABLED)
             self.jump_confirm_btn = cb
             self.jump_cancel_btn = ca
+
+        if self.delete_pending is not None:
+            w, h = 440, 130
+            x = (self.sim.screen_width - w) // 2
+            y = (self.sim.screen_height - h) // 2
+            item_rect = pygame.Rect(x, y, w, h)
+            ov = pygame.Surface((self.sim.screen_width, self.sim.screen_height), pygame.SRCALPHA)
+            ov.fill((0, 0, 0, 140 if dark else 100))
+            surface.blit(ov, (0, 0))
+            if dark:
+                pygame.draw.rect(surface, (35, 40, 54), item_rect, 0, 4)
+                pygame.draw.rect(surface, (80, 110, 160), item_rect, 2, 4)
+                pop_tc = SETTINGS_TEXT_LIGHT
+            else:
+                pygame.draw.rect(surface, (255, 255, 255), item_rect)
+                pygame.draw.rect(surface, BUTTON_BORDER, item_rect, 2)
+                pop_tc = TXT
+            name = self.sim.get_display_name(self.delete_pending)
+            msg = rt(f_s, f"确定删除台风 {name}?", pop_tc, 400)
+            tip = rt(f_s, "其文件将从磁盘删除,不可恢复", pop_tc, 400)
+            surface.blit(msg, (x + 20, y + 20))
+            surface.blit(tip, (x + 20, y + 45))
+            cb, ca = self._delete_confirm_btns()
+            if dark:
+                self.draw_dark_button(surface, cb, self.confirm_text, accent=True)
+                self.draw_dark_button(surface, ca, self.cancel_text)
+            else:
+                self.draw_button(surface, cb, self.confirm_text, BUTTON_BORDER)
+                self.draw_button(surface, ca, self.cancel_text, BUTTON_DISABLED)
 
         ct = pygame.time.get_ticks()
         if self.hi != -1 and ct - self.hst > 800:

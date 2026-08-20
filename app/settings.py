@@ -50,6 +50,7 @@ class Settings(DraggableDialog):
         'main_rot_speed': 'main_rot_label', 'level3_rot_speed': 'level3_rot_label',
         'point_size': 'point_size_text', 'icon_size': 'icon_size_text',
         'name_size': 'name_size_text', 'peak_label_size': 'peak_label_text',
+        'info_box_scale': 'info_box_scale_text',
         'screen_height': 'sh_label', 'screen_width': 'sw_label',
         'mlo': 'mlo_label', 'Mlo': 'Mlo_label', 'mla': 'mla_label', 'Mla': 'Mla_label',
         'bl_lon': 'bl_lon_label', 'bl_lat': 'bl_lat_label', 'span': 'span_lon_label',
@@ -69,6 +70,9 @@ class Settings(DraggableDialog):
         'show_ace_bar': 'ace_show_label', 'show_ace_total': 'ace_total_label',
         'point_name_mode': 'point_name_text', 'basin_filter_enabled': 'basin_filter_text',
         'show_edit_point_labels': 'edit_point_labels_text',
+        'landfall_vol_scale': 'landfall_vol_text',
+        'show_legend': 'legend_text', 'show_graticule': 'graticule_text',
+        'show_ocean_areas': 'ocean_areas_text', 'show_coord_hud': 'coord_hud_text',
     }
 
     def __init__(self, s):
@@ -77,6 +81,8 @@ class Settings(DraggableDialog):
         self.tab_index = 0
         self.fields: List[InputField] = []
         self.show_shortcuts = False
+        self.show_info_box_editor = False
+        self._ib_editor_rects = []      # [(rect, kind, key)] 信息框编辑器点击区
         self._needs_save = False
         self._field_offsets: List[Tuple[int, int, int, int]] = []
         self._pre_render_texts()
@@ -122,6 +128,7 @@ class Settings(DraggableDialog):
             return [
                 ('section', '速度'), ('field', 'mis'), ('field', 'mas'),
                 ('section', '音量'), ('field', 'volume'),
+                ('checkbox', 'landfall_vol_scale'),
                 ('section', '旋转'), ('field', 'main_rot_speed'), ('field', 'level3_rot_speed'),
                 ('section', '窗口'), ('field', 'screen_width'), ('field', 'screen_height'),
                 ('note', 'window_note'),
@@ -129,11 +136,15 @@ class Settings(DraggableDialog):
         if self.tab_index == 1:  # 显示
             return [
                 ('section', '大小'), ('field', 'point_size'), ('field', 'icon_size'),
-                ('field', 'name_size'), ('field', 'peak_label_size'),
+                ('field', 'name_size'), ('field', 'peak_label_size'), ('field', 'info_box_scale'),
                 ('section', '主题'),
                 ('toggle', 'dark_mode', [('暗色', True), ('亮色', False)], 90, self._cb_dark_mode, 'dm_label'),
                 ('toggle', 'color_scheme', [('高对比度', 1), ('旧版', 2)], 90, None, 'color_scheme_text'),
                 ('checkbox', 'fix_icon_point_size'),
+                ('checkbox', 'show_legend'),
+                ('checkbox', 'show_graticule'),
+                ('checkbox', 'show_coord_hud'),
+                ('button', '信息框自定义'),
                 ('note', 'theme_note'),
             ]
         if self.tab_index == 2:  # 地图
@@ -146,6 +157,8 @@ class Settings(DraggableDialog):
                     ('section', '经纬范围'),
                     ('field', 'mlo'), ('field', 'Mlo'), ('field', 'mla'), ('field', 'Mla'),
                     ('note', 'lonlat_note1'), ('note', 'lonlat_note2'),
+                    ('section', '叠加'),
+                    ('checkbox', 'show_ocean_areas'),
                 ]
             return [
                 ('section', '范围模式'),
@@ -154,7 +167,8 @@ class Settings(DraggableDialog):
                  100, self._cb_map_range, None),
                 ('section', '角点+大小'),
                 ('field', 'bl_lon'), ('field', 'bl_lat'), ('field', 'span'),
-                ('note', 'corner_lat_note'),
+                ('section', '叠加'),
+                ('checkbox', 'show_ocean_areas'),
             ]
         if self.tab_index == 3:  # 播放
             return [
@@ -208,7 +222,7 @@ class Settings(DraggableDialog):
                          ('field', 'ace_min_lat'), ('field', 'ace_max_lat')]
             elif self.ace_limit_mode == ACE_LIMIT_BASIN:
                 rows += [('checkbox_now', 'basin_filter_enabled'),
-                         ('note', 'basin_filter_note'), ('dropdown',)]
+                         ('dropdown',)]
             rows += [('section', '显示'),
                      ('checkbox', 'show_ace_bar'), ('checkbox', 'show_ace_total')]
             return rows
@@ -318,12 +332,17 @@ class Settings(DraggableDialog):
         self.Mla = 50
         self.show_info_box_normal = True
         self.show_info_box_season = True
+        self.show_legend = False
+        self.show_graticule = False
+        self.show_ocean_areas = False
+        self.show_coord_hud = True
         self.screen_width = self.sim.screen_width
         self.screen_height = self.sim.screen_height
         self.ace_display_mode = "progress_bar"
         self.main_rot_speed = 1.0
         self.level3_rot_speed = 1.5
         self.volume = 0.6
+        self.landfall_vol_scale = True
         self.name_display_mode = 0
         self.point_name_mode = False
         self.ace_geo_limit_enabled = False
@@ -339,7 +358,8 @@ class Settings(DraggableDialog):
         self.icon_size = 100
         self.name_size = 100
         self.peak_label_size = 100
-        self.disable_dpi_scaling = True
+        self.info_box_scale = 1.2
+        self.disable_dpi_scaling = False
         self.fade_typhoon = True
         self.fade_path = True
         self.fade_path_mode = "fade"
@@ -425,12 +445,14 @@ class Settings(DraggableDialog):
         self.mis_label = rt(f_m, "最小速度:", TX)
         self.mas_label = rt(f_m, "最大速度:", TX)
         self.volume_label = rt(f_m, "音量 (%):", TX)
+        self.landfall_vol_text = rt(f_m, "登陆音效随强度增强:", TX)
         self.main_rot_label = rt(f_m, "主旋转速度:", TX)
         self.level3_rot_label = rt(f_m, "3级旋转速度:", TX)
         self.point_size_text = rt(f_m, "台风路径点大小 (%):", TX)
         self.icon_size_text = rt(f_m, "台风图标大小 (%):", TX)
         self.name_size_text = rt(f_m, "台风名称大小 (%):", TX)
         self.peak_label_text = rt(f_m, "巅峰/登陆文字 (%):", TX)
+        self.info_box_scale_text = rt(f_m, "信息框字号 (0.8~1.6):", TX)
         self.sh_label = rt(f_m, "窗口高度:", TX)
         self.sw_label = rt(f_m, "窗口宽度:", TX)
         self.mlo_label = rt(f_m, "最西经度:", TX)
@@ -454,7 +476,7 @@ class Settings(DraggableDialog):
         self.dpi_label = rt(f_m, "禁用DPI缩放 (需重启):", TX)
         self.auto_continue_text = rt(f_m, "正常模式台风播放完成后自动继续:", TX)
         self.normal_info_text = rt(f_m, "正常模式显示台风信息框:", TX)
-        self.season_info_text = rt(f_m, "台风季模式显示台风信息框:", TX)
+        self.season_info_text = rt(f_m, "风季模式显示台风信息框:", TX)
         self.fade_typhoon_text = rt(f_m, "台风图标平滑消失:", TX)
         self.fade_path_mode_text = rt(f_m, "路径消失模式:", TX)
         self.fade_path_mode_modes = [rt(f_m, "不消失", (255, 255, 255)),
@@ -484,6 +506,10 @@ class Settings(DraggableDialog):
         self.future_path_text = rt(f_m, "显示未经过的路径:", TX)
         self.monthly_summary_text = rt(f_m, "月度 ACE 总结弹窗:", TX)
         self.fix_icon_point_text = rt(f_m, "固定图标与路径点大小:", TX)
+        self.legend_text = rt(f_m, "显示强度图例:", TX)
+        self.graticule_text = rt(f_m, "显示经纬网格:", TX)
+        self.ocean_areas_text = rt(f_m, "显示洋区边界:", TX)
+        self.coord_hud_text = rt(f_m, "显示鼠标经纬读数:", TX)
         self.color_scheme_text = rt(f_m, "配色方案:", TX)
         self.icon_set_text = rt(f_m, "台风图标:", TX)
         self.icon_set_warn = rt(f_s, "SMCY图标影响性能较大,谨慎使用", (200, 80, 80), 400)
@@ -493,9 +519,9 @@ class Settings(DraggableDialog):
         ]
         self.name_mode_text = rt(f_m, "名称显示模式:", TX)
         self.name_modes = [
-            rt(f_m, "年份+名称", (255, 255, 255)),
-            rt(f_m, "仅名称", (255, 255, 255)),
-            rt(f_m, "原方式", (255, 255, 255))
+            rt(f_m, "完整", (255, 255, 255)),
+            rt(f_m, "年份+风暴名", (255, 255, 255)),
+            rt(f_m, "风暴名", (255, 255, 255))
         ]
         self.point_name_text = rt(f_m, "逐点名称:", TX)
         self.hemisphere_modes = [
@@ -510,7 +536,7 @@ class Settings(DraggableDialog):
         self.ace_limit_basin_text = rt(f_m, "按洋区", (255, 255, 255))
         self.ace_limit_note = rt(f_s, "注: ACE将只计算指定区域内的官方报.", TD, 400)
         self.basin_filter_text = rt(f_s, "启用洋区限制（仅加载/渲染进入过该洋区的台风）:", TX)
-        self.basin_filter_note = rt(f_s, "（洋区与上方ACE限制洋区相同；关闭则加载全部台风）", TD, 400)
+        self.basin_filter_note = None
         # F3: 新增说明文字与分组标题缓存
         self.window_note = rt(f_s, "窗口尺寸修改后立即重排窗口", TD, 400)
         self.theme_note = rt(f_s, "主题配色即时生效；固定图标与路径点大小需重载数据生效", TD, 400)
@@ -540,12 +566,17 @@ class Settings(DraggableDialog):
         self.Mla = self.sim.Mla
         self.show_info_box_normal = self.sim.show_info_box_normal
         self.show_info_box_season = self.sim.show_info_box_season
+        self.show_legend = self.sim.show_legend
+        self.show_graticule = self.sim.show_graticule
+        self.show_ocean_areas = self.sim.show_ocean_areas
+        self.show_coord_hud = self.sim.show_coord_hud
         self.screen_width = self.sim.screen_width
         self.screen_height = self.sim.screen_height
         self.ace_display_mode = self.sim.ace_display_mode
         self.main_rot_speed = self.sim.main_rotation_speed
         self.level3_rot_speed = self.sim.level3_rotation_speed
         self.volume = self.sim.volume
+        self.landfall_vol_scale = getattr(self.sim, 'landfall_vol_scale', True)
         self.name_display_mode = self.sim.name_display_mode
         self.point_name_mode = getattr(self.sim, 'point_name_mode', False)
         self.ace_limit_mode = getattr(self.sim, 'ace_limit_mode', ACE_LIMIT_NONE)
@@ -559,6 +590,7 @@ class Settings(DraggableDialog):
         self.icon_size = self.sim.icon_size
         self.name_size = getattr(self.sim, 'name_size', 100)
         self.peak_label_size = getattr(self.sim, 'peak_label_size', 100)
+        self.info_box_scale = getattr(self.sim, 'info_box_scale', 1.2)
         self.fix_icon_point_size = self.sim.fix_icon_point_size
         self.disable_dpi_scaling = self.sim.disable_dpi_scaling
         self.fade_typhoon = self.sim.fade_typhoon
@@ -585,6 +617,7 @@ class Settings(DraggableDialog):
         if not hasattr(self, 'tab_index') or self.tab_index < 0:
             self.tab_index = 0
         self.show_shortcuts = False
+        self.show_info_box_editor = False
         self._needs_save = False
         self._ace_changed = False
         self._ace_recalc_dirty = False
@@ -594,6 +627,12 @@ class Settings(DraggableDialog):
         self._error_fields = []
         self._content_scroll_y = 0
         self._content_scroll_max = 0
+        # 搜索框(P2-18): 跨 tab 匹配 section 名
+        from .input_field import InputField
+        self.search_field = InputField(
+            pygame.Rect(self.bg_rect.x + 120, self.bg_rect.y + 11, 160, 24),
+            max_length=30, dark=self.dark_mode)
+        self.search_field.set_text("")
         self._close_confirm = False
         self._build_basin_list()
         self._update_bg_rect()
@@ -710,7 +749,7 @@ class Settings(DraggableDialog):
                     parsed = self._parse_lat(val)
                     if parsed is not None:
                         setattr(self, key, parsed)
-                elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed'):
+                elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed', 'info_box_scale'):
                     setattr(self, key, float(val))
                 elif key == 'smooth_path_segments':
                     setattr(self, key, int(val))
@@ -748,6 +787,29 @@ class Settings(DraggableDialog):
     def _deactivate_fields(self):
         for f in self.fields:
             f.deactivate()
+        sf = getattr(self, 'search_field', None)
+        if sf is not None:
+            sf.deactivate()
+
+    def _do_search(self, q: str) -> None:
+        """跨 tab 匹配 section 名, 命中则切 tab 并滚动到顶部。"""
+        q = q.strip().lower()
+        if not q:
+            return
+        for ti in range(len(SETTINGS_TAB_NAMES)):
+            old = self.tab_index
+            self.tab_index = ti
+            try:
+                layout = self._tab_layout()
+            finally:
+                self.tab_index = old
+            for row in layout:
+                if row[0] == 'section' and q in str(row[1]).lower():
+                    self.tab_index = ti
+                    self._invalidate_tab_static()
+                    self._content_scroll_y = 0
+                    self._basin_dropdown_open = False
+                    return
 
     def _mark_error_field(self, *keys):
         for f in self.fields:
@@ -787,6 +849,8 @@ class Settings(DraggableDialog):
                 val, vd = f"{self.name_size}", int_val
             elif key == 'peak_label_size':
                 val, vd = f"{self.peak_label_size}", int_val
+            elif key == 'info_box_scale':
+                val, vd = f"{self.info_box_scale:.1f}", float_val
             elif key == 'screen_height':
                 val, vd = f"{self.screen_height}", int_val
             elif key == 'screen_width':
@@ -850,6 +914,11 @@ class Settings(DraggableDialog):
 
         title = rt(f_m, "设置", text_color)
         surface.blit(title, (dx + 20, dy + 12))
+        sf = getattr(self, 'search_field', None)
+        if sf is not None:
+            sf.rect.x = dx + 120
+            sf.rect.y = dy + 11
+            sf.draw(surface)
 
         mx, my = pygame.mouse.get_pos()
         btn_w, btn_h = 60, 26
@@ -997,6 +1066,8 @@ class Settings(DraggableDialog):
 
         if self.show_shortcuts:
             self.draw_shortcuts_help(surface)
+        elif self.show_info_box_editor:
+            self.draw_info_box_editor(surface)
 
     def _draw_modern_button(self, surface, rect, text, hover=False, accent=False, dark=True):
         if accent:
@@ -1018,6 +1089,7 @@ class Settings(DraggableDialog):
     def _on_ok(self):
         if self.apply_settings():
             self._needs_save = False
+            self.sim.show_toast("设置已保存", 'success')
             self._immediate_snapshot = None
             self._deactivate_fields()
             super().deactivate()
@@ -1111,6 +1183,7 @@ class Settings(DraggableDialog):
         self._close_confirm = False
         self._restore_confirm = False
         self.show_shortcuts = False
+        self.show_info_box_editor = False
         self._basin_dropdown_open = False
         self._content_scroll_y = 0
         self._error_fields = []
@@ -1118,7 +1191,7 @@ class Settings(DraggableDialog):
         self._ace_recalc_dirty = False
         self._hemisphere_changed = False
         # 恢复默认会整体重置 ACE 配置；hemisphere 亦影响 ACE 累计口径,经重置成北半球
-        # 后须一并重算(此前漏检)+ 台风季下重定位季节指针,避免 ACE 数据仍旧半球口径。
+        # 后须一并重算(此前漏检)+ 风季下重定位季节指针,避免 ACE 数据仍旧半球口径。
         if self.hemisphere != self.sim.hemisphere:
             self._hemisphere_changed = True
             self._ace_recalc_dirty = True
@@ -1281,11 +1354,18 @@ class Settings(DraggableDialog):
                         self._add_target(rect, (lambda v=val, a=attr: (
                             setattr(self, a, v), setattr(self, '_needs_save', True))))
                     if isinstance(lbl, str):
-                        ts = rt(f_m, lbl, (255, 255, 255))
+                        ts = rt(f_m, lbl, (25, 32, 45) if on else (255, 255, 255))
                     else:
                         ts = lbl
                     surface.blit(ts, (rect.x + (rect.w - ts.get_width()) // 2,
                                       rect.y + (rect.h - ts.get_height()) // 2 - 1))
+            elif t == 'button':
+                # 显示 tab 内可点击按钮(如「信息框自定义」)
+                _, label = row[0], row[1]
+                b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 180, self.LAYOUT_BTN_H)
+                self._add_target(b, self._open_info_box_editor)
+                self._draw_modern_button(surface, b, label,
+                                         hover=b.collidepoint(mx, my), accent=False, dark=dark)
             elif t == 'dropdown':
                 b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 220, 24)
                 current_basin = self.ace_limit_basin
@@ -1344,17 +1424,17 @@ class Settings(DraggableDialog):
             ("F12",       "切换窗口置顶状态"),
         ]),
         ("🌪  台风 / 模式", (210, 140, 50), [
-            ("H",         "切换模式 (正常 ↔ 台风季 ↔ 编辑)"),
+            ("H",         "切换模式 (正常 ↔ 风季 ↔ 编辑)"),
             ("[",         "上一个台风"),
             ("]",         "下一个台风"),
             ("I",         "新建台风 (编辑模式)"),
-            ("T",         "时间跳转 (台风季模式)"),
+            ("T",         "时间跳转 (风季模式)"),
         ]),
         ("📊  面板 / 工具", (140, 100, 200), [
             ("O",         "台风列表"),
             ("S",         "打开设置"),
             ("G",         "点列表 (编辑模式可编辑)"),
-            ("K",         "台风详情 (正常/编辑) / ACE统计 (台风季)"),
+            ("K",         "台风详情 (正常/编辑) / ACE统计 (风季)"),
         ]),
         ("✎  编辑操作", (200, 60, 60), [
             ("Ctrl + Z",  "撤销"),
@@ -1367,6 +1447,144 @@ class Settings(DraggableDialog):
             ("ESC",       "退出当前对话框 / 菜单"),
         ]),
     ]
+
+    _IB_ROW_NAMES = {'name': '台风名', 'time': '时间', 'pos': '位置', 'wind': '风速',
+                     'cat': '等级+气压', 'speed': '移速', 'peak': '巅峰',
+                     'tace': '总ACE', 'cace': '当前ACE'}
+
+    def _open_info_box_editor(self):
+        self._deactivate_fields()
+        self.show_shortcuts = False
+        self.show_info_box_editor = True
+        w, h = 560, 500
+        self._ib_editor_rect = pygame.Rect(
+            (self.sim.screen_width - w) // 2, (self.sim.screen_height - h) // 2, w, h)
+
+    def _close_info_box_editor(self):
+        self.show_info_box_editor = False
+
+    def _ib_rows(self):
+        return self.sim.info_box_rows or []
+
+    def _ib_set_rows(self, rows):
+        self.sim.info_box_rows = rows
+
+    def draw_info_box_editor(self, surface):
+        """信息框自定义二级面板: 逐行显隐/平滑/排序 + 背景/阴影 + 恢复默认。"""
+        from .config import _default_info_box_rows
+        r = self._ib_editor_rect
+        dark = self.dark_mode
+        # 遮罩 + 面板
+        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        surface.blit(overlay, (0, 0))
+        panel = pygame.Surface(r.size, pygame.SRCALPHA)
+        pygame.draw.rect(panel, (22, 28, 44, 245) if dark else (245, 245, 248, 245),
+                         panel.get_rect(), 0, 12)
+        pygame.draw.rect(panel, (55, 85, 130) if dark else (120, 140, 170),
+                         panel.get_rect(), 2, 12)
+        tc = (215, 225, 245) if dark else (30, 40, 60)
+        title = rt(f_m, "信息框自定义(正常/编辑模式)", tc)
+        panel.blit(title, (16, 12))
+
+        rows = self._ib_rows()
+        self._ib_editor_rects = []
+        y = 46
+        for i, item in enumerate(rows):
+            key = item['key']
+            on = bool(item.get('on', True))
+            sm = bool(item.get('smooth', True))
+            lbl = rt(f_s, self._IB_ROW_NAMES.get(key, key), tc)
+            panel.blit(lbl, (16, y + 4))
+            x = 150
+            # 显示开关
+            tgl = pygame.Rect(x, y, 44, 22)
+            self._draw_modern_button(panel, tgl, "显示" if on else "隐藏",
+                                     accent=on, dark=dark)
+            self._ib_editor_rects.append((tgl.move(r.x, r.y), 'on', key))
+            x += 52
+            # 平滑开关
+            sgl = pygame.Rect(x, y, 44, 22)
+            self._draw_modern_button(panel, sgl, "平滑" if sm else "锐利",
+                                     accent=sm, dark=dark)
+            self._ib_editor_rects.append((sgl.move(r.x, r.y), 'smooth', key))
+            x += 52
+            # 上移/下移
+            up = pygame.Rect(x, y, 22, 22)
+            self._draw_modern_button(panel, up, "↑", accent=False, dark=dark)
+            self._ib_editor_rects.append((up.move(r.x, r.y), 'up', key))
+            x += 26
+            dn = pygame.Rect(x, y, 22, 22)
+            self._draw_modern_button(panel, dn, "↓", accent=False, dark=dark)
+            self._ib_editor_rects.append((dn.move(r.x, r.y), 'down', key))
+            y += 30
+
+        y += 6
+        # 全局开关
+        bg_on = bool(self.sim.info_box_bg)
+        sh_on = bool(self.sim.info_box_text_shadow)
+        bgl = rt(f_s, "背景+色条:", tc)
+        panel.blit(bgl, (16, y + 4))
+        bt = pygame.Rect(150, y, 52, 22)
+        self._draw_modern_button(panel, bt, "开启" if bg_on else "透明", accent=bg_on, dark=dark)
+        self._ib_editor_rects.append((bt.move(r.x, r.y), 'bg', ''))
+        shl = rt(f_s, "文字阴影:", tc)
+        panel.blit(shl, (220, y + 4))
+        st = pygame.Rect(310, y, 52, 22)
+        self._draw_modern_button(panel, st, "开启" if sh_on else "关闭", accent=sh_on, dark=dark)
+        self._ib_editor_rects.append((st.move(r.x, r.y), 'shadow', ''))
+        y += 34
+
+        # 底部按钮
+        df = pygame.Rect(r.width // 2 - 110, r.height - 40, 100, 26)
+        self._draw_modern_button(panel, df, "恢复默认", accent=False, dark=dark)
+        self._ib_editor_rects.append((df.move(r.x, r.y), 'reset', ''))
+        cl = pygame.Rect(r.width // 2 + 10, r.height - 40, 100, 26)
+        self._draw_modern_button(panel, cl, "关闭", accent=True, dark=dark)
+        self._ib_editor_rects.append((cl.move(r.x, r.y), 'close', ''))
+        surface.blit(panel, r.topleft)
+
+    def _handle_info_box_editor_event(self, e):
+        from .config import _default_info_box_rows
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            self._close_info_box_editor()
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if not self._ib_editor_rect.collidepoint(e.pos):
+                self._close_info_box_editor()
+                return True
+            for rect, kind, key in self._ib_editor_rects:
+                if not rect.collidepoint(e.pos):
+                    continue
+                if kind == 'close':
+                    self._close_info_box_editor()
+                    return True
+                if kind == 'reset':
+                    self._ib_set_rows(_default_info_box_rows())
+                    self.sim.info_box_bg = False
+                    self.sim.info_box_text_shadow = True
+                    return True
+                if kind == 'bg':
+                    self.sim.info_box_bg = not bool(self.sim.info_box_bg)
+                    return True
+                if kind == 'shadow':
+                    self.sim.info_box_text_shadow = not bool(self.sim.info_box_text_shadow)
+                    return True
+                rows = self._ib_rows()
+                if kind in ('on', 'smooth'):
+                    for it in rows:
+                        if it['key'] == key:
+                            it[kind] = not bool(it.get(kind, True))
+                    self._ib_set_rows([dict(x) for x in rows])
+                    return True
+                if kind in ('up', 'down'):
+                    idx = next((i for i, x in enumerate(rows) if x['key'] == key), -1)
+                    j = idx - 1 if kind == 'up' else idx + 1
+                    if idx >= 0 and 0 <= j < len(rows):
+                        rows[idx], rows[j] = rows[j], rows[idx]
+                        self._ib_set_rows([dict(x) for x in rows])
+                    return True
+        return True
 
     def draw_shortcuts_help(self, surface):
         """绘制分类快捷键帮助面板（可滚动，内容按尺寸缓存）。"""
@@ -1604,6 +1822,21 @@ class Settings(DraggableDialog):
         if self.show_shortcuts:
             return self._handle_shortcuts_event(e)
 
+        # ── 信息框自定义面板：拦截所有事件 ──
+        if self.show_info_box_editor:
+            return self._handle_info_box_editor_event(e)
+
+        # 搜索框(P2-18): 回车跨 tab 搜索 section 名
+        sf = getattr(self, 'search_field', None)
+        if sf is not None:
+            if e.type == pygame.KEYDOWN and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                if sf.active:
+                    self._do_search(sf.get_text())
+                    sf.deactivate()
+                    return True
+            if sf.handle_event(e):
+                return True
+
         # 洋区下拉框: ESC / 滚轮 单独处理
         if self._basin_dropdown_open:
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
@@ -1808,7 +2041,7 @@ class Settings(DraggableDialog):
                         self.sim.show_error(f"{key} 必须为正数")
                         return False
                     validated[key] = v
-                elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed'):
+                elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed', 'info_box_scale'):
                     validated[key] = float(val)
                 elif key == 'smooth_path_segments':
                     validated[key] = int(val)
@@ -1902,13 +2135,15 @@ class Settings(DraggableDialog):
                      'ace_limit_mode', 'ace_limit_basin',
                      'ace_min_lon', 'ace_max_lon', 'ace_min_lat', 'ace_max_lat',
                      'hemisphere', 'point_size', 'icon_size', 'name_size',
-                     'peak_label_size', 'fix_icon_point_size', 'disable_dpi_scaling',
+                     'peak_label_size', 'info_box_scale', 'fix_icon_point_size', 'disable_dpi_scaling',
                      'fade_typhoon', 'fade_path', 'fade_path_mode', 'smooth_path',
                      'smooth_path_mode', 'smooth_path_segments', 'path_mode', 'ace_interpolated', 'show_fps',
                      'edit_snap_step', 'show_edit_point_labels',
                      'fps_cap', 'show_ri_effect', 'show_future_path', 'monthly_summary',
                      'icon_set', 'color_scheme', 'show_ace_bar', 'show_ace_total',
-                     'basin_filter_enabled', 'screen_width', 'screen_height'):
+                     'basin_filter_enabled', 'screen_width', 'screen_height',
+                     'landfall_vol_scale', 'show_legend', 'show_graticule',
+                     'show_ocean_areas', 'show_coord_hud'):
             self._sync(name)
         # N3: ace_geo_limit_enabled 仅由 _apply_filter_now 维护,不在 _sync 列表,
         # 防陈旧本地值覆盖 sim 值造成 ACE 口径分裂
@@ -1934,7 +2169,7 @@ class Settings(DraggableDialog):
                 clear_smcy_cache()
             except Exception:
                 pass
-            self.sim.show_error("图标设置已保存 — 建议重载数据以应用图标效果")
+            self.sim.show_toast("图标设置已保存 — 建议重载数据以应用图标效果", 'success')
 
         self.sim._apply_basin_filter()
 

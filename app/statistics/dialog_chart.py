@@ -1,4 +1,4 @@
-﻿# py/statistics/dialog_chart.py
+# py/statistics/dialog_chart.py
 """ACE 统计图表对话框 + 统计面板 + 洋区框 + 辅助按钮。"""
 from __future__ import annotations
 import pygame
@@ -10,6 +10,7 @@ from ..constants import (
     f_s, f_m, f_l, rt, TXT,
     HEMISPHERE_NORTH, HEMISPHERE_SOUTH,
     DIALOG_TITLE_BAR_HEIGHT,
+    SETTINGS_TEXT_LIGHT, BUTTON_BORDER,
 )
 from ..constants.fonts import SmartFont, _load_font, FONT_FILE
 from ..input_field import InputField
@@ -18,7 +19,8 @@ from ..dialog_base import DraggableDialog
 from .data_builder_chart import build_chart_data, ChartData
 from .chart_helpers import (draw_dashed_h, draw_dashed_v, ChartGridMixin, _offset_rect,
                             set_chart_dark, chart_axis, draw_tooltip)
-from .chart_presets import draw_curve_chart, draw_daily_ace_chart, draw_active_periods_chart, draw_activity_count_chart
+from .chart_presets import (draw_curve_chart, draw_daily_ace_chart,
+                            draw_active_periods_chart, draw_activity_count_chart)
 from .typhoon_ace_chart import draw_typhoon_ace_chart
 from .season_stats import calculate_season_stats
 
@@ -100,6 +102,15 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         # 洋区框绘制
         self._basin_box_rect = pygame.Rect(0, 0, 0, 0)
 
+        # 统计面板洋区/子洋区切换(仅显示用,不改 ACE 限制)
+        self._view_basin: str = ""
+        self._view_sub: str = ""
+        self._view_global: bool = False
+        self._dropdown_open: Optional[str] = None   # 'basin' | 'sub' | None
+        self._basin_dd_rect = pygame.Rect(0, 0, 0, 0)
+        self._sub_dd_rect = pygame.Rect(0, 0, 0, 0)
+        self._dd_item_rects: list = []              # [(rect, code), ...]
+
     # ═══════════════════════════════════════════════
     def activate(self):
         super().activate()
@@ -113,6 +124,14 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         self._show_stats = False
         self._stats_data = None
         self._invalidate_caches()
+
+        # 统计面板洋区默认跟随 ACE 限制(打开后独立切换,不写回限制)
+        lm = getattr(self.sim, 'ace_limit_mode', 'none')
+        bc = getattr(self.sim, 'ace_limit_basin', '')
+        self._view_basin = bc if lm == 'basin' and bc else ""
+        self._view_sub = ""
+        self._view_global = False
+        self._dropdown_open = None
 
         self._available_years = sorted([y for y, v in self.sim.yad.items() if v > 0])
         if not self._available_years:
@@ -144,6 +163,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             self._jump_field = None
         self._invalidate_caches()
         self._stats_data = None
+        self._dropdown_open = None
 
     def _invalidate_caches(self):
         self._cached_title_surf = None
@@ -157,14 +177,17 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             self._chart_data = ChartData()
             return
         year = self._available_years[self._selected_year_index]
+        # 统计面板洋区: 子洋区优先,其次主洋区,再其次(无选择时)跟随 ACE 限制
+        view = self._view_sub or self._view_basin
         lm = getattr(self.sim, 'ace_limit_mode', 'none')
         bc = getattr(self.sim, 'ace_limit_basin', '')
-        basin = bc if lm == 'basin' else None
+        basin = view if view else (bc if lm == 'basin' else None)
         # 法7: 参数+数据修订未变时复用上次构建结果(切年来回不再重扫 8-10 趟)
         rev = getattr(self.sim, '_ace_data_revision', 0)
         # N5: 加当前模拟时间指纹,时间跳转后 cumulative 模式数据强制重建
         key = (year, self.cumulative_to_current, lm, bc, rev,
-               self.sim.sy, getattr(self.sim, 'st', ''))
+               self.sim.sy, getattr(self.sim, 'st', ''),
+               self._view_basin, self._view_sub)
         if getattr(self, '_build_cache_key', None) == key and self._stats_data is not None:
             return
         self._chart_data = build_chart_data(
@@ -296,6 +319,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             for x_px, ls in zip(self._month_label_surf_xs, self._month_label_surfs):
                 surface.blit(ls, (box_x + self.padding_left + x_px - ls.get_width() // 2, self._month_label_y + dialog_y))
 
+        # 底部: 台风 ACE 柱状列表(柱子按台风颜色着色)
         hint, _total_pages, multi = draw_typhoon_ace_chart(
             surface, _offset_rect(self.bar_rect, dialog_y),
             cd.typhoon_sort_data, self._bar_page, self._sort_mode
@@ -316,9 +340,23 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         else:
             self._bar_arrow_left = None
             self._bar_arrow_right = None
+        if not exporting:
+            # 排序按钮(bar_rect 下方, 与翻页箭头同区, 始终可用)
+            by2 = self.bar_rect.bottom + dialog_y + 27
+            sort_names = ["ACE↓", "时间↑", "巅峰↓"]
+            s_rect = pygame.Rect(self.bar_rect.x + 5, by2 - 5, 62, 26)
+            if self.dark_mode:
+                self.draw_dark_button(surface, s_rect, sort_names[self._sort_mode])
+            else:
+                self.draw_button(surface, s_rect,
+                                 rt(f_s, sort_names[self._sort_mode], (255, 255, 255)))
+            self._sort_btn_rect = s_rect
+        else:
+            self._sort_btn_rect = pygame.Rect(0, 0, 0, 0)
 
         if not exporting:
             self._draw_bottom_buttons(surface, box_x)
+            self._draw_basin_dropdowns(surface, box_x, box_y)
 
             # 滚动条（委托给 ChartGridMixin）
             self._draw_scrollbar(surface, box_x, box_y, box_w)
@@ -386,6 +424,117 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             surface.blit(prompt,
                          (self._jump_field.rect.x, self._jump_field.rect.y - 22))
 
+    # ── 统计面板洋区/子洋区下拉(仅显示用,不改 ACE 限制) ──
+
+    def _basin_dd_items(self):
+        """主洋区下拉项: [(code, 显示名), ...], 首项为全球。"""
+        items = [("", "全球")]
+        areas = getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None)
+        if areas and areas.areas:
+            for a in areas.areas:
+                if not a.is_merged:
+                    items.append((a.code, f"{a.code} {a.name_cn}"))
+        return items
+
+    def _sub_dd_items(self):
+        """子洋区下拉项(当前洋区的子洋区): [(code, 显示名), ...], 首项为无。"""
+        items = [("", "无")]
+        areas = getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None)
+        if areas and self._view_basin:
+            for s in areas.get_sub_areas(self._view_basin):
+                items.append((s.code, s.name_full))
+        return items
+
+    def _select_dd_item(self, which: str, code: str) -> None:
+        """选中下拉项后刷新统计(仅显示用,不写回 ACE 限制)。"""
+        if which == 'basin':
+            changed = self._view_basin != code
+            self._view_basin = code
+            self._view_global = (code == "")
+            # 子洋区跟随主洋区: 不属于新洋区的子洋区选择失效
+            areas = getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None)
+            if changed and areas and self._view_sub:
+                sub = areas.get_sub_by_code(self._view_sub)
+                if sub is None or sub.parent_code != code:
+                    self._view_sub = ""
+        else:
+            self._view_sub = code
+        self._invalidate_caches()
+        self.needs_update = True
+
+    def _draw_dd_box(self, surface, rect, label, current, dark):
+        """下拉按钮(闭合态): 标签 + 当前值 + ▾。"""
+        txt = f"{label}: {current}"
+        if dark:
+            self.draw_dark_button(surface, rect, txt)
+        else:
+            self.draw_button(surface, rect, rt(f_s, txt, (255, 255, 255)))
+        arrow = rt(f_s, "▾", (255, 255, 255))
+        surface.blit(arrow, (rect.right - arrow.get_width() - 6,
+                             rect.y + (rect.height - arrow.get_height()) // 2))
+
+    def _draw_basin_dropdowns(self, surface, box_x, box_y):
+        """第二行: 洋区 + 子洋区两个下拉框(位于标题行下方、图表上方)。"""
+        dark = self.dark_mode
+        dd_y = box_y + 54
+        dd_h = 24
+        base_b = pygame.Rect(box_x + 12, dd_y, 150, dd_h)
+        base_s = pygame.Rect(base_b.right + 10, dd_y, 180, dd_h)
+
+        areas = getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None)
+        basin_name = "全球"
+        if self._view_basin and areas:
+            a = areas.get_by_code(self._view_basin)
+            if a is not None and not hasattr(a, 'parent_code'):
+                basin_name = f"{a.code} {a.name_cn}"
+            elif a is not None:
+                basin_name = a.name_full
+        sub_name = "无"
+        if self._view_sub and areas:
+            s = areas.get_by_code(self._view_sub)
+            if s is not None:
+                sub_name = s.name_full
+
+        self._basin_dd_rect = base_b
+        self._sub_dd_rect = base_s
+        self._draw_dd_box(surface, base_b, "洋区", basin_name, dark)
+        self._draw_dd_box(surface, base_s, "子洋区", sub_name, dark)
+
+        # 展开的下拉列表
+        if self._dropdown_open is None:
+            self._dd_item_rects = []
+            return
+        items = self._basin_dd_items() if self._dropdown_open == 'basin' else self._sub_dd_items()
+        base = self._basin_dd_rect if self._dropdown_open == 'basin' else self._sub_dd_rect
+        item_h = 22
+        list_w = base.width
+        list_h = len(items) * item_h
+        list_x = base.x
+        list_y = base.bottom + 2
+        # 底部空间不足时向上展开
+        if list_y + list_h > self.bg_rect.bottom - 4:
+            list_y = base.y - list_h - 2
+        list_rect = pygame.Rect(list_x, list_y, list_w, list_h)
+        if dark:
+            bg = (35, 40, 54)
+            border = (80, 110, 160)
+            tc = SETTINGS_TEXT_LIGHT
+        else:
+            bg = (255, 255, 255)
+            border = BUTTON_BORDER
+            tc = TXT
+        pygame.draw.rect(surface, bg, list_rect, 0, 3)
+        pygame.draw.rect(surface, border, list_rect, 1, 3)
+        mx, my = pygame.mouse.get_pos()
+        self._dd_item_rects = []
+        for i, (code, name) in enumerate(items):
+            ir = pygame.Rect(list_x + 2, list_y + i * item_h, list_w - 4, item_h)
+            if ir.collidepoint(mx, my):
+                pygame.draw.rect(surface, (70, 120, 190, 90), ir)
+            ts = rt(f_s, name, tc, list_w - 10)
+            surface.blit(ts, (ir.x + 6, ir.y + (item_h - ts.get_height()) // 2))
+            self._dd_item_rects.append((ir, code))
+
     def _draw_hover(self, surface):
         if self._hover_info and self._hover_pos:
             draw_tooltip(surface, self._hover_info,
@@ -426,7 +575,12 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             return True
         if e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
-                self.deactivate()
+                if self._dropdown_open:
+                    # 先关闭展开的下拉,再按一次才关闭对话框
+                    self._dropdown_open = None
+                    self._dd_item_rects = []
+                else:
+                    self.deactivate()
                 return True
             if e.key == pygame.K_LEFT:
                 self._change_year(-1)
@@ -444,6 +598,24 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             return True
         if not self._available_years or self._selected_year_index < 0:
             return True
+        # 洋区/子洋区下拉
+        if self._dropdown_open is not None:
+            # 点击列表项
+            for ir, code in self._dd_item_rects:
+                if ir.collidepoint(x, y):
+                    self._select_dd_item(self._dropdown_open, code)
+                    self._dropdown_open = None
+                    return True
+            # 点击其它处关闭(不再透传)
+            self._dropdown_open = None
+            self._dd_item_rects = []
+            return True
+        if self._basin_dd_rect.collidepoint(x, y):
+            self._dropdown_open = 'basin' if self._dropdown_open != 'basin' else None
+            return True
+        if self._sub_dd_rect.collidepoint(x, y):
+            self._dropdown_open = 'sub' if self._dropdown_open != 'sub' else None
+            return True
         # 活跃时间图点击 → 跳转到台风生成时间
         for br_screen, period in self._active_period_click_targets:
             if br_screen.collidepoint(x, y):
@@ -455,7 +627,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             dlg = self.sim.dialog_mgr.season_stats
             year = self._available_years[self._selected_year_index]
             self.sim.current_ace_year = year
-            dlg.activate()
+            dlg.activate(basin=self._view_sub or self._view_basin or None)
             return True
         # 路径对比
         if self._path_cmp_btn_rect.collidepoint(x, y):
@@ -495,7 +667,7 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             self._invalidate_caches()
             self.needs_update = True
             return True
-        # 排序切换
+        # 排序切换(作用于风暴时间轴)
         if self._sort_btn_rect.collidepoint(x, y):
             self._sort_mode = (self._sort_mode + 1) % 3
             self._bar_page = 0
@@ -569,15 +741,17 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         os.makedirs(out, exist_ok=True)
         yv = self._available_years[self._selected_year_index]
         yd = self._year_display(yv).replace(' ', '_')
+        code = self._view_sub or self._view_basin
         lm = getattr(self.sim, 'ace_limit_mode', 'none')
         bc = getattr(self.sim, 'ace_limit_basin', '')
-        if lm in ('none', '') and not bc:
+        if not code and not getattr(self, '_view_global', False) \
+                and lm == 'basin' and bc:
+            code = bc
+        if not code:
             filename = f"{yd}_GLOBAL_ACE"
-        elif lm == 'basin' and bc:
-            a = self._get_basin_area(bc)
-            filename = f"{yd}_{a.name_full if a else bc}_ACE"
         else:
-            filename = f"{yd}_ACE"
+            a = self._get_basin_area(code)
+            filename = f"{yd}_{a.name_full if a else code}_ACE"
 
         # 导出完整内容（不截断、不含按钮/滚动条等 UI）
         ox, oy = self.bg_rect.x, self.bg_rect.y
@@ -625,23 +799,50 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
         yv = self._available_years[self._selected_year_index]
         yd = self._year_display(yv)
         tace = self.sim.yad.get(yv, 0.0)
+
+        def _rank_suffix():
+            """当前年 ACE 在可用年份中的排名(参考面板标题: Rank r/n)。"""
+            pairs = [(y, self.sim.yad.get(y, 0.0)) for y in self._available_years]
+            if len(pairs) < 2:
+                return ""
+            srt = sorted(pairs, key=lambda p: -p[1])
+            rank = 1
+            for i, (y2, v2) in enumerate(srt):
+                if y2 == yv:
+                    rank = i + 1
+                    break
+            return f"   Rank: {rank}/{len(pairs)}"
+
+        def _basin_title(code):
+            a = self._get_basin_area(code)
+            bd = a.name_full if a else code
+            avg = getattr(a, 'avg_ace', None) or 0
+            if avg:  # 主洋区有 ACE 基准,显示距平
+                anom = tace - avg
+                sign = '+' if anom >= 0 else ''
+                return f"{yd} {bd} ACE: {tace:.4f} ({sign}{anom:.4f}){_rank_suffix()}"
+            return f"{yd} {bd} ACE: {tace:.4f}{_rank_suffix()}"   # 子洋区无基准,不显示距平
+
+        # 统计面板洋区(显示用): 子洋区优先,其次主洋区,再其次跟随 ACE 限制
+        code = self._view_sub or self._view_basin
+        if code:
+            return _basin_title(code)
+        if getattr(self, '_view_global', False):
+            return f"{yd} GLOBAL ACE: {tace:.4f}"
         lm = getattr(self.sim, 'ace_limit_mode', 'none')
         bc = getattr(self.sim, 'ace_limit_basin', '')
+        if lm == 'basin' and bc:
+            return _basin_title(bc)
         if lm in ('none', '') and not bc:
             return f"{yd} GLOBAL ACE: {tace:.4f}"
-        if lm == 'basin' and bc:
-            a = self._get_basin_area(bc)
-            bd = a.name_full if a else bc
-            avg = a.avg_ace if a else 0.0
-        else:
-            bd = ""
-            avg = getattr(getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None),
-                          'total_avg_ace', 0) or 0
-        anom = tace - avg
-        sign = '+' if anom >= 0 else ''
-        if bd:
-            return f"{yd} {bd} ACE: {tace:.4f} ({sign}{anom:.4f})"
-        return f"{yd} ACE: {tace:.4f} ({sign}{anom:.4f})"
+        # latlon 等限制模式: 全局基准距平(原行为)
+        avg = getattr(getattr(getattr(self.sim, 'res_mgr', None), 'ocean_areas', None),
+                      'total_avg_ace', 0) or 0
+        if avg:
+            anom = tace - avg
+            sign = '+' if anom >= 0 else ''
+            return f"{yd} ACE: {tace:.4f} ({sign}{anom:.4f})"
+        return f"{yd} GLOBAL ACE: {tace:.4f}"
 
     def _year_display(self, year: int) -> str:
         if self.sim.hemisphere == HEMISPHERE_SOUTH:
@@ -651,7 +852,8 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
     def _title_hash(self) -> int:
         yv = self._available_years[self._selected_year_index]
         return hash((yv, self.cumulative_to_current, self.sim.current_ace_year,
-                     self.dark_mode))
+                     self.dark_mode, self._view_basin, self._view_sub,
+                     getattr(self, '_view_global', False)))
 
     def _apply_hint(self, hint):
         if hint is not None:
@@ -690,16 +892,9 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
                             [(lr.right, lr.top), (lr.right, lr.bottom), (lr.left + 4, lr.centery)])
         self._arrow_left = lr
 
-        # 排序按钮
-        sort_names = ["ACE↓", "时间↑", "巅峰↓"]
-        s_rect = pygame.Rect(lr.left - GAP - 62, BAR_Y, 62, BAR_H)
-        if dark:
-            self.draw_dark_button(surface, s_rect, sort_names[self._sort_mode])
-        else:
-            self.draw_button(surface, s_rect, rt(f_s, sort_names[self._sort_mode], (255, 255, 255)))
-        self._sort_btn_rect = s_rect
+        # 排序按钮已移至底部(bar_rect 下方, 与翻页箭头同区)
 
-        mb = pygame.Rect(s_rect.left - GAP - 180, BAR_Y, 180, BAR_H)
+        mb = pygame.Rect(lr.left - GAP - 180, BAR_Y, 180, BAR_H)
 
         sy = self._available_years[self._selected_year_index]
         mode_hash = (self.cumulative_to_current, sy, self.sim.current_ace_year,

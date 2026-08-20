@@ -53,10 +53,14 @@ class DialogManager:
         stack: list = getattr(self.sim, '_dialog_stack', [])
         drawn = set()
         for d in stack:
+            if getattr(d, '_restore_pending', False):
+                d._apply_saved_position()
             if d.active:
                 d.draw(surface)
                 drawn.add(id(d))
         for d in self._all():
+            if getattr(d, '_restore_pending', False):
+                d._apply_saved_position()
             if d.active and id(d) not in drawn:
                 d.draw(surface)
 

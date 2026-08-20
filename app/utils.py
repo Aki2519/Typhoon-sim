@@ -1,4 +1,4 @@
-﻿# py/utils.py
+# py/utils.py
 """工具函数。"""
 from __future__ import annotations
 
@@ -211,6 +211,76 @@ def darken_color(c: Tuple[int, ...], factor: float = 0.6) -> Tuple[int, ...]:
     r, g, b = c[:3]
     out = (int(r * factor), int(g * factor), int(b * factor))
     return (*out, c[3]) if len(c) == 4 else out
+
+
+# ── 名称/标注文字: 降亮描边 + 向外辉光渐变 ──
+
+_OUTLINE8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+_GLOW_RING = {
+    1: [(-1, 0), (1, 0), (0, -1), (0, 1),
+        (-1, -1), (1, -1), (-1, 1), (1, 1)],
+    2: [(-2, 0), (2, 0), (0, -2), (0, 2),
+        (-2, -1), (-2, 1), (2, -1), (2, 1),
+        (-1, -2), (-1, 2), (1, -2), (1, 2),
+        (-2, -2), (2, -2), (-2, 2), (2, 2)],
+    3: [(-3, 0), (3, 0), (0, -3), (0, 3),
+        (-3, -1), (-3, 1), (3, -1), (3, 1),
+        (-1, -3), (-1, 3), (1, -3), (1, 3),
+        (-3, -2), (-3, 2), (3, -2), (3, 2),
+        (-2, -3), (-2, 3), (2, -3), (2, 3),
+        (-3, -3), (3, -3), (-3, 3), (3, 3)],
+}
+
+
+def render_glow_text(font, text: str, color,
+                     dim_factor: float = 0.62,
+                     glow_alpha: float = 0.5) -> pygame.Surface:
+    """白字 + 降亮描边 + 向外辉光渐变(渲染一次,结果带 6px 透明边距)。
+
+    描边用降亮后的强度色(dim_factor),白字更显眼;辉光为三层
+    半径 1/2/3 的渐弱色环,由内向外衰减。返回表面中文字位于 (6,6)。"""
+    fg = font.render(text, True, (255, 255, 255))
+    bk = font.render(text, True, darken_color(color, dim_factor))
+    w, h = fg.get_size()
+    pad = 6
+    surf = pygame.Surface((w + pad * 2, h + pad * 2), pygame.SRCALPHA)
+    # 向外辉光: 半径 3(暗) → 2 → 1(亮)
+    for radius, a in ((3, 26), (2, 46), (1, 96)):
+        layer = bk.copy()
+        layer.set_alpha(int(a * glow_alpha))
+        for dx, dy in _GLOW_RING[radius]:
+            surf.blit(layer, (pad + dx, pad + dy))
+    # 描边: 8 方向全 alpha(降亮色)
+    for dx, dy in _OUTLINE8:
+        surf.blit(bk, (pad + dx, pad + dy))
+    surf.blit(fg, (pad, pad))
+    return surf
+
+
+def landfall_volume_gain_db(wind, base_kt: float = 65.0, lo_kt: float = 35.0,
+                            lo_db: float = -2.0, hi_kt: float = 112.0,
+                            hi_db: float = 5.0, cap_kt: float = 200.0,
+                            cap_db: float = 15.0) -> float:
+    """登陆音效强度→分贝增益曲线(以 base_kt 为 0dB 基准)。
+
+    ≤lo_kt 恒为 lo_db;lo_kt→base_kt 线性 lo_db→0;
+    base_kt→hi_kt 线性 0→hi_db;hi_kt→cap_kt 开方曲线快速增大 hi_db→cap_db;
+    ≥cap_kt 恒为 cap_db。全部参数可经配置调整。"""
+    w = float(wind)
+    if w <= lo_kt:
+        return lo_db
+    if w <= base_kt:
+        t = (w - lo_kt) / max(1e-6, base_kt - lo_kt)
+        return lo_db + (0.0 - lo_db) * t
+    if w <= hi_kt:
+        t = (w - base_kt) / max(1e-6, hi_kt - base_kt)
+        return hi_db * t
+    if w >= cap_kt:
+        return cap_db
+    # 快速段: 凹曲线(开方)从 hi_kt 起快速增大,逼近 cap_kt 时趋缓封顶
+    t = (w - hi_kt) / max(1e-6, cap_kt - hi_kt)
+    return hi_db + (cap_db - hi_db) * (t ** 0.5)
 
 
 @functools.lru_cache(maxsize=256)

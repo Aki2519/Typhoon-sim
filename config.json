@@ -6,19 +6,22 @@
   "map_corner_mode": true,
   "cmp": null,
   "ac": true,
-  "md": "normal",
+  "md": "season",
   "sp": 1.0,
   "mis": 0.1,
   "mas": 16.0,
   "show_info_box_normal": true,
   "show_info_box_season": true,
-  "screen_width": 1360,
-  "screen_height": 885,
+  "screen_width": 2560,
+  "screen_height": 1498,
+  "start_maximized": true,
   "window_topmost": false,
+  "fullscreen": false,
+  "first_run_done": true,
   "ace_display_mode": "progress_bar",
   "ace_geo_limit_enabled": true,
   "ace_limit_mode": "basin",
-  "ace_limit_basin": "NE",
+  "ace_limit_basin": "WP",
   "ace_min_lon": 100.0,
   "ace_max_lon": 180.0,
   "ace_min_lat": 0.0,
@@ -30,6 +33,14 @@
   "main_rotation_speed": 1.0,
   "level3_rotation_speed": 1.5,
   "volume": 0.75,
+  "landfall_vol_scale": true,
+  "landfall_vol_base_kt": 65,
+  "landfall_vol_lo_kt": 35,
+  "landfall_vol_lo_db": -2.0,
+  "landfall_vol_hi_kt": 112,
+  "landfall_vol_hi_db": 5.0,
+  "landfall_vol_cap_kt": 200,
+  "landfall_vol_cap_db": 15.0,
   "name_display_mode": 0,
   "point_name_mode": true,
   "hemisphere": "north",
@@ -40,12 +51,12 @@
   "fix_icon_point_size": false,
   "fade_typhoon": true,
   "fade_path": true,
-  "fade_path_mode": "never",
+  "fade_path_mode": "fade",
   "smooth_path": true,
   "smooth_path_segments": 10,
   "smooth_path_mode": "catmull",
   "edit_snap_step": 0.1,
-  "show_edit_point_labels": false,
+  "show_edit_point_labels": true,
   "path_mode": "line",
   "show_future_path": true,
   "ace_interpolated": true,
@@ -54,13 +65,65 @@
   "monthly_summary": false,
   "show_ri_effect": true,
   "show_ace_bar": true,
-  "show_ace_total": false,
-  "disable_dpi_scaling": true,
+  "show_ace_total": true,
+  "disable_dpi_scaling": false,
   "dark_mode": true,
   "icon_set": "smcy",
   "color_scheme": 2,
   "show_summary": true,
   "summary_transparent": true,
   "basin_filter_enabled": true,
-  "tn": {}
+  "show_legend": false,
+  "show_graticule": false,
+  "show_ocean_areas": true,
+  "tn": {},
+  "info_box_rows": [
+    {
+      "key": "name",
+      "on": true,
+      "smooth": true
+    },
+    {
+      "key": "time",
+      "on": false,
+      "smooth": true
+    },
+    {
+      "key": "pos",
+      "on": true,
+      "smooth": true
+    },
+    {
+      "key": "wind",
+      "on": true,
+      "smooth": true
+    },
+    {
+      "key": "cat",
+      "on": true,
+      "smooth": true
+    },
+    {
+      "key": "speed",
+      "on": true,
+      "smooth": true
+    },
+    {
+      "key": "peak",
+      "on": false,
+      "smooth": true
+    },
+    {
+      "key": "tace",
+      "on": false,
+      "smooth": true
+    },
+    {
+      "key": "cace",
+      "on": false,
+      "smooth": true
+    }
+  ],
+  "info_box_bg": false,
+  "info_box_text_shadow": true
 }

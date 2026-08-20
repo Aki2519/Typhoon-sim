@@ -486,7 +486,7 @@ class ChartGridMixin:
         tbw = min(40, graph_width / n_ty * 0.7)
         self._typhoon_bar_width = tbw
 
-        chart2_h = 480
+        chart2_h = 480          # 风暴活跃周期图(原布局)
         chart3_h = max(40, int(2 * tbw))
         curve_h, daily_h, typhoon_h = 250, 180, 250
 

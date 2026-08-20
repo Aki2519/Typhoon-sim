@@ -1,17 +1,52 @@
-﻿# py/renderer.py
+# py/renderer.py
 """统一渲染器：组合所有绘制逻辑。"""
 from __future__ import annotations
 
 import pygame
-from typing import TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from .constants import (
     BG, ERROR_BG, ERROR_BORDER, f_m, f_s, rt,
     FPS_GREEN, FPS_YELLOW, FPS_RED, ERROR_TIMEOUT_MS,
+    TD, TS, STS, C1, C2, C3, C4, C5_L,
 )
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
+
+
+def _clip_seg_rect(surface, p0, p1, sw, sh, color, width) -> None:
+    """把线段 p0→p1(可能越界/跨屏)按视口矩形截断后画出; 完全在视口外则跳过。"""
+    x0, y0 = p0
+    x1, y1 = p1
+    # Liang-Barsky 裁剪
+    dx = x1 - x0
+    dy = y1 - y0
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, x0 - 0), (dx, sw - x0),
+                 (-dy, y0 - 0), (dy, sh - y0)):
+        if p == 0:
+            if q < 0:
+                return
+        else:
+            r = q / p
+            if p < 0:
+                if r > t1:
+                    return
+                if r > t0:
+                    t0 = r
+            else:
+                if r < t0:
+                    return
+                if r < t1:
+                    t1 = r
+    if t0 > t1:
+        return
+    ax = int(x0 + t0 * dx)
+    ay = int(y0 + t0 * dy)
+    bx = int(x0 + t1 * dx)
+    by = int(y0 + t1 * dy)
+    pygame.draw.line(surface, color, (ax, ay), (bx, by), width)
 
 
 class Renderer:
@@ -33,19 +68,142 @@ class Renderer:
             if getattr(sim.cfg, 'show_fps', False):
                 self._draw_fps(surface)
 
-            if sim.error_message and pygame.time.get_ticks() - sim.error_time < ERROR_TIMEOUT_MS:
-                self._draw_error(surface)
+            self._draw_toasts(surface)
+            if getattr(sim.cfg, 'show_coord_hud', True):
+                self._draw_coord_hud(surface)
+            if getattr(sim.cfg, 'show_legend', False):
+                self._draw_legend(surface)
+            self._draw_script_status(surface)
         # hidden 模式下控制面板仍绘制底色,与地图区分(F1 截图模式)
+
+    def _draw_ocean_areas(self, surface: pygame.Surface) -> None:
+        """洋区边界 + 盆域标签(可选 overlay)。
+        逐段画线并跳过跨屏跳动(反经线/越界顶点不再横穿屏幕), 分界线加粗。"""
+        sim = self.sim
+        try:
+            oa = getattr(getattr(sim, 'res_mgr', None), 'ocean_areas', None)
+            if oa is None:
+                return
+            sw, sh = sim.screen_width, getattr(sim, 'map_height', 0)
+            blue = (80, 140, 220)
+            for area in getattr(oa, 'areas', None) or []:
+                verts = getattr(area, '_proc_vertices', None) or getattr(area, 'vertices', None) or []
+                if len(verts) < 3:
+                    continue
+                pts = []
+                for v in verts:
+                    try:
+                        x, y = sim.latlon_to_screen(v[0], v[1])
+                        pts.append((int(x), int(y)))
+                    except Exception:
+                        pts.append(None)
+                n = len(pts)
+                # 边界: 逐段画线, 跳过跨屏跳动(偏移太远的片段截断到视口)
+                for i in range(n):
+                    p0, p1 = pts[i], pts[(i + 1) % n]
+                    if p0 is None or p1 is None:
+                        continue
+                    if abs(p1[0] - p0[0]) > sw * 0.7 or abs(p1[1] - p0[1]) > sh:
+                        _clip_seg_rect(surface, p0, p1, sw, sh, blue, 2)
+                        continue
+                    pygame.draw.line(surface, blue, p0, p1, 2)
+                # 薄区域填充: 非相邻边界距离 ≤ √2·0.1°(≈0.1414°) → 蓝色实心
+                try:
+                    import math as _math
+                    thin = False
+                    for i in range(n):
+                        if pts[i] is None:
+                            continue
+                        vi = verts[i]
+                        for j in range(i + 2, n):
+                            if pts[j] is None:
+                                continue
+                            vj = verts[j]
+                            if _math.hypot(vi[1] - vj[1], vi[0] - vj[0]) <= 0.1414:
+                                thin = True
+                                break
+                        if thin:
+                            break
+                    if thin:
+                        fill_pts = [p for p in pts if p is not None
+                                    and 0 <= p[0] <= sw and 0 <= p[1] <= sh]
+                        if len(fill_pts) >= 3:
+                            pygame.draw.polygon(surface, (30, 95, 185), fill_pts, 0)
+                except Exception:
+                    pass
+                # 标签(质心)
+                if verts:
+                    la = sum(v[0] for v in verts) / len(verts)
+                    lo = sum(v[1] for v in verts) / len(verts)
+                    try:
+                        x, y = sim.latlon_to_screen(la, lo)
+                        if 0 <= x <= sw and 0 <= y <= sh:
+                            ts = rt(f_s, area.code, (120, 175, 225))
+                            surface.blit(ts, (x, y))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _draw_graticule(self, surface: pygame.Surface) -> None:
+        sim = self.sim
+        try:
+            mh = getattr(sim, 'map_height', 0)
+            col = (190, 205, 225)
+            for lon in range(0, 360, 10):
+                x = sim.view.latlon_to_screen(0, lon)[0]
+                if 0 <= x <= sim.screen_width:
+                    pygame.draw.line(surface, col, (x, 0), (x, mh), 1)
+            for lat in range(-90, 91, 10):
+                y = sim.view.latlon_to_screen(lat, 180)[1]
+                if 0 <= y <= mh:
+                    pygame.draw.line(surface, col, (0, y), (sim.screen_width, y), 1)
+        except Exception:
+            pass
+
+    def _draw_legend(self, surface: pygame.Surface) -> None:
+        sim = self.sim
+        entries = [('TD', TD), ('TS', TS), ('STS', STS), ('C1', C1),
+                   ('C2', C2), ('C3', C3), ('C4', C4), ('C5', C5_L)]
+        w = 90
+        h = len(entries) * 18 + 16
+        x = 12
+        y = max(0, getattr(sim, 'map_height', 0) - h - 12)
+        box = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(box, (20, 26, 42, 190), (0, 0, w, h), 0, 6)
+        pygame.draw.rect(box, (70, 90, 120), (0, 0, w, h), 1, 6)
+        for i, (name, col) in enumerate(entries):
+            yy = 8 + i * 18
+            pygame.draw.rect(box, col, (8, yy, 14, 12), 0, 2)
+            ts = rt(f_s, name, (230, 232, 240))
+            box.blit(ts, (28, yy - 1))
+        surface.blit(box, (x, y))
 
     def _draw_scene(self, surface: pygame.Surface, hidden: bool = False) -> None:
         sim = self.sim
         surface.fill(BG)
+        # 模拟模式: 先画地图底图, 再叠加 SimCore 图层(不再全屏覆盖地图)
+        if getattr(sim, 'md', None) == getattr(sim, 'MODE_SIM', 'sim'):
+            sim._draw_map(surface)
+            if not hidden:
+                sim._sim_render(surface)
+            return
         sim._draw_map(surface)
 
+        # 经纬网格(可选, 地图之上、台风之下)
+        if getattr(sim.cfg, 'show_graticule', False):
+            self._draw_graticule(surface)
+        if getattr(sim.cfg, 'show_ocean_areas', False):
+            self._draw_ocean_areas(surface)
+
         if not hidden:
+            # 时间轴(圆环钟): 风季/模拟在左上角, 正常/编辑在左下角(功能栏上方)
             if sim.md == sim.MODE_SEASON:
                 sim.draw_season_clock(surface)
                 sim._ms.draw(surface)
+            elif sim.md in (sim.MODE_NORMAL, sim.MODE_EDIT):
+                clock_y = max(0, sim.map_height - 250 - 8)
+                sim.draw_season_clock(surface, origin=(0, clock_y))
 
             if getattr(sim, 'show_ace_bar', True):
                 sim.draw_ace_display(surface)
@@ -105,6 +263,82 @@ class Renderer:
         pygame.draw.rect(bg_surf, ERROR_BORDER + (220,), (0, 0, w, h), 2, 5)
         surface.blit(bg_surf, (x, 10))
         surface.blit(err, (x + p, 10 + p))
+
+    _TOAST_COLORS = {
+        'info': (70, 130, 220), 'success': (60, 190, 100),
+        'warning': (235, 190, 60), 'error': (225, 90, 90),
+    }
+
+    def _draw_toasts(self, surface: pygame.Surface) -> None:
+        sim = self.sim
+        now = pygame.time.get_ticks()
+        toasts = getattr(sim, '_toasts', None)
+        if not toasts:
+            return
+        live = [t for t in toasts if t[2] > now]
+        if len(live) != len(toasts):
+            sim._toasts = live
+        if not live:
+            return
+        y = 10
+        for text, level, _ in live:
+            col = self._TOAST_COLORS.get(level, self._TOAST_COLORS['info'])
+            surf = rt(f_s, text, (255, 255, 255))
+            p = 8
+            w, h = surf.get_width() + 2 * p, surf.get_height() + 2 * p
+            x = (sim.screen_width - w) // 2
+            box = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.rect(box, (22, 28, 44, 230), (0, 0, w, h), 0, 5)
+            pygame.draw.rect(box, (*col, 255), (0, 0, w, h), 2, 5)
+            surface.blit(box, (x, y))
+            surface.blit(surf, (x + p, y + p))
+            y += h + 4
+
+    def _draw_coord_hud(self, surface: pygame.Surface) -> None:
+        """鼠标经纬度读数(右下角)。地图区内且未隐藏 UI 时显示。"""
+        sim = self.sim
+        try:
+            mx, my = pygame.mouse.get_pos()
+            mh = getattr(sim, 'map_height', 0)
+            if not (0 <= mx <= sim.screen_width and 0 <= my <= mh):
+                return
+            lat, lon = sim.view.screen_to_latlon(mx, my)
+            # 经度: >180 → 360-x+W; <0 → -x+W; 其余 E
+            if lon > 180.0:
+                lon_s = f"{360.0 - lon:.1f}°W"
+            elif lon < 0:
+                lon_s = f"{-lon:.1f}°W"
+            else:
+                lon_s = f"{lon:.1f}°E"
+            lat_s = f"{abs(lat):.1f}°{'N' if lat >= 0 else 'S'}"
+            # 0.1° 量化缓存,减少每帧重建
+            q = (round(lat, 1), round(lon, 1), getattr(sim, 'dark_mode', True))
+            cached = getattr(sim, '_coord_hud_cache', None)
+            if cached is None or cached[0] != q:
+                txt = f"{lon_s} {lat_s}"
+                surf = rt(f_s, txt, (235, 235, 245))
+                sim._coord_hud_cache = (q, surf)
+            else:
+                surf = cached[1]
+            surface.blit(surf, (sim.screen_width - surf.get_width() - 12,
+                                mh - surf.get_height() - 10))
+        except Exception:
+            pass
+
+    def _draw_script_status(self, surface: pygame.Surface) -> None:
+        """脚本运行状态条(左下角)。"""
+        sim = self.sim
+        se = getattr(sim, 'script_engine', None)
+        if se is None:
+            return
+        try:
+            txt = se.status_text()
+        except Exception:
+            return
+        if not txt:
+            return
+        ts = rt(f_s, txt, (150, 220, 255))
+        surface.blit(ts, (12, getattr(sim, 'map_height', 0) - 34))
 
     def _draw_fps(self, surface: pygame.Surface) -> None:
         fps = getattr(self.sim, '_fps', 60.0)

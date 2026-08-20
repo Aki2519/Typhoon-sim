@@ -84,10 +84,14 @@ class TyphoonSimMixin:
 
     def _move_on_curve(self, ipos: Dict[str, float], progress: float) -> None:
         arcs = self.v._smooth_arc_lengths
+        if not arcs:
+            return
         segs = max(1, self.sim.cfg.smooth_path_segments)
         i0 = self.ci * segs
+        if i0 >= len(arcs):
+            i0 = len(arcs) - 1
         i1 = min((self.ci + 1) * segs, len(arcs) - 1)
-        if i1 == i0:
+        if i1 <= i0:
             i1 = i0 + 1 if i0 + 1 < len(arcs) else i0
         seg_start = arcs[i0]
         seg_total = arcs[i1] - seg_start

@@ -199,6 +199,30 @@ class TySimKeyboardMixin:
         self.toggle_window_topmost()
         return True
 
+    def _key_f11(self) -> bool:
+        self.toggle_fullscreen()
+        return True
+
+    def toggle_fullscreen(self) -> bool:
+        try:
+            if not self.fullscreen:
+                # 记录当前尺寸, 切到全屏
+                self._pre_fs_size = (self.screen_width, self.screen_height)
+                pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.RESIZABLE, vsync=0)
+                w = pygame.display.get_surface().get_width()
+                h = pygame.display.get_surface().get_height()
+            else:
+                w, h = self._pre_fs_size if hasattr(self, '_pre_fs_size') else (
+                    self.cfg.screen_width, self.cfg.screen_height)
+                pygame.display.set_mode((w, h), pygame.RESIZABLE, vsync=0)
+            self.fullscreen = not self.fullscreen
+            self.handle_resize(w, h)
+            self.save_config()
+            return True
+        except Exception as e:
+            logger.debug("toggle_fullscreen failed", exc_info=True)
+            return False
+
     def _key_i(self) -> bool:
         if self.md == self.MODE_EDIT:
             self.dialog_mgr.new_typhoon_dialog.activate()
@@ -303,7 +327,7 @@ class TySimKeyboardMixin:
                         top._layout_valid = False
                     if hasattr(top, '_compute_layout'):
                         top._compute_layout()
-            self.show_error(f"已保存到./picture/{fn}")
+            self.show_toast(f"已保存到./picture/{fn}", 'success')
         except Exception as ex:
             logger.error(f"截图失败: {ex}")
             self.show_error(f"截图失败: {ex}")

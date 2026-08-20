@@ -1,5 +1,6 @@
 import ctypes
 import os
+import time
 import pygame
 import sys
 import json
@@ -68,6 +69,29 @@ def _maximize_window(title: str = _WIN_TITLE):
     return None
 
 
+def _draw_splash(screen, text="正在加载台风数据…", done=None, total=None):
+    """启动加载 splash + 可选进度条。用应用字体(含中文)而非内建字体。"""
+    try:
+        screen.fill((16, 22, 36))
+        w, h = screen.get_size()
+        font = constants.f_m
+        font_small = constants.f_s
+        ts = font.render(text, True, (230, 235, 245))
+        screen.blit(ts, ((w - ts.get_width()) // 2, h // 2 - 40))
+        if done is not None and total:
+            bw = min(400, w - 120)
+            bx = (w - bw) // 2
+            by = h // 2
+            pygame.draw.rect(screen, (40, 48, 66), (bx, by, bw, 14), 0, 7)
+            fw = int(bw * max(0, min(1, done / max(1, total))))
+            if fw > 0:
+                pygame.draw.rect(screen, (70, 150, 230), (bx, by, fw, 14), 0, 7)
+            ps = font_small.render(f"{done}/{total}", True, (200, 210, 225))
+            screen.blit(ps, ((w - ps.get_width()) // 2, by + 20))
+    except Exception:
+        pass
+
+
 def main():
     sw, sh = _cfg.screen_width, _cfg.screen_height
     constants.SW, constants.SH = sw, sh
@@ -98,34 +122,70 @@ def main():
                 constants.MH = sh - constants.CPH
                 _cfg.screen_width, _cfg.screen_height = sw, sh
 
-    sim = TySim(screen, cfg=_cfg)
+    def _on_load(done, total):
+        _draw_splash(screen, "正在加载台风数据…", done, total)
+        pygame.display.flip()
+
+    _draw_splash(screen)
+    pygame.display.flip()
+    sim = TySim(screen, cfg=_cfg, on_load_progress=_on_load)
     clock = pygame.time.Clock()
 
     running = True
     perf = pygame.time.get_ticks
     last_resize_save = 0
-    while running:
-        cap = 60 if (perf() - getattr(sim, '_last_interact', 0) < 100) \
-            else max(0, getattr(sim.cfg, 'fps_cap', 120))
-        dt = clock.tick(cap) / 1000.0
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.VIDEORESIZE:
-                sim.handle_resize(event.w, event.h)
-                last_resize_save = perf()
-            else:
-                sim.handle_event(event)
-        t0 = perf()
-        sim.update(dt)
-        t1 = perf()
-        sim.draw(screen)
-        sim._t_update_ms = t1 - t0
-        sim._t_draw_ms = perf() - t1
-        pygame.display.flip()
-        if last_resize_save and perf() - last_resize_save > 1000:
-            last_resize_save = 0
+    try:
+        while running:
+            cap = 60 if (perf() - getattr(sim, '_last_interact', 0) < 100) \
+                else max(0, getattr(sim.cfg, 'fps_cap', 120))
+            dt = clock.tick(cap) / 1000.0
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.VIDEORESIZE:
+                    sim.handle_resize(event.w, event.h)
+                    last_resize_save = perf()
+                else:
+                    sim.handle_event(event)
+            t0 = perf()
+            sim.update(dt)
+            t1 = perf()
+            sim.draw(screen)
+            sim._t_update_ms = t1 - t0
+            sim._t_draw_ms = perf() - t1
+            pygame.display.flip()
+            if last_resize_save and perf() - last_resize_save > 1000:
+                last_resize_save = 0
+                sim.save_config()
+    except Exception:
+        import traceback
+        # 尽力保存当前状态
+        try:
             sim.save_config()
+        except Exception:
+            pass
+        # 写崩溃日志
+        os.makedirs("logs", exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        crash_fn = os.path.join("logs", f"crash_{ts}.log")
+        ctx = f"mode={getattr(sim, 'md', '?')} cti={getattr(sim, 'cti', '?')}"
+        try:
+            with open(crash_fn, 'w', encoding='utf-8') as f:
+                f.write(ctx + "\n\n" + traceback.format_exc())
+        except Exception:
+            pass
+        # 全屏先恢复窗口再弹窗
+        try:
+            pygame.display.set_mode((_cfg.screen_width, _cfg.screen_height), pygame.RESIZABLE)
+        except Exception:
+            pass
+        try:
+            ctypes.windll.user32.MessageBoxW(
+                0, f"程序发生错误,日志已保存至 {crash_fn}", "台风路径模拟系统", 0x10)
+        except Exception:
+            pass
+        pygame.quit()
+        sys.exit(1)
 
     sim.save_config()
     pygame.quit()

@@ -1,5 +1,5 @@
 # py/track_dialog.py
-"""台风季镜头跟踪选择对话框: 关闭 / 全部活跃 / 指定台风。"""
+"""风季镜头跟踪选择对话框: 关闭 / 全部活跃 / 指定台风。"""
 from __future__ import annotations
 
 import pygame
@@ -38,7 +38,7 @@ class TrackDialog(DraggableDialog):
                self.sim.tracking_typhoon if self.sim.tracking_mode == 'single' else None)
         for label, mode, ty in options:
             if mode == 'single' and ty is None:
-                # 台风季没有活跃台风时仍可显示占位(当前无活跃)
+                # 风季没有活跃台风时仍可显示占位(当前无活跃)
                 text = rt(f_s, label, tc)
             else:
                 text = rt(f_s, label, tc)

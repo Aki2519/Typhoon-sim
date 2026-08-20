@@ -200,6 +200,63 @@ class DraggableDialog(Dialog):
         self.drag_offset_y: int = 0
         self.bg_rect: pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.title_bar_height: int = DIALOG_TITLE_BAR_HEIGHT
+        self._restore_pending: bool = False
+
+    def activate(self, *args, **kwargs) -> None:
+        super().activate(*args, **kwargs)
+        self._restore_pending = True
+
+    def deactivate(self) -> None:
+        self._save_position()
+        super().deactivate()
+
+    def _save_position(self) -> None:
+        r = getattr(self, 'bg_rect', None)
+        if r is None or r.width <= 0 or r.height <= 0:
+            return
+        pos_store = getattr(self.sim, 'dialog_positions', None)
+        if not isinstance(pos_store, dict):
+            pos_store = {}
+            try:
+                self.sim.dialog_positions = pos_store
+            except Exception:
+                return
+        pos_store[type(self).__name__] = (
+            r.x, r.y, r.w, r.h, self.sim.screen_width, self.sim.screen_height)
+
+    def _translate_children(self, dx: int, dy: int) -> None:
+        """移动子控件(输入框等)相对 bg_rect 的位置。子类可覆盖补充。"""
+        for attr in ('fields', 'inputs'):
+            for f in getattr(self, attr, None) or []:
+                if hasattr(f, 'rect'):
+                    f.rect = f.rect.move(dx, dy)
+
+    def _apply_saved_position(self) -> None:
+        self._restore_pending = False
+        pos_store = getattr(self.sim, 'dialog_positions', None)
+        if not isinstance(pos_store, dict):
+            return
+        pos = pos_store.get(type(self).__name__)
+        if not isinstance(pos, tuple) or len(pos) != 6:
+            return
+        if pos[4] != self.sim.screen_width or pos[5] != self.sim.screen_height:
+            return
+        r = pygame.Rect(pos[0], pos[1], pos[2], pos[3])
+        if r.right > self.sim.screen_width or r.bottom > self.sim.screen_height:
+            return
+        bg = getattr(self, 'bg_rect', None)
+        if bg is None or bg.width <= 0:
+            return
+        dx, dy = r.x - bg.x, r.y - bg.y
+        if dx == 0 and dy == 0:
+            return
+        dr = getattr(self, 'dialog_rect', None)
+        if dr is not None and dr is not bg:
+            dr.x += dx
+            dr.y += dy
+        bg.x = r.x
+        bg.y = r.y
+        self._translate_children(dx, dy)
 
     def _is_title_bar(self, pos: Tuple[int, int]) -> bool:
         return self.bg_rect.collidepoint(pos) and pos[1] - self.bg_rect.y < self.title_bar_height

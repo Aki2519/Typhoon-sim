@@ -1475,7 +1475,13 @@ def run_pipeline(seed: int = 1, years: int = 3, out_root: Optional[str] = None,
     # d. 台风模拟(阶段4) → .dat
     from simulator.typhoons import sim as TS
     dat_dir = os.path.join(out_root, 'dat')
-    sims = TS.simulate_records(recs, api, seed=seed + 3000, out_dir=dat_dir)
+
+    def _prog(done, total):
+        print(f"\r[sim] 模拟进度: {done}/{total} 台风", end="", flush=True)
+
+    sims = TS.simulate_records(recs, api, seed=seed + 3000, out_dir=dat_dir,
+                               on_progress=_prog)
+    print()
     n_dat = len([1 for s in sims if s.states])
     _check(n_dat > 0, f'.dat({n_dat})')
     diss = [s.dissip_reason for s in sims if s.dissip_reason]

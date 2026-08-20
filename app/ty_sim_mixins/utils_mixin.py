@@ -1,11 +1,13 @@
 # py/ty_sim_mixins/utils_mixin.py
 """工具方法：坐标转换、编辑操作、错误提示。"""
 from __future__ import annotations
+import os
 import pygame
 import logging
 from datetime import datetime, timedelta
 from ..typhoon import TrackPoint
 from ..typhoon_render import _clear_geo_spline_cache
+from ..constants import FILE_FORMAT_JTWC
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,16 @@ class TySimUtilsMixin:
         return tinted
 
     def show_error(self, message: str) -> None:
-        self.error_message = message
-        self.error_time = pygame.time.get_ticks()
+        self.show_toast(message, 'error')
+
+    def show_toast(self, text: str, level: str = 'info', duration_ms: int = 2500) -> None:
+        """轻量 toast: 顶部居中堆叠(最多 3 条), level 区分颜色。
+        info/success/warning/error → 蓝/绿/黄/红。"""
+        if not hasattr(self, '_toasts'):
+            self._toasts = []
+        self._toasts.append((text, level, pygame.time.get_ticks() + duration_ms))
+        if len(self._toasts) > 3:
+            self._toasts = self._toasts[-3:]
 
     def get_next_time_for_typhoon(self, ty) -> str:
         if not ty.start_time:
@@ -162,6 +172,153 @@ class TySimUtilsMixin:
             pl.selected_index = sel
             pl.current_page = sel // pl.rows_per_page
             pl._clear_row_cache()
+        return True
+
+    def _point_edit_nav(self, cur: int, delta: int):
+        """编辑报点对话框按 [ ] 切换上一/下一个报点。
+
+        返回 (init_values, callback, new_index); 越界/无编辑台风返回 None。
+        同时把地图选中与报点列表选中同步到新索引。"""
+        ty = self.edit_typhoon
+        if not ty or not ty.pts:
+            return None
+        idx = cur + delta
+        if not (0 <= idx < len(ty.pts)):
+            return None
+        pt = ty.pts[idx]
+        init = {
+            'wind': str(pt.get('w', '')),
+            'pressure': str(pt.get('p', '')),
+            'type': str(pt.get('st', '')),
+            'lat': str(pt.get('la', '')),
+            'lon': str(pt.get('lo', '')),
+            'time': str(pt.get('t', '')),
+        }
+        cb = lambda vals, idx=idx: self.update_point_in_edit_typhoon(vals, idx)
+        self._edit_selected_point = idx
+        self._last_edited_point = idx
+        pl = self.dialog_mgr.point_list
+        if pl.active:
+            pl.selected_index = idx
+            pl.current_page = idx // pl.rows_per_page
+            pl._clear_row_cache()
+        return init, cb, idx
+
+    def open_point_edit_for_selected(self) -> bool:
+        """编辑模式: 为当前选中报点弹出编辑报点对话框(Enter 快捷键)。
+
+        与长按报点一致: 预填该报点值、提交回调绑定该报点索引,
+        并支持 , / . 在对话框内继续切换相邻报点。"""
+        ty = self.edit_typhoon
+        sel = getattr(self, '_edit_selected_point', None)
+        if not ty or sel is None or not (0 <= sel < len(ty.pts)):
+            return False
+        pt = ty.pts[sel]
+        init = {
+            'wind': str(pt.get('w', '')),
+            'pressure': str(pt.get('p', '')),
+            'type': str(pt.get('st', '')),
+            'lat': str(pt.get('la', '')),
+            'lon': str(pt.get('lo', '')),
+            'time': str(pt.get('t', '')),
+        }
+        self.dialog_mgr.point_edit_dialog.activate(
+            init,
+            lambda vals, idx=sel: self.update_point_in_edit_typhoon(vals, idx),
+            point_nav=self._point_edit_nav,
+            point_index=sel,
+            point_total=len(ty.pts),
+        )
+        self._last_edited_point = sel
+        return True
+
+    def delete_typhoon(self, ty) -> bool:
+        """删除台风(含磁盘文件): 列表/备份移除、选中态修正、全链路缓存清理。"""
+        if ty not in self.tys:
+            return False
+        self.tys.remove(ty)
+        backup = self.repo._all_tys_backup
+        # 备份残留会导致盆域过滤(apply_basin_filter)后"复活"已删除台风
+        if backup is not None and ty in backup:
+            backup.remove(ty)
+        # 选中态修正
+        if self.edit_typhoon is ty:
+            self.edit_typhoon = self.tys[0] if self.tys else None
+            self._edit_selected_point = None
+            self._last_edited_point = None
+        if self.cti >= len(self.tys):
+            self.cti = max(0, len(self.tys) - 1)
+        # 关闭引用该台风的活动对话框
+        pl = self.dialog_mgr.point_list
+        if pl.active and pl.typhoon is ty:
+            pl.deactivate()
+        ic = self.dialog_mgr.intensity_chart
+        if ic.active and getattr(ic, '_typhoon', None) is ty:
+            ic.deactivate()
+        # 统计图表持有台风对象引用的也关闭,避免陈旧数据/越界
+        for dlg in (self.dialog_mgr.path_comparison, self.dialog_mgr.intensity_comparison):
+            if dlg.active and any(t is ty for t in getattr(dlg, '_tys', None) or []):
+                dlg.deactivate()
+        # 季节信息框 slot 释放(占用槽位不归还会导致新台风无框可显示)
+        slot = self.info_box_slots.pop(ty, None)
+        if slot is not None and slot not in self.info_box_free_slots:
+            self.info_box_free_slots.append(slot)
+            self.info_box_free_slots.sort()
+        anim = getattr(self, '_box_anim', None)
+        if anim:
+            anim.pop(ty, None)
+        # 按台风键控的绘制/信息框缓存清理
+        for c in ('_info_box_cache_typhoon', '_info_box_last_data',
+                  '_season_info_box_cache', '_season_info_box_last_data'):
+            d = getattr(self, c, None)
+            if d:
+                d.pop(ty, None)
+        self._drop_season_start_cache(ty)
+        self._invalidate_path_cache_for_ty(ty)
+        if hasattr(self, '_name_anim'):
+            self._name_anim.pop(ty, None)
+        try:
+            from ..typhoon_render import _clear_geo_spline_cache
+            _clear_geo_spline_cache(ty)
+        except Exception:
+            pass
+        # 播放控制器缓存(特效/登陆检测/结束标记)
+        pc = self.playback_ctrl
+        pc._was_fin.pop(ty, None)
+        pc._lf_last.pop(ty, None)
+        if pc.effects:
+            pc.effects = [e for e in pc.effects
+                          if getattr(e, 'ty', None) is not ty
+                          and getattr(e, 'typhoon', None) is not ty]
+        if self.effects:
+            self.effects = [e for e in self.effects
+                            if getattr(e, 'ty', None) is not ty
+                            and getattr(e, 'typhoon', None) is not ty]
+        try:
+            from .. import summary_effect as _se
+            for _s, _v in list(_se._slot_registry.items()):
+                if getattr(_v, 'ty', None) is ty:
+                    _se._slot_registry.pop(_s, None)
+            _se._wait_queue[:] = [v for v in _se._wait_queue
+                                  if getattr(v, 'ty', None) is not ty]
+        except Exception:
+            pass
+        # ACE 数据全量刷新(删除后重算总计/年份/图表缓存)
+        self._refresh_ace_data()
+        self.update_all_screen_points()
+        self._sync_to_season_ctrl()
+        # 删除磁盘文件(失败仅提示,不阻塞);
+        # JTWC 台风若已转换过,派生 _ty.txt 副本一并删除,避免重载后残留复活
+        paths = [ty.filepath]
+        if (getattr(ty, 'format_type', '') == FILE_FORMAT_JTWC and ty.filepath):
+            base = os.path.splitext(os.path.basename(ty.filepath))[0]
+            paths.append(os.path.join(os.path.dirname(ty.filepath), f"{base}_ty.txt"))
+        for p in paths:
+            if p and os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError as e:
+                    self.show_error(f"删除文件失败: {e}")
         return True
 
     def _nudge_edit_point(self, dx: int, dy: int) -> bool:

@@ -147,7 +147,8 @@ class TySim(TySimUtilsMixin,
     def yearly_ace_data(self) -> Dict[int, float]:
         return self.yad
 
-    def __init__(self, screen: pygame.Surface, cfg: Optional[AppConfig] = None) -> None:
+    def __init__(self, screen: pygame.Surface, cfg: Optional[AppConfig] = None,
+                 on_load_progress=None) -> None:
         self.screen = screen
         self.control_panel_height = CPH
 
@@ -172,7 +173,7 @@ class TySim(TySimUtilsMixin,
                                                  self.ace_engine, self.res_mgr, self.map_mgr)
         self._pre_render_texts()
 
-        self.repo.load_typhoon_files()
+        self.repo.load_typhoon_files(on_progress=on_load_progress)
         self.map_mgr.update_map_image()
         self.map_draw_rect = self.map_mgr.get_draw_rect()
         self.dialog_mgr = DialogManager(self)
@@ -271,6 +272,7 @@ class TySim(TySimUtilsMixin,
 
         self.error_message = ""
         self.error_time = 0
+        self._toasts = []           # [(text, level, expire_at)] 顶部堆叠提示(P0-1)
         self.dialog_page_cache = {}
         self._config_needs_save = False
         self._cached_season_st: Optional[str] = None
@@ -384,14 +386,41 @@ class TySim(TySimUtilsMixin,
         if hasattr(self, 'season_ctrl'):
             self._sync_to_season_ctrl()
 
-    def get_display_name(self, ty: Typhoon) -> str:
+    def get_display_name(self, ty: Typhoon, mode: Optional[int] = None) -> str:
+        # 自定义名(双击编辑)始终最高优先(B4)
         if ty.cust:
             return ty.cust
-        if ty.sname:
-            return ty.sname
-        year = ty.start_time[:4] if ty.start_time and len(ty.start_time) >= 4 else ""
-        base = f"{ty.basin}{ty.n}" if ty.basin else ty.n
-        return f"{base}{year}" if year else base
+        year = (ty.start_time or (ty.pts[0]['t'] if ty.pts else "") or "????")[:4]
+        base = f"{ty.basin}{ty.n}" if ty.basin else (ty.n or "")
+        sname = ty.sname or ""
+        if mode is None:
+            # 短名(列表/统计/ACE 等): 风暴名 > 洋区编号+年份
+            if sname:
+                return sname
+            return f"{base}{year}" if (base and year) else (base or year)
+        # 三档显示模式(0=完整 / 1=年份+风暴名 / 2=风暴名)
+        if mode == 0:
+            # 完整: 年份 + 风暴名 + 文件id(洋区小写+编号), 如 "2025 90W wpA0"
+            fid = f"{ty.basin.lower()}{ty.n}" if (ty.basin and ty.n) else (ty.n or "")
+            if sname and fid:
+                return f"{year} {sname} {fid}"
+            if sname:
+                return f"{year} {sname}"
+            if fid:
+                return f"{year} {fid}"
+            return year
+        if mode == 1:
+            if sname:
+                return f"{year} {sname}"
+            if base:
+                return f"{year} {base}"
+            return year
+        # mode == 2
+        if sname:
+            return sname
+        if base:
+            return base
+        return year
 
     def current_typhoon(self) -> Optional[Typhoon]:
         return self.tys[self.cti] if self.tys and 0 <= self.cti < len(self.tys) else None
@@ -497,6 +526,7 @@ class TySim(TySimUtilsMixin,
 
         n = self._pending_wheel
         self._apply_pending_wheel()
+        self._update_window_title()
         se = getattr(self, 'script_engine', None)
         if n or (self.right_button_dragging and not (se and se.running)):
             self._last_interact = ct
@@ -545,6 +575,29 @@ class TySim(TySimUtilsMixin,
             self._check_monthly_summary()
         self._update_tracking(ct)
         self._ms.update(dt)
+
+    def _update_window_title(self) -> None:
+        """按模式/当前时间节流更新标题栏(≤1 次/秒)。"""
+        ct = pygame.time.get_ticks()
+        if ct - getattr(self, '_last_title_update', 0) < 1000:
+            return
+        self._last_title_update = ct
+        try:
+            if self.md == MODE_NORMAL:
+                ty = self.current_typhoon()
+                suffix = self.get_display_name(ty) if ty else ""
+                title = f"正常 · {suffix}" if suffix else "正常模式"
+            elif self.md == MODE_SEASON:
+                title = f"风季 · {self.sy}-{self.st[0:2]}-{self.st[2:4]} {self.st[4:6]}Z"
+            elif self.md == MODE_EDIT:
+                ty = self.edit_typhoon
+                suffix = self.get_display_name(ty) if ty else ""
+                title = f"编辑 · {suffix}" if suffix else "编辑模式"
+            else:
+                title = "模拟 · 台风数值模拟"
+            pygame.display.set_caption(title)
+        except Exception:
+            pass
 
     def _set_playing(self, playing: bool, dialog_auto: bool = False) -> None:
         """设置播放状态并同步播放按钮文字。"""

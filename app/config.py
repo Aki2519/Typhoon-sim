@@ -13,6 +13,20 @@ from .constants import HEMISPHERE_NORTH, ICON_SET_DEFAULT
 
 logger = logging.getLogger(__name__)
 
+# 信息框自定义(S0): 有序行 key 表(顺序即默认显示顺序)
+INFO_BOX_ROW_KEYS = ('name', 'time', 'pos', 'wind', 'cat', 'speed', 'peak', 'tace', 'cace')
+# 各行的 (默认显示, 默认平滑) —— 与 agent.md S0 B2 表一致
+_INFO_BOX_ROW_DEFAULTS = {
+    'name': (True, True), 'time': (False, True), 'pos': (True, True),
+    'wind': (True, True), 'cat': (True, True), 'speed': (True, True),
+    'peak': (False, True), 'tace': (False, True), 'cace': (False, True),
+}
+
+
+def _default_info_box_rows() -> list:
+    return [{'key': k, 'on': _INFO_BOX_ROW_DEFAULTS[k][0],
+             'smooth': _INFO_BOX_ROW_DEFAULTS[k][1]} for k in INFO_BOX_ROW_KEYS]
+
 
 @dataclass
 class AppConfig:
@@ -35,6 +49,7 @@ class AppConfig:
     screen_height: int = 1540
     start_maximized: bool = True
     window_topmost: bool = False
+    fullscreen: bool = False
 
     ace_display_mode: str = "progress_bar"
     ace_geo_limit_enabled: bool = False
@@ -97,8 +112,18 @@ class AppConfig:
     show_summary: bool = True
     summary_transparent: bool = True
     basin_filter_enabled: bool = True
+    show_legend: bool = False
+    show_graticule: bool = False
+    show_ocean_areas: bool = False
+    show_coord_hud: bool = True
 
     tn: Dict[str, str] = field(default_factory=dict)
+
+    # 信息框自定义(S0): 行显隐/平滑/排序 + 去背景 + 文字阴影
+    info_box_rows: list = field(default_factory=_default_info_box_rows)
+    info_box_bg: bool = False
+    info_box_text_shadow: bool = True
+    info_box_scale: float = 1.2
 
     @classmethod
     def _serialize_fields(cls) -> Tuple[str, ...]:
@@ -228,6 +253,19 @@ class AppConfig:
             if isinstance(v, dict):
                 return v
             return AppConfig._default_for(fld)
+        if t == 'list' or t.startswith('List['):
+            # 列表字段(当前仅 info_box_rows): 归一化行条目,坏值回退默认
+            if fld.name == 'info_box_rows':
+                cleaned = []
+                for it in v if isinstance(v, list) else []:
+                    if isinstance(it, dict) and it.get('key') in INFO_BOX_ROW_KEYS:
+                        cleaned.append({'key': it['key'],
+                                        'on': bool(it.get('on', True)),
+                                        'smooth': bool(it.get('smooth', True))})
+                if cleaned:
+                    return cleaned
+                return AppConfig._default_for(fld)
+            return v if isinstance(v, list) else AppConfig._default_for(fld)
         if t == 'Optional[str]':
             return v if v is None or isinstance(v, str) else AppConfig._default_for(fld)
         if fld.name == 'hemisphere':

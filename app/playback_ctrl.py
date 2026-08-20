@@ -9,7 +9,7 @@ from .typhoon import Typhoon
 from .landfall_effect import LandfallEffect, LandfallEffectSMCY, LandedEffect
 from .particle_effect import RIEffect, TSNoteEffect, play_eri_sound, play_note_ts_sound
 from .ace_engine import _ace_eligible
-from .utils import get_tropical_points, play_sound
+from .utils import get_tropical_points, play_sound, landfall_volume_gain_db
 from .constants import FADE_DURATION, FADE_DURATION_QUICK, ICON_SET_SMCY, MODE_NORMAL, MODE_SEASON, MODE_EDIT
 
 if TYPE_CHECKING:
@@ -354,7 +354,7 @@ class PlaybackController:
                                 label_scale=lf_scale))
                     sound = self.res_mgr.get_sound(strength)
                     if sound:
-                        play_sound(sound, self.cfg.volume)
+                        play_sound(sound, self._landfall_play_volume(landfall_wind))
 
                     # ── Landed 落地标记动画 ──
                     prf = self.cfg.point_size / 100.0
@@ -365,6 +365,30 @@ class PlaybackController:
                     if landed._count > 0:
                         self.effects.append(landed)
         v.last_on_land = is_land
+
+    def _landfall_play_volume(self, wind: int) -> float:
+        """按登陆风速缩放登陆音效音量(可开关,曲线参数见 config)。
+
+        65kt 为 0dB 基准;35~112kt 缓慢变化(-2~+5dB);
+        113kt 起快速增大,200kt 封顶 +15dB。返回 0~1 音量。"""
+        cfg = self.cfg
+        if not getattr(cfg, 'landfall_vol_scale', True):
+            return cfg.volume
+        try:
+            db = landfall_volume_gain_db(
+                wind,
+                base_kt=cfg.landfall_vol_base_kt,
+                lo_kt=cfg.landfall_vol_lo_kt,
+                lo_db=cfg.landfall_vol_lo_db,
+                hi_kt=cfg.landfall_vol_hi_kt,
+                hi_db=cfg.landfall_vol_hi_db,
+                cap_kt=cfg.landfall_vol_cap_kt,
+                cap_db=cfg.landfall_vol_cap_db,
+            )
+            gain = 10.0 ** (db / 20.0)
+        except Exception:
+            return cfg.volume
+        return max(0.0, min(1.0, cfg.volume * gain))
 
     def _check_finish_note(self, typhoon: Typhoon, ct: float) -> None:
         """台风结束时记录 ACE 提示：进度条左侧显示 '台风名 +ACE'。"""

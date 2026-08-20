@@ -383,7 +383,8 @@ _LANDFALL_MAP = {
     'C5': '[Landing]C5',
     'TS': '[Landing]S', 'STS': '[Landing]S', 'SS': '[Landing]S',
     'TD': '[Landing]D', 'SD': '[Landing]D',
-    'MD': '[Landing]MD',
+    'DB': '[Landing]D', 'LO': '[Landing]D', 'WV': '[Landing]D',
+    'MD': '[Landing]MD', 'EX': '[Landing]EX',
 }
 
 _landfall_cache: Dict[Tuple[str, int, int], list] = {}
@@ -429,6 +430,7 @@ _LANDED_MAP = {
     'C5': 'Landed-C5',
     'TS': 'Landed-S', 'STS': 'Landed-S', 'SS': 'Landed-S',
     'TD': 'Landed-D', 'SD': 'Landed-D',
+    'DB': 'Landed-D', 'LO': 'Landed-D', 'WV': 'Landed-D',
 }
 
 _landed_streams: Dict[str, _VideoStream] = {}

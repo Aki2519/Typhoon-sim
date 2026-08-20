@@ -426,7 +426,6 @@ class ScriptEngine:
         self.script: Optional[Script] = None
         self.running = False
         self.paused = False
-
         self._state = self.STATE_IDLE
         self._cmd_index = 0
         self._current_target = None
@@ -442,6 +441,21 @@ class ScriptEngine:
         # 真实等待计时
         self._wait_elapsed: float = 0.0
         self._wait_total: float = 0.0
+
+    # ── 状态(P1-8: 脚本运行进度指示) ──
+
+    def status_text(self) -> str:
+        """脚本运行状态条文案: 目标进度 + 状态 + 暂停。未运行返回空串。"""
+        if not self.running or not self.script:
+            return ""
+        total = sum(1 for c in self.script.commands if c.type == CMD_TARGET)
+        idx = min(total, sum(1 for c in self.script.commands[:self._cmd_index + 1]
+                             if c.type == CMD_TARGET))
+        state = {self.STATE_DWELL: '停留', self.STATE_MOVING: '移动中',
+                 self.STATE_WAIT_REAL: '等待', self.STATE_WAIT_USER: '等待用户'}.get(
+                     self._state, '…')
+        txt = f"脚本: 目标 {idx}/{total} · {state}"
+        return txt + (" · 暂停" if self.paused else "")
 
     # ── 公开 API ──
 

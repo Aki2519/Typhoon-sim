@@ -31,8 +31,9 @@ class PointList(DraggableDialog):
         self.last_click_time = 0
         self.last_click_index = -1
 
-        self.headers = ["#", "时间", "纬度", "经度", "强度", "气压", "类型", "正式报"]
-        self.col_widths = [40, 140, 80, 80, 50, 50, 60, 60]
+        # 不显示"正式报"列(也不显示 JTWC 评);非正式报仅以整行变暗区分
+        self.headers = ["#", "时间", "纬度", "经度", "强度", "气压", "类型"]
+        self.col_widths = [40, 140, 80, 80, 50, 50, 60]
         tc_d = SETTINGS_TEXT_LIGHT
         tc_l = TXT
         self.header_surfs = [rt(f_s, h, tc_l) for h in self.headers]
@@ -116,17 +117,16 @@ class PointList(DraggableDialog):
         cols = [
             self._fmt_time(pt['t']), lat_to_display(pt['la']), lon_to_display(pt['lo']),
             str(pt['w']), str(pt['p']) if pt['p'] else '', pt['st'],
-            "是" if pt.get('official', True) else "否",
         ]
-        return "|".join(cols) + f"|dark={dark}"
+        # 非正式报仅整行变暗(不显示列), official 标志仍入哈希保证变暗样式同步
+        return "|".join(cols) + f"|dark={dark}|o={1 if pt.get('official', True) else 0}"
 
     def _row_surfs(self, pt: TrackPoint, dark: bool = False):
         cols = [
             self._fmt_time(pt['t']), lat_to_display(pt['la']), lon_to_display(pt['lo']),
             str(pt['w']), str(pt['p']) if pt['p'] else '', pt['st'],
-            "是" if pt.get('official', True) else "否",
         ]
-        # 非正式报(插值点)整行变暗,与正式报区分
+        # 非正式报(插值点)整行变暗(仅视觉区分,不单列显示是否正式报)
         if not pt.get('official', True):
             tc = SETTINGS_TEXT_DIM if dark else (150, 150, 150)
         else:
@@ -250,6 +250,21 @@ class PointList(DraggableDialog):
         if e.key == pygame.K_RETURN and self.selected_index >= 0 and not self.readonly:
             self._edit_point(self.selected_index)
             return True
+        if e.key in (pygame.K_COMMA, pygame.K_PERIOD):
+            # , / .: 与编辑模式地图快捷键一致,切换选中报点(循环)
+            n = len(self.typhoon.pts)
+            if n:
+                delta = -1 if e.key == pygame.K_COMMA else 1
+                if self.selected_index < 0:
+                    nxt = 0
+                else:
+                    nxt = (self.selected_index + delta) % n
+                new_page = nxt // self.rows_per_page
+                if new_page != self.current_page:
+                    self.current_page = new_page
+                self.selected_index = nxt
+                self._sync_map_selection(nxt)
+                return True
         return False
 
     def _move_cursor(self, delta):
@@ -383,10 +398,40 @@ class PointList(DraggableDialog):
 
     def _edit_point(self, idx):
         pt = self.typhoon.pts[idx]
-        init = {'wind': str(pt['w']), 'pressure': str(pt['p']) if pt['p'] else '',
+        # 报点列表编辑: 完整字段集(洋区/编号/名字, 参考自评工具), 与编辑模式
+        # 地图上的 6 字段编辑界面区分
+        init = {'basin': self.typhoon.basin or '', 'number': self.typhoon.n or '',
+                'name': pt.get('name', ''),
+                'wind': str(pt['w']), 'pressure': str(pt['p']) if pt['p'] else '',
                 'type': pt['st'], 'lat': f"{pt['la']:.1f}", 'lon': f"{pt['lo']:.1f}",
                 'time': pt['t']}
-        self.sim.dialog_mgr.point_edit_dialog.activate(init, lambda v: self._update_point(idx, v))
+        self.sim.dialog_mgr.point_edit_dialog.activate(
+            init,
+            lambda v: self._update_point(idx, v),
+            point_nav=self._point_edit_nav,
+            point_index=idx,
+            point_total=len(self.typhoon.pts),
+            field_set='full',
+        )
+
+    def _point_edit_nav(self, cur, delta):
+        """编辑报点对话框按 , / . 切换报点时,提供相邻报点的初始值与提交回调。"""
+        pts = self.typhoon.pts
+        idx = cur + delta
+        if not (0 <= idx < len(pts)):
+            return None
+        pt = pts[idx]
+        init = {'basin': self.typhoon.basin or '', 'number': self.typhoon.n or '',
+                'name': pt.get('name', ''),
+                'wind': str(pt['w']), 'pressure': str(pt['p']) if pt['p'] else '',
+                'type': pt['st'], 'lat': f"{pt['la']:.1f}", 'lon': f"{pt['lo']:.1f}",
+                'time': pt['t']}
+        cb = lambda v, ni=idx: self._update_point(ni, v)
+        # 同步列表选中与地图选中,切换后继续 , / . 或关闭对话框都落在新报点上
+        self.selected_index = idx
+        self.current_page = idx // self.rows_per_page
+        self._sync_map_selection(idx)
+        return init, cb, idx
 
     def _update_point(self, idx, vals):
         # 返回是否成功: 失败时对话框保持打开,避免用户输入被静默丢弃
@@ -499,6 +544,29 @@ class PointList(DraggableDialog):
             except Exception:
                 pass
 
+        # 台风级字段(报点列表完整编辑界面, 参考自评工具):
+        # 洋区/编号属于台风身份, 不进入点级撤销栈(与台风列表改名一致);
+        # 名字为点级字段, 走下方 update 路径(可撤销)。
+        if 'basin' in vals or 'number' in vals:
+            old_key = f"{self.typhoon.b}{self.typhoon.n}"
+            b = (vals.get('basin') or '').strip().upper()
+            n = (vals.get('number') or '').strip()
+            if b and b != self.typhoon.basin:
+                self.typhoon.basin = b
+            if n and n != self.typhoon.n:
+                self.typhoon.n = n
+                self.typhoon.name = f"{self.typhoon.b}{n}"
+            if (b or n) and old_key != f"{self.typhoon.b}{self.typhoon.n}":
+                # 自定义名称键随编号迁移(与台风列表编辑编号一致)
+                tn = getattr(getattr(self.sim, 'cfg', None), 'tn', None)
+                if tn is not None:
+                    new_key = f"{self.typhoon.b}{self.typhoon.n}"
+                    if old_key in tn:
+                        tn[new_key] = tn.pop(old_key)
+                    elif self.typhoon.cust:
+                        tn[new_key] = self.typhoon.cust
+                self.sim.save_config()
+
         # 校验通过,此时才快照(推入撤销栈并清空重做栈)
         self.typhoon.push_snapshot()
         try:
@@ -507,7 +575,10 @@ class PointList(DraggableDialog):
             # 旧类别,直接用 .get('cat') 的消费方(SMCY 预开流等)显示错类别
             cat = self.sim.get_strength_category(w, st)
             if not is_new:
-                name = self.typhoon.pts[idx].get('name', '')
+                if 'name' in vals and vals.get('name') is not None:
+                    name = str(vals['name'])
+                else:
+                    name = self.typhoon.pts[idx].get('name', '')
                 self.typhoon.pts[idx].update(
                     {'w': w, 'p': p, 'st': st, 'la': la, 'lo': lo, 't': t, 'name': name, 'ace_year': ace_year})
                 self.typhoon.pts[idx]['color'] = self.sim.get_point_color(w, st)
@@ -600,9 +671,17 @@ class PointList(DraggableDialog):
                 f"{basin}, {ty.n},{pt['t']},{minutes:>3s},chunshu,   0,"
                 f"{lat_field},{lon_field},{wind},{pressure}, {pt['st']},    {pt.get('name', '')}")
         try:
+            # 写盘前自动备份(误操作可找回);备份失败不阻塞保存
+            import shutil
+            if os.path.exists(ty.filepath):
+                try:
+                    shutil.copy2(ty.filepath, ty.filepath + ".bak")
+                except Exception:
+                    pass
             with open(ty.filepath, 'w', encoding='utf-8') as f:
                 f.write("\n".join(lines))
             self._needs_save = False
+            self.sim.show_toast(f"已保存 {os.path.basename(ty.filepath)}", 'success')
         except (IOError, OSError) as e:
             self.sim.show_error(f"保存文件失败: {e}")
 

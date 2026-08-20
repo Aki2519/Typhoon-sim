@@ -103,12 +103,64 @@ class OceanArea:
         return inside
 
 
+class OceanSubArea:
+    """子洋区: 主洋区的矩形子集(显示用,不出现在 ACE 限制/自动检测中)。
+
+    判定 = 定义矩形 ∩ 主洋区多边形(两者同时满足才属于子洋区),
+    定义超出主洋区的部分自动裁掉。经度支持跨 180 子午线(lon_min > lon_max)。"""
+
+    def __init__(self, code, parent_code, name_cn, name_full,
+                 lon_min, lon_max, lat_min, lat_max, parent=None):
+        self.code = code
+        self.parent_code = parent_code
+        self.name_cn = name_cn
+        self.name_full = name_full
+        self.lon_min = float(lon_min)
+        self.lon_max = float(lon_max)
+        self.lat_min = float(lat_min)
+        self.lat_max = float(lat_max)
+        self.parent = parent  # Optional[OceanArea],加载时挂接
+
+    def _lon_inside(self, lon: float) -> bool:
+        if self.lon_min <= self.lon_max:
+            return self.lon_min <= lon <= self.lon_max
+        # 跨 180 子午线(如 170E 以东 → 170..360)
+        return lon >= self.lon_min or lon <= self.lon_max
+
+    def contains(self, lat: float, lon: float) -> bool:
+        if not (self.lat_min <= lat <= self.lat_max):
+            return False
+        if not self._lon_inside(lon):
+            return False
+        # 与主洋区求交集: 定义超出主洋区的部分不属于子洋区
+        if self.parent is not None and not self.parent.contains(lat, lon):
+            return False
+        return True
+
+
+# ── 子洋区定义(仅统计面板显示用,不在 ACE 限制/自动检测中出现) ──
+# parent_code 为紧凑洋区文件中的主洋区二字码(如 西太 = WP)
+_SUB_AREA_DEFS = [
+    # LWPAC: 西太远洋低纬 = 145E 以东、20N 以南的 WP
+    dict(code='LWPAC', parent_code='WP', name_cn='远洋低纬',
+         name_full='西太远洋低纬',
+         lon_min=145.0, lon_max=180.0, lat_min=-90.0, lat_max=20.0),
+    # NWPAC: 西太高纬 = 25N 以北的西太
+    dict(code='NWPAC', parent_code='WP', name_cn='高纬',
+         name_full='西太高纬',
+         lon_min=-180.0, lon_max=180.0, lat_min=25.0, lat_max=90.0),
+]
+
+
 class OceanAreaManager:
     def __init__(self):
         self.areas: List[OceanArea] = []
         self._by_code: dict = {}
+        self.sub_areas: List[OceanSubArea] = []
+        self._sub_by_code: dict = {}
         self._load()
         self._rebuild_by_code()
+        self._load_sub_areas()
 
     @property
     def total_avg_ace(self):
@@ -247,5 +299,39 @@ class OceanAreaManager:
         self._by_code = {a.code: a for a in self.areas}
 
     def get_by_code(self, code):
-        """O(1) 字典查(由 _rebuild_by_code 在加载时构建,无需运行时回退)。"""
-        return self._by_code.get(code)
+        """O(1) 字典查(由 _rebuild_by_code 在加载时构建,无需运行时回退)。
+        主洋区优先;子洋区作为显示用统计区域可透传(ACE 限制/自动检测不使用)。"""
+        return self._by_code.get(code) or self._sub_by_code.get(code)
+
+    # ── 子洋区 ──
+
+    def _load_sub_areas(self):
+        for d in _SUB_AREA_DEFS:
+            try:
+                parent = self._by_code.get(d['parent_code'])
+                sub = OceanSubArea(
+                    code=d['code'], parent_code=d['parent_code'],
+                    name_cn=d['name_cn'], name_full=d['name_full'],
+                    lon_min=d['lon_min'], lon_max=d['lon_max'],
+                    lat_min=d['lat_min'], lat_max=d['lat_max'],
+                    parent=parent)
+                self.sub_areas.append(sub)
+                self._sub_by_code[sub.code] = sub
+            except (KeyError, TypeError, ValueError) as e:
+                logger.warning(f"子洋区定义跳过 {d.get('code', '?')}: {e}")
+
+    def get_sub_by_code(self, code):
+        return self._sub_by_code.get(code)
+
+    def get_sub_areas(self, parent_code=None) -> List[OceanSubArea]:
+        """返回子洋区列表; parent_code 指定时仅返回该主洋区的子洋区。"""
+        if parent_code is None:
+            return list(self.sub_areas)
+        return [s for s in self.sub_areas if s.parent_code == parent_code]
+
+    def find_sub_area(self, lat, lon):
+        """返回包含该点的第一个子洋区(显示用),无则 None。"""
+        for sub in self.sub_areas:
+            if sub.contains(lat, lon):
+                return sub
+        return None

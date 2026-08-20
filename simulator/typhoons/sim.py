@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -131,6 +131,11 @@ class TyphoonSim:
         self.ex_since: Optional[datetime] = None
         self._land_alt = 0.0
         self._diag = None                  # 结构诊断缓存(A2)
+        self.mu = 0.0                      # 移速(kt, 东/北), 显示外推/尾流用
+        self.mv = 0.0
+        self._ri_cd = 0.0                  # RI 冷却期(h)
+        self._ri_t = 0.0                   # RI 进行中剩余(h)
+        self._ri_done = False
 
     # ── 环境采样 ──
 
@@ -143,6 +148,55 @@ class TyphoonSim:
     def _sample(self, fld, la, lo):
         """统一双线性采样(B5)。"""
         return self._bilinear(fld, la, lo)
+
+    def _sst_offset(self, la: float, lo: float) -> float:
+        """冷尾流 SST 修正钩子(°C)。应用层(sim_mode_mixin)可覆盖为尾流网格采样。"""
+        fn = getattr(self, 'sst_offset_fn', None)
+        if fn is not None:
+            try:
+                v = fn(la, lo)
+                return float(v) if v == v else 0.0
+            except Exception:
+                return 0.0
+        return 0.0
+
+    def _steer_ring(self, la, lo):
+        """环带平均引导气流(参考 SimCore steeringAt): 距中心 300-600km 环带 6 点
+        深层引导平均, 陆地权重剔除(陆地格点引导不可信), 陆地包围时退回单点。
+
+        uv_steer 已是 850/200 加权深层引导场(库生成), 此处只做空间平均,
+        避免单点采样被台风自身环流/小尺度噪声污染导致路径抖动。"""
+        uv = self._field('uv_steer')
+        if uv is None:
+            return 0.0, 0.0
+        su = sv = wsum = 0.0
+        for k in range(6):
+            a = k * math.pi / 3 + 0.5
+            r = 340.0 + (k % 2) * 180.0          # 340/520 km 交替
+            dlo = r / 111.32 / max(1e-6, math.cos(math.radians(la))) * math.cos(a)
+            dla = r / 110.57 * math.sin(a)
+            tla, tlo = la + dla, (lo + dlo) % 360.0
+            if not (-60.0 <= tla <= 60.0):
+                continue
+            # 海面权重(高程 ≤300m 视为海面)
+            alt = elevation_at(tla, tlo)
+            wl = 1.0 - min(1.0, max(0.0, alt) / 300.0)
+            if wl < 0.3:
+                continue
+            u = self._bilinear(uv[0], tla, tlo)
+            v = self._bilinear(uv[1], tla, tlo)
+            if u is None or v is None:
+                continue
+            su += u * 1.944 * wl                # m/s → kt
+            sv += v * 1.944 * wl
+            wsum += wl
+        if wsum < 0.5:
+            # 陆地包围: 退回近场单点
+            u = self._bilinear(uv[0], la, lo)
+            v = self._bilinear(uv[1], la, lo)
+            return (u * 1.944 if u is not None else 0.0), \
+                   (v * 1.944 if v is not None else 0.0)
+        return su / wsum, sv / wsum
 
     def _bilinear(self, fld, la, lo):
         """双线性插值。E1: 行/列数取实际网格(默认 121×360),NaN 返回 None。
@@ -170,6 +224,8 @@ class TyphoonSim:
         sst = self._sample(self._field('sst'), self.la, self.lo)
         if sst is None:
             sst = 28.5
+        # 冷尾流修正(参考 SimCore: 台风自身翻涌的冷却水会抑制后续增强/维持)
+        sst -= self._sst_offset(self.la, self.lo)
         sst_eff = sst
         self._teq = None
         if self.S > 0.55:
@@ -188,14 +244,8 @@ class TyphoonSim:
     # ── 6h 步进 ──
 
     def step(self) -> None:
-        # 1. 路径: 引导气流 + β漂移 + 红噪声
-        uv = self._field('uv_steer')
-        u = v = 0.0
-        if uv is not None:
-            su = self._bilinear(uv[0], self.la, self.lo)
-            sv = self._bilinear(uv[1], self.la, self.lo)
-            u = su * 1.944 if su is not None else 0.0   # m/s → kt(场内有 NaN 时不崩溃)
-            v = sv * 1.944 if sv is not None else 0.0
+        # 1. 路径: 环带平均引导气流 + β漂移 + 双轴红噪声
+        u, v = self._steer_ring(self.la, self.lo)
         # β漂移(向赤道侧偏西 + 向极)
         beta_lat = 2.5 + 1.5 * math.exp(-((abs(self.la) - 20) / 8.0) ** 2)
         # 东西分量: 南北半球均偏西(赤道侧偏西是固定地理方向,β项无半球号)
@@ -203,12 +253,16 @@ class TyphoonSim:
         # 向极分量: 北半球向北(+)南半球向南(-)
         v_beta = (1.0 + 0.5 * math.exp(-((abs(self.la) - 20) / 8.0) ** 2)) \
             * (1 if self.la >= 0 else -1)
-        # 红噪声扰动(AR(1))
+        # 红噪声扰动(AR(1), 东西/南北双轴; 参考 SimCore: 噪声应同时作用于两分量,
+        # 且幅度小于引导项, 否则路径呈锯齿状抖动)
         self._red = getattr(self, '_red', 0.0)
-        self._red = 0.8 * self._red + self.rng.normal(0, 0.5)
+        self._red_v = getattr(self, '_red_v', 0.0)
+        self._red = 0.8 * self._red + self.rng.normal(0, 0.35)
+        self._red_v = 0.8 * self._red_v + self.rng.normal(0, 0.35)
         # H1: u/v 单位为 kt(海里/小时); 6h 位移海里 → 度: 除以 60 海里/度
         dlon = (u + u_beta + self._red) * 6.0 / (60.0 * math.cos(math.radians(self.la)) + 1e-6)
-        dlat = (v + v_beta) * 6.0 / 60.0
+        dlat = (v + v_beta + self._red_v) * 6.0 / 60.0
+        self.mu, self.mv = u + u_beta + self._red, v + v_beta + self._red_v   # 移速(kt)
         self.lo = (self.lo + dlon) % 360.0
         self.la = max(-60.0, min(60.0, self.la + dlat))
 
@@ -245,6 +299,27 @@ class TyphoonSim:
         self._decay = decay
         tau = 36.0 if pi_eff > self.vmax else 18.0
         dv = (pi_eff - self.vmax) / tau * 6.0
+        # RI 快速增强(参考 SimCore, Kaplan-DeMaria 2003 判据):
+        # SST≥26.5、切变<7.5kt、中层高湿、PI 余量>12kt 时, 每 6h 步 ~10% 概率
+        # 触发 12-36h 增强事件(事件期每步额外 +2.2kt, 事件间冷却期 60-160h)。
+        self._ri_cd = getattr(self, '_ri_cd', 0.0) - 6.0
+        ri_t = getattr(self, '_ri_t', 0.0)
+        if ri_t > 0:
+            dv += 2.2
+            ri_t -= 6.0
+            self._ri_t = ri_t
+        elif (not getattr(self, '_ri_done', False) and self._ri_cd <= 0
+                and 35 <= self.vmax <= 110
+                and pi_eff - self.vmax > 12.0
+                and sst_cur >= 26.5 and shear <= 7.5
+                and (rh is None or rh > 62)):
+            if self.rng.random() < 0.10:
+                self._ri_t = float(self.rng.randint(2, 6)) * 6.0   # 持续 12-36h
+                self._ri_cd = float(self.rng.randint(60, 160))     # 冷却期
+                self._ri_done = True
+        # 日变化(参考 SimCore): 当地 03 时对流峰值, 强度变化 ±5%
+        lh = (self.t.hour + self.lo / 15.0) % 24.0
+        dv *= 1.0 + 0.05 * math.cos(2.0 * math.pi * (lh - 3.0) / 24.0)
         # 增强率分布约束(基准 6h 变化率 90 分位 ≈ 15kt)
         dv = max(-20.0, min(20.0, dv))
         self.vmax += dv
@@ -500,7 +575,13 @@ class TyphoonSim:
         limit = 90 * 4 if not max_days else max_days * 4
         warned = False
         for i in range(limit):
-            self.step()
+            try:
+                self.step()
+            except Exception:
+                self.dissip = self.t
+                self.dissip_reason = '异常终止'
+                self.states.append(self._snapshot())
+                break
             if self.dissip is not None:
                 self.states.append(self._snapshot())
                 break
@@ -537,7 +618,9 @@ class TyphoonSim:
 
 
 def simulate_records(records: List[dict], api, seed: int = 1,
-                     out_dir: str = OUT_DIR) -> List[TyphoonSim]:
+                     out_dir: str = OUT_DIR,
+                     on_progress: Optional[Callable[[int, int], None]] = None
+                     ) -> List[TyphoonSim]:
     sims = []
     # F4-14: 逐盆地独立编号(xrq 惯例: WP01, WP02, ... 各盆地从 1 起),
     # 界面显式指定 no 时优先
@@ -569,7 +652,15 @@ def simulate_records(records: List[dict], api, seed: int = 1,
         for s in list(active):
             if s.dissip is not None:
                 continue
-            s.step()
+            try:
+                s.step()
+            except Exception:
+                # 单个台风步进异常: 跳过该台风, 不中止整个批次
+                s.dissip = s.t
+                s.dissip_reason = '异常终止'
+                s.states.append(s._snapshot())
+                active.remove(s)
+                continue
             if s.dissip is not None:
                 s.states.append(s._snapshot())
                 active.remove(s)
@@ -599,9 +690,14 @@ def simulate_records(records: List[dict], api, seed: int = 1,
                         remove_set.add(a)
         if remove_set:
             active = [s for s in active if s not in remove_set]
+        if on_progress is not None:
+            done = len(sims) - len([s for s in active if s.dissip is None])
+            on_progress(done, len(sims))
     for s in sims:
         if s.states:
             s.write_dat(out_dir)
+    if on_progress is not None:
+        on_progress(len(sims), len(sims))
     # 需求1: 模拟日志(文件 + 直接输出到 cmd 窗口)
     try:
         log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

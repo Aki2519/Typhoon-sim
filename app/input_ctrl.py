@@ -1,4 +1,4 @@
-﻿# py/input_ctrl.py
+# py/input_ctrl.py
 """输入控制器：键盘快捷键命令表路由。"""
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ class InputController:
             pygame.K_MINUS:         sim._key_minus,
             pygame.K_SPACE:         sim._key_space,
             pygame.K_F1:            sim._key_f1,
+            pygame.K_F11:           sim._key_f11,
             pygame.K_F12:           sim._key_f12,
             pygame.K_i:             sim._key_i,
             pygame.K_LEFTBRACKET:   sim._key_left_bracket,
@@ -54,6 +55,14 @@ class InputController:
                 return True
             if ctrl and e.key == pygame.K_y:
                 self.sim._redo_edit()
+                return True
+            # 切换选中报点(<,> 即 ,/.)
+            if e.key in (pygame.K_COMMA, pygame.K_PERIOD):
+                self.sim._select_edit_point(-1 if e.key == pygame.K_COMMA else 1)
+                return True
+            # Enter: 为选中报点弹出编辑报点对话框
+            if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.sim.open_point_edit_for_selected()
                 return True
             # 切换选中报点(Alt+左右)
             if alt:

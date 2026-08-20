@@ -30,6 +30,7 @@ _wait_queue: list = []
 _font_bar_small = SmartFont(_load_font(FONT_FILE, 20, 20), _load_font(FONT_FILE, 20, 20))
 _font_bar_name = SmartFont(_load_font(FONT_FILE, 26, 26), _load_font(FONT_FILE, 26, 26))
 _font_bar_main = SmartFont(_load_font(FONT_FILE, 30, 30), _load_font(FONT_FILE, 30, 30))
+_font_bar_big = SmartFont(_load_font(FONT_FILE, 32, 32), _load_font(FONT_FILE, 32, 32))
 
 _OUTLINE = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 _WHITE = (255, 255, 255)
@@ -267,10 +268,23 @@ class TyphoonSummary:
 
         bar_rect = pygame.Rect(bar_x, bar_y, bar_w, self.BAR_H)
 
-        # 背景条
+        # 背景底(视频黑色区为透明, 浮在地图上; 帧右移后左侧露底需垫色)
+        bg_key = (bar_rect.w, bar_rect.h, alpha // 16)
+        bg_surf = _border_cache.get(('bg',) + bg_key)
+        if bg_surf is None:
+            bg_surf = pygame.Surface((bar_rect.w, bar_rect.h), pygame.SRCALPHA)
+            bg_surf.fill((14, 17, 26, min(255, (alpha // 16) * 16 + 15)))
+            if len(_border_cache) >= 48:
+                _border_cache.pop(next(iter(_border_cache)))
+            _border_cache[('bg',) + bg_key] = bg_surf
+        surface.blit(bg_surf, (bar_rect.x, bar_rect.y))
+
+        # 帧水平右移: 视频素材中台风图标位于帧最左 ~12%, 右移后不再贴左缘
+        # (参考 SimCore 总结条: 图标区 + 右侧信息横排)
+        frame_shift = max(0, int(bar_rect.w * 0.12))
         if frame is not None:
             frame.set_alpha(alpha)
-            surface.blit(frame, (bar_rect.x, bar_rect.y))
+            surface.blit(frame, (bar_rect.x + frame_shift, bar_rect.y))
             frame.set_alpha(255)
 
         # 台风等级颜色描边（按 (尺寸,颜色,alpha量化) 缓存，避免每帧新建 Surface）
@@ -292,31 +306,35 @@ class TyphoonSummary:
         s1 = rt(_font_bar_small, line1, _WHITE)
         s2 = rt(_font_bar_name, display_name, _WHITE)
 
-        # ── 右侧两行（小字号）：先量宽，左侧列宽受限于右侧起点 ──
+        # ── 右侧单行(大字号, 横排): 前 2s 强度/ACE, 后 2s 活跃/路径/均速 ──
         if elapsed < self._fade + self._phase1:
             intensity = f"{self._max_wind}kt"
             if self._peak_pres:
                 intensity += f" {self._peak_pres}mb"
-            r1 = f"强度: {intensity}"
             if self._peak_date:
-                r1 += f" ({self._peak_date})"
-            r2 = f"ACE: {self._total_ace:.4f}"
+                intensity += f" ({self._peak_date})"
+            r_text = f"强度: {intensity}    ACE: {self._total_ace:.4f}"
         else:
             total_h = self._active_days
             d = int(total_h // 24)
             h = int(total_h % 24)
-            r1 = f"活跃: {d}d {h}h  路径: {self._path_length:.0f} km"
-            r2 = f"均速: {self._avg_speed:.0f} km/h"
-        r1s = rt(_font_bar_small, r1, _WHITE)
-        r2s = rt(_font_bar_small, r2, _WHITE)
-        right_w = max(r1s.get_width(), r2s.get_width())
-        rx = bar_rect.right - 15 - right_w
-        r_top = bar_rect.y + (bar_rect.h - r1s.get_height() - r2s.get_height()) // 2
-        self._blit_outlined(surface, _font_bar_small, r1, _WHITE, rx, r_top, alpha)
-        self._blit_outlined(surface, _font_bar_small, r2, _WHITE, rx, r_top + r1s.get_height(), alpha)
+            r_text = (f"活跃: {d}d {h}h    路径: {self._path_length:.0f} km"
+                      f"    均速: {self._avg_speed:.0f} km/h")
+        # 窄条自适应降档字号, 避免单行横排溢出条宽
+        r_font = _font_bar_big
+        rs = rt(r_font, r_text, _WHITE)
+        if rs.get_width() > bar_rect.w * 0.78:
+            r_font = _font_bar_main
+            rs = rt(r_font, r_text, _WHITE)
+        if rs.get_width() > bar_rect.w * 0.78:
+            r_font = _font_bar_name
+            rs = rt(r_font, r_text, _WHITE)
+        rx = bar_rect.right - 15 - rs.get_width()
+        r_top = bar_rect.y + (bar_rect.h - rs.get_height()) // 2
+        self._blit_outlined(surface, r_font, r_text, _WHITE, rx, r_top, alpha)
 
         # ── 左侧：从条左缘起，可用宽度止于右侧文本，超宽截断为单行 ──
-        left_x = bar_rect.x + 12
+        left_x = bar_rect.x + frame_shift + 12
         max_left_w = max(0, rx - left_x - 12)
         top = bar_rect.y + (bar_rect.h - s1.get_height() - s2.get_height()) // 2
         # 截断返回 Surface,直接 blit(不再走 _blit_outlined 的字符串渲染,防崩溃)

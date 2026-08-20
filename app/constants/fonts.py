@@ -158,14 +158,14 @@ f_15 = SmartFont(font_en_15, font_zh_15)
 f_19 = SmartFont(font_en_19, font_zh_19)
 
 
-def rt(f, text, color, max_width=None):
+def rt(f, text, color, max_width=None, smooth=True):
     if max_width is None or max_width <= 0:
-        return f.render(text, True, color)
+        return f.render(text, smooth, color)
     if not hasattr(rt, "_cache"):
         rt._cache = OrderedDict()
     cache = rt._cache
     max_cache_size = 1024
-    key = (id(f), text, color, max_width)
+    key = (id(f), text, color, max_width, bool(smooth))
     if key in cache:
         cache.move_to_end(key)
         return cache[key]
@@ -205,7 +205,7 @@ def rt(f, text, color, max_width=None):
     # 空行(整段仅空白)也保留一个空串占位,避免后续 max() 崩溃
     if not lines:
         lines = [""]
-    surfaces = [f.render(ln, True, color) for ln in lines]
+    surfaces = [f.render(ln, smooth, color) for ln in lines]
     h = sum(sf.get_height() for sf in surfaces)
     w = max(sf.get_width() for sf in surfaces)
     canvas = pygame.Surface((w, h), pygame.SRCALPHA)

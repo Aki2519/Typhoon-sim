@@ -173,6 +173,7 @@ class TrackMapRenderer:
         self.multireset = o.get("multireset", "none")     # 保留(兼容)
         self.legend_pos = o.get("legend_pos", "auto")
         self.legend_entries = o.get("legend_entries", None)
+        self.legend_bg = bool(o.get("legend_bg", False))  # 图例半透明底框, 默认不画
         self.bg_color = o.get("bg_color", None)
         self.map_path = o.get("map_path", None)
         self.labels = bool(o.get("labels", False))
@@ -432,14 +433,21 @@ class TrackMapRenderer:
         else:
             x0, y0 = pad, h - lh - pad
         panel = pygame.Surface((lw, lh), pygame.SRCALPHA)
-        pygame.draw.rect(panel, (15, 18, 25, 235), panel.get_rect(), border_radius=8)
-        pygame.draw.rect(panel, (200, 210, 230, 90), panel.get_rect(), 1, border_radius=8)
+        if self.legend_bg:
+            # 半透明深色底框(可选, 默认不画)
+            pygame.draw.rect(panel, (15, 18, 25, 235), panel.get_rect(), border_radius=8)
+            pygame.draw.rect(panel, (200, 210, 230, 90), panel.get_rect(), 1, border_radius=8)
         y = pad
         for label, cat in entries:
             color = scheme_color(self.scheme, cat)
             pygame.draw.circle(panel, color, (pad + 8, y + 13), 8)
             if self.font is not None:
                 ts = self.font.render(label, True, (240, 243, 250))
+                # 无底框时给文字加描边保证可读性
+                if not self.legend_bg:
+                    sh = self.font.render(label, True, (10, 12, 18))
+                    for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        panel.blit(sh, (pad + 26 + ox, y + (item_h - ts.get_height()) // 2 + 1 + oy))
                 panel.blit(ts, (pad + 26, y + (item_h - ts.get_height()) // 2 + 1))
             y += item_h
         surf.blit(panel, (x0, y0))

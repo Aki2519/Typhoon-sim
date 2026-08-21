@@ -32,7 +32,7 @@ from .constants.colors import (
 DIALOG_W = 1760
 DIALOG_H = 1240
 PAD = 22
-ROW_H = 28
+ROW_H = 26
 ROW_GAP = 2
 LABEL_W = 170
 INPUT_W = 180
@@ -146,8 +146,8 @@ class PaintDialog(DraggableDialog):
         self.point_size = 6
         self.margin_w = 0.0
         self.margin_h = 0.0
-        self.min_w = 1920
-        self.min_h = 1080
+        self.min_w = 1280
+        self.min_h = 720
         self.draw_order = "simult"
         self.skip_invest = False
         self.all_points = True
@@ -155,6 +155,7 @@ class PaintDialog(DraggableDialog):
         self.draw_rad = "none"
         self.multireset = "none"
         self.legend_pos = "auto"
+        self.legend_bg = False
         self.labels = False
         self.use_map = True
         self.bg_color = None
@@ -178,8 +179,12 @@ class PaintDialog(DraggableDialog):
         self._stats: List[dict] = []
         self._status = ""
         self._status_ts = 0.0
+        # 放大查看: 单击预览进入, 图片占满接近整个地图区域(留空隙)
         self._zoom = False
-        self._zoom_scroll = 0
+        self._zoom_level = 1.0          # 滚轮缩放倍率
+        self._zoom_img_rect: Optional[pygame.Rect] = None   # 放大模式下图片实际绘制区
+        self._ctx_menu = False          # 右键菜单(另存为)
+        self._ctx_rect: Optional[pygame.Rect] = None
 
         self.x0 = self.y0 = 0
         self._browser: Optional[FileBrowserDialog] = None
@@ -189,6 +194,9 @@ class PaintDialog(DraggableDialog):
 
     def activate(self):
         self._build_layout()
+        # 已有文件时立即刷新统计(避免打开时统计面板空白)
+        if self.files:
+            self._refresh_stats_now()
         super().activate()
 
     def deactivate(self):
@@ -228,7 +236,7 @@ class PaintDialog(DraggableDialog):
             ("margin_h", 7, f"{self.margin_h:g}", 6, float),
             ("min_w", 8, f"{self.min_w}", 5, int),
             ("min_h", 9, f"{self.min_h}", 5, int),
-            ("map_path", 21, self.map_path or "", 160, None),
+            ("map_path", 22, self.map_path or "", 160, None),
         ]
         inp_x = self.x0 + LABEL_W
         for key, idx, val, mlen, _conv in rows:
@@ -364,7 +372,10 @@ class PaintDialog(DraggableDialog):
         return out
 
     def _checkbox_rect(self, idx):
-        # 两列布局: 左列 idx 0-2, 右列 idx 3-5
+        # 两列布局: 左列 idx 0-2, 右列 idx 3-5; idx6(bg) 也放左列第4? 用3+4排布
+        # 6 个勾选 + 背景: 左列 3 (0-2), 右列 3 (3-5), 背景放右列第4 (6->row21)
+        if idx == 6:
+            return pygame.Rect(self.x0 + LABEL_W + 320, self._row_y(21), 18, 18)
         col = 0 if idx < 3 else 1
         r = idx % 3
         x = self.x0 + LABEL_W + col * 320
@@ -382,6 +393,8 @@ class PaintDialog(DraggableDialog):
         if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
             if self._zoom:
                 self._zoom = False
+            elif self._ctx_menu:
+                self._ctx_menu = False
             else:
                 for dd in self._dropdowns.values():
                     if dd.open:
@@ -393,10 +406,16 @@ class PaintDialog(DraggableDialog):
             if f.handle_event(e):
                 return True
         if e.type == pygame.MOUSEBUTTONDOWN:
+            # 右键: 弹「另存为」菜单(放大模式与普通模式均可)
+            if e.button == 3:
+                self._ctx_menu = True
+                self._ctx_rect = pygame.Rect(e.pos[0], e.pos[1], 110, 30)
+                return True
             if e.button in (4, 5):
                 d = -1 if e.button == 4 else 1
                 if self._zoom:
-                    self._zoom_scroll = max(0, self._zoom_scroll + d * 90)
+                    # 滚轮: 缩放倍率
+                    self._zoom_level = max(1.0, min(8.0, self._zoom_level * (1.15 ** d)))
                 elif self._file_panel_rect().collidepoint(e.pos):
                     self._file_scroll = max(0, self._file_scroll + d)
                 return True
@@ -406,8 +425,20 @@ class PaintDialog(DraggableDialog):
         return False
 
     def _click(self, pos):
+        # 右键菜单: 点「另存为」或空白处关闭
+        if self._ctx_menu:
+            if self._ctx_rect and self._ctx_rect.collidepoint(pos):
+                self._ctx_menu = False
+                self._do_save()
+            else:
+                self._ctx_menu = False
+            return
         if self._zoom:
-            self._zoom = False
+            # 单击图片内 -> 缩回; 点图片外 -> 退出放大
+            if self._zoom_img_rect and self._zoom_img_rect.collidepoint(pos):
+                self._zoom = False
+            else:
+                self._zoom = False
             return
         x, y = pos
         # 下拉展开层优先(避免被下方控件吃掉点击)
@@ -424,7 +455,8 @@ class PaintDialog(DraggableDialog):
                 return
         if self._preview_rect().collidepoint(x, y) and self._result is not None:
             self._zoom = True
-            self._zoom_scroll = 0
+            self._zoom_level = 1.0
+            self._zoom_img_rect = self._compute_zoom_rect()
             return
         for mode in ("normal", "region", "global"):
             if self._mode_btn_rect(mode).collidepoint(x, y):
@@ -449,7 +481,7 @@ class PaintDialog(DraggableDialog):
 
     def _checkbox_click(self, x, y):
         chk = [("skip_invest", 0), ("all_points", 1), ("grid", 2),
-               ("labels", 3), ("use_map", 4), ("bg_btn", 5)]
+               ("labels", 3), ("use_map", 4), ("legend_bg", 5), ("bg_btn", 6)]
         for key, idx in chk:
             box = self._checkbox_rect(idx)
             if box.collidepoint(x, y):
@@ -539,6 +571,7 @@ class PaintDialog(DraggableDialog):
 
     def _on_files_imported(self, paths):
         self._add_files(paths)
+        self._refresh_stats_now()
 
     def _on_map_picked(self, path):
         if path:
@@ -615,6 +648,7 @@ class PaintDialog(DraggableDialog):
                 "multireset": self.multireset,
                 "legend_pos": self.legend_pos,
                 "legend_entries": WIKI_LEGEND_ENTRIES,
+                "legend_bg": self.legend_bg,
                 "bg_color": None if self.use_map else self.bg_color,
                 "map_path": map_path,
                 "labels": self.labels,
@@ -662,6 +696,12 @@ class PaintDialog(DraggableDialog):
             self.draw_background(surface, r)
             self.draw_title_bar(surface, r, "绘画模式", TXT, title_font=f_l)
 
+        if self._zoom:
+            # 放大查看模式: 只画放大图(盖住其它面板)
+            self._draw_preview(surface, dark)
+            if self._ctx_menu:
+                self._draw_ctx_menu(surface, dark)
+            return
         self._draw_left(surface, dark)
         self._draw_file_panel(surface, dark)
         self._draw_preview(surface, dark)
@@ -672,8 +712,23 @@ class PaintDialog(DraggableDialog):
         for dd in self._dropdowns.values():
             if dd.open:
                 dd.draw_open(surface, dark)
+        if self._ctx_menu:
+            self._draw_ctx_menu(surface, dark)
         if self._browser is not None and self._browser.active:
             self._browser.draw(surface)
+
+    def _draw_ctx_menu(self, surface, dark):
+        """右键菜单: 仅「另存为」。"""
+        if self._ctx_rect is None:
+            return
+        r = self._ctx_rect
+        menu = pygame.Rect(r.x, r.y, 110, 30)
+        pygame.draw.rect(surface, (46, 52, 66) if dark else (240, 244, 252), menu,
+                         border_radius=5)
+        pygame.draw.rect(surface, _bd(dark), menu, 1, border_radius=5)
+        ts = rt(f_s, "另存为…", _light(dark))
+        surface.blit(ts, (menu.x + 10, menu.y + (menu.h - ts.get_height()) // 2))
+        self._ctx_rect = menu
 
     def _button(self, surface, rect, text, bg, dark, fg=None, border=5):
         pygame.draw.rect(surface, bg, rect, border_radius=border)
@@ -709,7 +764,7 @@ class PaintDialog(DraggableDialog):
         row = self._row_y
 
         # 绘制范围(模式选择)
-        self._label(surface, "绘制范围", lx, row(0) - 22, dark, bright=True, font=f_m)
+        self._label(surface, "绘制范围", lx, row(0) - 26, dark, bright=True, font=f_m)
         for mode, lab in (("normal", "普通"), ("region", "区域"), ("global", "全局")):
             r = self._mode_btn_rect(mode)
             r = pygame.Rect(r.x + 12, r.y, r.w, r.h)
@@ -721,7 +776,7 @@ class PaintDialog(DraggableDialog):
             self._fields["region"].draw(surface)
             self._dropdowns["preset"].draw_base(surface, dark)
         # 参数
-        self._label(surface, "参数", lx, row(3) - 22, dark, bright=True, font=f_m)
+        self._label(surface, "参数", lx, row(3) - 26, dark, bright=True, font=f_m)
         rows = [("路径宽度(px)", "path_width"), ("定点大小(px)", "point_size"),
                 ("半宽留空(°)", "margin_w"), ("半高留空(°)", "margin_h"),
                 ("最小宽度(px)", "min_w"), ("最小高度(px)", "min_h")]
@@ -729,27 +784,29 @@ class PaintDialog(DraggableDialog):
             self._label(surface, lab, lx, row(4 + i), dark)
             self._fields[key].draw(surface)
         # 下拉
-        self._label(surface, "选择", lx, row(10) - 22, dark, bright=True, font=f_m)
+        self._label(surface, "设置", lx, row(10) - 26, dark, bright=True, font=f_m)
         dd_lab = [("scheme", "色阶方案"), ("coord_unit", "坐标单位"),
                   ("order", "绘画顺序"), ("draw_rad", "风圈"),
                   ("multireset", "多文件重置"), ("legend_pos", "图例位置")]
         for i, (key, lab) in enumerate(dd_lab):
             self._label(surface, lab, lx, row(11 + i), dark)
             self._dropdowns[key].draw_base(surface, dark)
-        # 勾选(两列 3+3)
-        self._label(surface, "显示", lx, row(17) - 22, dark, bright=True, font=f_m)
+        # 勾选(两列 4+3)
+        self._label(surface, "显示", lx, row(17) - 26, dark, bright=True, font=f_m)
         chk = [("skip_invest", "忽略前期扰动定位"), ("all_points", "显示所有定位点"),
                ("grid", "显示经纬网"), ("labels", "显示文字标注"),
-               ("use_map", "地图底图")]
+               ("use_map", "地图底图"), ("legend_bg", "图例底框"),
+               ("bg_btn", "自定义背景")]
         for i, (key, lab) in enumerate(chk):
-            self._checkbox(surface, self._checkbox_rect(i), lab,
-                           getattr(self, key), dark)
-        self._checkbox(surface, self._checkbox_rect(5), "自定义背景",
-                       self.bg_color is not None, dark)
+            if key == "bg_btn":
+                val = self.bg_color is not None
+            else:
+                val = getattr(self, key)
+            self._checkbox(surface, self._checkbox_rect(i), lab, val, dark)
         # 地图文件
-        self._label(surface, "地图文件", lx, row(21), dark, bright=True)
+        self._label(surface, "地图文件", lx, row(22), dark, bright=True)
         self._fields["map_path"].draw(surface)
-        br = pygame.Rect(inp_x + 360, row(21), 100, 26)
+        br = pygame.Rect(inp_x + 360, row(22), 100, 26)
         self._button(surface, br, "选择地图", (60, 110, 175), dark)
         self._map_browse_rect = br
 
@@ -804,6 +861,22 @@ class PaintDialog(DraggableDialog):
                 surface.blit(ts, (hx + 6, yy + 5))
                 hx += w0
 
+    def _zoom_view_rect(self):
+        """放大查看区域: 整个对话框内容区(留边缘空隙)。"""
+        return pygame.Rect(self.bg_rect.x + 60, self.bg_rect.y + self.title_bar_height + 40,
+                           self.bg_rect.width - 120, self.bg_rect.height - self.title_bar_height - 100)
+
+    def _compute_zoom_rect(self):
+        """计算放大模式下图片实际绘制矩形(随滚轮缩放)。"""
+        if self._result is None:
+            return None
+        img = self._result
+        vr = self._zoom_view_rect()
+        sc = min(vr.width / img.get_width(), vr.height / img.get_height()) * self._zoom_level
+        tw = max(1, int(img.get_width() * sc))
+        th = max(1, int(img.get_height() * sc))
+        return pygame.Rect(vr.centerx - tw // 2, vr.centery - th // 2, tw, th)
+
     def _draw_preview(self, surface, dark):
         pr = self._preview_rect()
         pygame.draw.rect(surface, (24, 28, 38) if dark else (200, 210, 226), pr, border_radius=8)
@@ -815,20 +888,24 @@ class PaintDialog(DraggableDialog):
             return
         img = self._result
         if self._zoom:
-            sc = pr.height / img.get_height()
-            tw = max(1, int(img.get_width() * sc))
-            dx = min(0, max(pr.width - tw, -self._zoom_scroll))
-            prev = pygame.transform.smoothscale(img, (tw, pr.height))
-            surface.blit(prev, (pr.x + dx, pr.y))
-            tip = rt(f_s, "放大查看 · 滚轮平移 · 单击/Esc 返回", _light(dark))
-            surface.blit(tip, (pr.x + 8, pr.y + 8))
+            # 放大查看: 占满接近整个地图区域(留空隙), 滚轮缩放
+            self._zoom_img_rect = self._compute_zoom_rect()
+            vr = self._zoom_view_rect()
+            tw = self._zoom_img_rect.width
+            th = self._zoom_img_rect.height
+            prev = pygame.transform.smoothscale(img, (tw, th))
+            surface.blit(prev, (self._zoom_img_rect.x, self._zoom_img_rect.y))
+            tip = rt(f_s, f"放大 ×{self._zoom_level:.1f} · 滚轮缩放 · 单击图片缩回 · 点外部退出 · 右键另存为",
+                     (245, 245, 250))
+            surface.blit(tip, (vr.x + 8, vr.y + 6))
             return
+        self._zoom_img_rect = None
         sc = min(pr.width / img.get_width(), pr.height / img.get_height())
         tw = max(1, int(img.get_width() * sc))
         th = max(1, int(img.get_height() * sc))
         prev = pygame.transform.smoothscale(img, (tw, th))
         surface.blit(prev, (pr.centerx - tw // 2, pr.centery - th // 2))
-        tip = rt(f_s, "单击放大", (245, 245, 250))
+        tip = rt(f_s, "单击放大 · 右键另存为", (245, 245, 250))
         surface.blit(tip, (pr.right - tip.get_width() - 10, pr.y + 6))
 
     def _draw_stats(self, surface, dark):

@@ -216,7 +216,10 @@ class PlaybackController:
                 continue
             t = max(0.0, min(1.0, (typhoon.at - pt0) / (pt1 - pt0)))
             bucket = int(t * 256)
-            key = (typhoon.ci, bucket, lm, lb)
+            # 键必须含插值实际依赖的点数据(下一报点 pace/ACE 年/点数): 只含
+            # ci+bucket 时, 暂停期间编辑下一报点强度/年份不会失效, 仍用旧 _ipol_part
+            key = (typhoon.ci, bucket, lm, lb, pt_next.get('pace', 0.0),
+                   pt_next.get('ace_year', 0), len(pts))
             if getattr(typhoon, '_ipol_key', None) == key:
                 total += typhoon._ipol_part
             else:

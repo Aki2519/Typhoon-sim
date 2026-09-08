@@ -28,7 +28,10 @@ def _build_lut(stops: list) -> np.ndarray:
         a = stops[0]
         b = stops[-1]
         for s in range(len(stops) - 1):
-            if stops[s][0] <= v <= stops[s + 1][0]:
+            # stops 可能按数值降序排列(如 LUT_IR 300→184): 用排序后的上下界判区间,
+            # 否则区间永远不命中, 整条色标退化成首末色的灰度
+            v0, v1 = stops[s][0], stops[s + 1][0]
+            if (v0 <= v <= v1) or (v1 <= v <= v0):
                 a = stops[s]
                 b = stops[s + 1]
                 break
@@ -156,11 +159,17 @@ def render_sat(sim, mode: str = 'IR') -> np.ndarray:
             band = np.cos(band0 * 4) * 0.5 + 0.5
             spiral = np.power(band, 3) * np.exp(-((r / R - 4) / 3.2) ** 2)
             asym = 1 + 0.5 * np.cos(phi - (sh_dir + math.pi))
-            add += 5.2 * spiral * asym * min(1.0, v / 87.0) * V.smoothstep(0, 23.3, sh)
-        add = np.where(band_mask, add, 0.0)
+            # 只对雨带项做掩膜: 原写法 add=np.where(band_mask,add,0) 会把已累加的
+            # 眼墙/ERC 环(r<=1.2R)一并清零
+            add += np.where(
+                band_mask,
+                5.2 * spiral * asym * min(1.0, v / 87.0) * V.smoothstep(0, 23.3, sh),
+                0.0)
         H = np.where(r < R * 0.45, 0.9, H + add)
     bt = np.clip(300 - 6.4 * H, 184, 300)
-    idx = np.clip(((bt - 184.0) / (300.0 - 184.0) * 255.0).astype(int), 0, 255)
+    # LUT_IR[0]=300K(暖/暗) → [255]=184K(冷/白): 索引必须随 bt 下降而增大,
+    # 原式方向反了(晴空变白、深对流变灰)
+    idx = np.clip(((300.0 - bt) / (300.0 - 184.0) * 255.0).astype(int), 0, 255)
     out[..., :3] = LUT_IR[idx][..., :3]
     out[..., 3] = 255
     return out
@@ -555,12 +564,13 @@ def draw_ridge(surface, sim, fx: Callable, fy: Callable) -> None:
         edge = np.zeros_like(mask)
         edge[1:-1, 1:-1] = mask[1:-1, 1:-1] & ~(mask[:-2, 1:-1] & mask[2:, 1:-1]
                                                 & mask[1:-1, :-2] & mask[1:-1, 2:])
+        # 先贴半透明填充再画描边, 否则描边会被填充压暗
+        surface.blit(fill_surf, (0, 0))
         ys, xs = np.nonzero(edge)
         for j, i in zip(ys[::2], xs[::2]):
             lon = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
             lat = V.C['LAT0'] + (j + 0.5) * V.C['ENVD']
             pygame.draw.circle(surface, (255, 150, 60), (int(fx(lon)), int(fy(lat))), 2)
-        surface.blit(fill_surf, (0, 0))
         surface.blit(_label('副高 588', (255, 170, 80)),
                      (int(fx(120)), int(fy(33))))
     except Exception:
@@ -647,9 +657,18 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
 
 def _blit_layer(surface, rgba: np.ndarray, fx: Callable, fy: Callable,
                 alpha: int = 255) -> None:
-    surf = pygame.surfarray.make_surface(np.transpose(rgba[..., :3], (1, 0, 2)))
+    """把 (H, W, 4) RGBA 环境层贴到地图。
+
+    必须保留逐格 alpha: 原来只取 RGB 再统一 set_alpha, 陆地/缺测格(alpha=0)
+    会被整体不透明地画上去, 湿度层也退化成整屏纯色块。"""
+    rgb = np.transpose(rgba[..., :3], (1, 0, 2))
+    a = np.transpose(rgba[..., 3], (1, 0)).astype(np.uint16)
+    if alpha < 255:
+        a = (a * int(alpha)) // 255
+    buf = np.ascontiguousarray(np.dstack([rgb, a.astype(np.uint8)]))
+    surf = pygame.image.frombuffer(buf.tobytes(),
+                                   (buf.shape[0], buf.shape[1]), 'RGBA')
     surf = pygame.transform.smoothscale(
-        surf, (int(fx(V.C['LON1']) - fx(V.C['LON0'])),
-               int(fy(V.C['LAT0']) - fy(V.C['LAT1']))))
-    surf.set_alpha(alpha)
+        surf, (max(1, int(fx(V.C['LON1']) - fx(V.C['LON0']))),
+               max(1, int(fy(V.C['LAT0']) - fy(V.C['LAT1'])))))
     surface.blit(surf, (fx(V.C['LON0']), fy(V.C['LAT1'])))

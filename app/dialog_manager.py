@@ -1,7 +1,11 @@
 # py/dialog_manager.py
 """对话框管理器：集中管理所有对话框的创建、事件分发和绘制。"""
 from __future__ import annotations
+
+import logging
 from typing import TYPE_CHECKING, Optional
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
@@ -70,6 +74,21 @@ class DialogManager:
             c = sum(1 for d in self._all() if d.active)
             self._active_count = c
         return c > 0
+
+    def deactivate_all(self) -> None:
+        """关闭所有对话框(切模式/进洋区编辑前调用), 同步清空栈与缓存计数。"""
+        for d in self._all():
+            if getattr(d, 'active', False):
+                try:
+                    d.deactivate()
+                except Exception as ex:
+                    logger.warning(f"关闭对话框失败 {type(d).__name__}: {ex}")
+        stack = getattr(self.sim, '_dialog_stack', None)
+        if stack is not None:
+            # 只移除已关闭的: deactivate() 可能被拒绝(如设置校验失败返回 False),
+            # 整表清空会让仍 active 的对话框失去事件路由 → 无法关闭的死锁
+            stack[:] = [d for d in stack if getattr(d, 'active', False)]
+        self._active_count = None
 
     def _all(self) -> tuple:
         return tuple(d for d in (

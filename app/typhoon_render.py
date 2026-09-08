@@ -43,11 +43,14 @@ def _clear_geo_spline_cache(ty) -> None:
 class TyphoonRenderMixin:
     """渲染方法：update_screen_points, 旋转, 坐标。"""
 
-    def update_screen_points(self, latlon_to_screen_func, view_rect=None):
+    def update_screen_points(self, latlon_to_screen_func, view_rect=None,
+                              anchor=None) -> None:
         v = self.v
         v.screen_points.clear()
         v.smooth_screen_points.clear()
         v._smooth_arc_lengths.clear()
+        # None = 无锚点: 必须清掉旧锚点, 否则后续纯平移会按旧视图位移 → 路径错位
+        v._sp_anchor = anchor
         if not self.pts:
             v.bbox = None
             return

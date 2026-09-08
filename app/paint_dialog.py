@@ -553,7 +553,8 @@ class PaintDialog(DraggableDialog):
                                'dir': os.path.dirname(p), 'size': _fmt_size(p)})
             cur.add(p)
             added += 1
-        self.sel_rows = [False] * len(self.files)
+        # 新导入的文件默认勾选(与 Ty4 交互一致: 导入即可用, 不必先"全选")
+        self.sel_rows = [True] * len(self.files)
         if added:
             self._status = f"已加入 {added} 个文件"
             self._status_ts = time.time()

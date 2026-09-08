@@ -22,6 +22,10 @@ _C5_SUB_THRESHOLD_HIGH = 170
 _C5_INTERP_RANGE = _C5_SUB_THRESHOLD_HIGH - _C5_SUB_THRESHOLD_MID
 _C5_INV_INTERP_RANGE = 1.0 / _C5_INTERP_RANGE
 
+# 经纬度列: 数字 + 方向后缀(如 "250N"/"25.5S"); 缺后缀/小写后缀都归一化
+_LATLON_LAT_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([NSns])$')
+_LATLON_LON_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([EWew])$')
+
 if TYPE_CHECKING:
     from .resource_manager import ResourceManager, OceanArea
     from .config import AppConfig
@@ -90,34 +94,60 @@ class DataRepository:
                     new_row[4] = 'chunshu'
                 writer.writerow(new_row)
 
-    def ensure_simple_bdeck_copy(self, ty: Typhoon) -> None:
-        if ty.format_type == FILE_FORMAT_JTWC and ty.original_jtwc_source:
-            original_path = ty.original_jtwc_source
-            dir_name = os.path.dirname(original_path)
-            base_name = os.path.splitext(os.path.basename(original_path))[0]
-            new_path = os.path.join(dir_name, f"{base_name}_ty.txt")
-            if not os.path.exists(new_path):
-                # 转换失败不应中断整个加载流程
+    def ensure_simple_bdeck_copy(self, ty: Typhoon) -> bool:
+        """把 JTWC 原始文件转换为 simple-bdeck 副本并重指 ty.filepath。
+
+        返回 True 表示 ty.filepath 已指向可写的 simple-bdeck 文件; False 表示
+        转换失败(调用方必须放弃保存, 否则会把 simple-bdeck 文本写进原始 JTWC
+        文件, 造成原始数据不可逆丢失)。"""
+        if ty.format_type != FILE_FORMAT_JTWC or not ty.original_jtwc_source:
+            return True
+        original_path = ty.original_jtwc_source
+        dir_name = os.path.dirname(original_path)
+        base_name = os.path.splitext(os.path.basename(original_path))[0]
+        new_path = os.path.join(dir_name, f"{base_name}_ty.txt")
+        # 0 字节副本同样视为无效: os.path.exists 守卫会让坏副本永久生效
+        if not os.path.exists(new_path) or os.path.getsize(new_path) == 0:
+            tmp = new_path + '.tmp'
+            try:
+                self.convert_jtwc_to_simple_bdeck(original_path, tmp)
+                if not os.path.exists(tmp) or os.path.getsize(tmp) == 0:
+                    raise ValueError("转换输出为空")
+                os.replace(tmp, new_path)      # 原子替换, 不产生半截文件
+            except Exception as e:
+                logger.error(f"JTWC 转换失败: {original_path}: {e}")
                 try:
-                    self.convert_jtwc_to_simple_bdeck(original_path, new_path)
-                except Exception as e:
-                    logger.error(f"JTWC 转换失败: {original_path}: {e}")
-                    return
-            ty.filepath = new_path
-            ty.format_type = FILE_FORMAT_SIMPLE_BDECK
-            ty.original_jtwc_source = None
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
+                except OSError:
+                    pass
+                return False
+        ty.filepath = new_path
+        ty.format_type = FILE_FORMAT_SIMPLE_BDECK
+        ty.original_jtwc_source = None
+        return True
 
     def load_typhoon_files(self, on_progress=None) -> None:
         self.tys.clear()
         if not os.path.exists(TYPHOON_DIR):
             os.makedirs(TYPHOON_DIR)
+            self._all_tys_backup = []   # 目录缺失时不能留下陈旧备份(否则过滤会"复活"台风)
             return
         # 单次目录遍历收集 .txt/.dat(先统计总数以支持启动进度条)
         targets = []
         for root, _dirs, files in os.walk(TYPHOON_DIR):
+            derived = {fn[:-len('_ty.txt')].lower() for fn in files
+                       if fn.lower().endswith('_ty.txt')}
             for fn in files:
-                if fn.lower().endswith(('.txt', '.dat')):
-                    targets.append(os.path.join(root, fn))
+                low = fn.lower()
+                if not low.endswith(('.txt', '.dat')):
+                    continue
+                stem = os.path.splitext(fn)[0].lower()
+                if stem in derived and not low.endswith('_ty.txt'):
+                    # 原始 JTWC 文件与派生副本并存: 只加载派生副本(*_ty.txt),
+                    # 否则同一台风会重复出现, 且编辑内容会被旧原始文件盖掉
+                    continue
+                targets.append(os.path.join(root, fn))
         total = len(targets)
         for i, fp in enumerate(targets):
             self.parse_typhoon_file(fp)
@@ -175,7 +205,8 @@ class DataRepository:
         fmt = self.detect_format(filepath, lines)
         filename = os.path.basename(filepath)
         # 台风编号取文件名中 1~3 位数字段(避免把年份/日期段误当编号,如 "20240801_01")
-        m = re.search(r'\b\d{1,3}\b', filename) or re.search(r'(\d+)', filename)
+        # 注意: 两个正则都要带捕获组, 否则命中第一个(如 "...14-16...")时 group(1) 不存在 → IndexError
+        m = re.search(r'\b(\d{1,3})\b', filename) or re.search(r'(\d+)', filename)
         tn = m.group(1) if m else "01"
         ty = Typhoon("WP", tn)
         ty.sim = self._sim
@@ -272,14 +303,20 @@ class DataRepository:
         """解析 NSEW 经纬度列(空列/缺方向后缀抛 ValueError 由调用方跳过整行)。"""
         lat_str = lat_str_raw.strip()
         lon_str = lon_str_raw.strip()
-        if len(lat_str) < 2 or len(lon_str) < 2:
-            raise ValueError("经纬度列为空")
-        lat_val = float(lat_str[:-1]) / 10.0
-        if lat_str.endswith('S'):
+        mlat = _LATLON_LAT_RE.match(lat_str)
+        mlon = _LATLON_LON_RE.match(lon_str)
+        if mlat is None or mlon is None:
+            # 缺方向后缀/非法格式: 按 docstring 抛错, 由调用方跳过整行,
+            # 而不是静默砍掉末位造成 "25"→2.5 这类错位解析
+            raise ValueError("经纬度列缺少方向后缀或格式非法")
+        lat_val = float(mlat.group(1)) / 10.0
+        if mlat.group(2).upper() == 'S':
             lat_val = -lat_val
-        lon_val = float(lon_str[:-1]) / 10.0
-        if lon_str.endswith('W'):
+        lon_val = float(mlon.group(1)) / 10.0
+        if mlon.group(2).upper() == 'W':
             lon_val = 360.0 - lon_val
+            if lon_val >= 360.0:
+                lon_val = 0.0      # 0W 与 0E 等价
         return lat_val, lon_val
 
     def _fill_point_categories(self) -> None:

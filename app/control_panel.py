@@ -130,11 +130,13 @@ class ControlPanel:
             (180, 100, 200) if md == "normal"
             else (200, 150, 50) if md == "season"
             else (150, 100, 150) if md == "edit"
-            else (60, 180, 200))
+            else (60, 180, 200) if md == "sim"
+            else (60, 160, 120))  # ocean_edit
         mode_texts = {"normal": self.sim.normal_mode_text,
                       "season": self.sim.season_mode_text,
                       "edit": self.sim.edit_mode_text,
-                      "sim": rt(f_s, "模拟", (240, 240, 245))}
+                      "sim": rt(f_s, "模拟", (240, 240, 245)),
+                      "ocean_edit": rt(f_s, "洋区编辑", (240, 240, 245))}
         # 所有模式 mode 按钮位置一致(_x(4)), 速度条在其右侧
         self._add(PanelButton("mode", self._x(4),
                                by, self.BUTTON_W, self.BUTTON_H,
@@ -182,6 +184,12 @@ class ControlPanel:
                             self.sim.redo_text,
                             BUTTON_BORDER if undo_enabled else BUTTON_DISABLED,
                             disabled=not undo_enabled))
+            if md == "normal":
+                # 正常模式: 镜头跟踪按钮(与风季模式同位置; 仅按钮入口, 无快捷键)
+                row2_btns.append(
+                    PanelButton("track", self._x(4, self.BUTTON_W), sby,
+                                self.BUTTON_W, self.BUTTON_H,
+                                self.sim.track_text, BUTTON_BORDER))
         if md == "sim":
             # 模拟模式 Row2: 自然生成开关 + 图层切换 + 模拟设置
             sim = self.sim

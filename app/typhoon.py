@@ -1,4 +1,4 @@
-﻿# py/typhoon.py
+# py/typhoon.py
 """台风数据类。南半球通过镜像+逆时针角度实现顺时针视觉。
 方法已拆分到 typhoon_data / typhoon_sim / typhoon_render mixin。
 """
@@ -58,6 +58,7 @@ _VIEW_FIELDS = frozenset({
     "ipos", "rot_dir", "mirror", "last_on_land",
     "icon_alpha", "path_alpha",
     "screen_points", "bbox", "_sp_ver",
+    "_sp_anchor",          # 屏幕点视图锚点(vx_int, vy_int, scale, bottom_align, sw, mh): 纯平移时按锚点整页位移
     "_img_cache",
     "_path_cache_full", "_path_cache_traversed", "_last_rendered_ci",
     "_path_cache_key", "_path_cache_blit",
@@ -91,6 +92,7 @@ class TyphoonView:
         self.screen_points: List[Tuple[int, int]] = []
         self.bbox: Optional[pygame.Rect] = None
         self._sp_ver: int = -1
+        self._sp_anchor = None
         self._img_cache: Dict[Tuple, pygame.Surface] = {}
         self._path_cache_full: Optional[pygame.Surface] = None
         self._path_cache_traversed: Optional[pygame.Surface] = None

@@ -5,6 +5,9 @@ import math
 import os
 import pygame
 from collections import OrderedDict
+from typing import Optional
+from datetime import datetime
+from ..utils import fmt_short_time
 from ..constants import (
     PATH, CUR_POS,
     FUTURE_LINE_ALPHA, FADE_DURATION, FADE_DURATION_QUICK,
@@ -258,16 +261,138 @@ class TySimDrawPathMixin:
                 return True
         return False
 
+    # ── 纯平移锚点复用 ──
+    _PAN_REUSE_PAD = 48   # 路径面四周留白(px): 平移复用窗口内不露边
+    _PAN_REUSE_MAX_SHIFT = 40   # 累计位移超过该值→重建(<= 留白, 无露边)
+
+    def _view_anchor_tuple(self):
+        """当前视图锚点(与 geo_to_screen 两段式取整同源)。"""
+        mv = self.map_mgr.map_view if self.map_mgr is not None else None
+        if mv is None:
+            return None
+        return (int(mv.view_x * mv.scale), int(mv.view_y * mv.scale),
+                mv.scale, getattr(mv, '_bottom_align', False),
+                self.screen_width, self.map_height)
+
+    def _try_pan_reuse_path_cache(self, ty, screen_points, key) -> bool:
+        """纯平移复用路径缓存面: 仅当(除首尾坐标外)缓存指纹一致且首尾点位移相同
+        且累计位移在留白窗口内时, 直接把面按位移整体 blit, 免每帧重建。
+        缩放/环绕缝/其它变化位移非统一 → 返回 False 走全量重建(现行为)。"""
+        full = ty._path_cache_full
+        trav = ty._path_cache_traversed
+        if full is None or trav is None or not ty._path_cache_key:
+            return False
+        if getattr(ty, '_path_cache_partial', False):
+            return False   # 裁窗面: 平移复用会露出屏幕外条带 → 每帧重建(无条带)
+        if key[:3] + key[5:] != ty._path_cache_key[:3] + ty._path_cache_key[5:]:
+            return False
+        sp0 = getattr(ty, '_path_cache_sp0', None)
+        spL = getattr(ty, '_path_cache_spL', None)
+        origin = getattr(ty, '_path_cache_origin', None)
+        if sp0 is None or spL is None or origin is None or len(screen_points) < 2:
+            return False
+        d0 = (screen_points[0][0] - sp0[0], screen_points[0][1] - sp0[1])
+        dL = (screen_points[-1][0] - spL[0], screen_points[-1][1] - spL[1])
+        if d0 != dL:
+            return False   # 非均匀位移(缩放/环绕/其它) → 全量重建
+        # 面内容固定在建面时坐标系; blit = 原bbox原点 + 当前总位移(绝对, 非累加)
+        nb = (origin[0] + d0[0], origin[1] + d0[1])
+        # 累计位移超过留白窗口 → 重建重置锚点, 避免屏幕外入境的条带露边
+        if abs(d0[0]) > self._PAN_REUSE_MAX_SHIFT or abs(d0[1]) > self._PAN_REUSE_MAX_SHIFT:
+            return False
+        ty._path_cache_blit = nb
+        ty._path_cache_key = key
+        return True
+
+    def _try_shift_screen_points(self, ty) -> bool:
+        """纯平移时按锚点整页平移已有屏幕点(含平滑点/bbox), 返回是否成功。
+        与 geo_to_screen 的两段式取整一致: 只有 scale/尺寸/底对齐不变时位移才是
+        整数均匀的; 任何缩放/环绕翻面/尺寸变化都返回 False 走全量重算。"""
+        v = ty.v
+        anchor = getattr(v, '_sp_anchor', None)
+        now = self._view_anchor_tuple()
+        if anchor is None or now is None or anchor[2:] != now[2:]:
+            return False
+        # 屏幕坐标 = 基准 - 视图偏移: 视图前移 → 坐标减小
+        dx = anchor[0] - now[0]
+        dy = anchor[1] - now[1]
+        if dx == 0 and dy == 0:
+            v._sp_ver = getattr(self, '_sp_version', 0)
+            return True
+        if abs(dx) > 3000 or abs(dy) > 3000:
+            return False
+        pts = v.screen_points
+        if not pts:
+            return False
+        mv = self.map_mgr.map_view
+        if mv is None:
+            return False
+        # 环绕重归一化: 防止跨 0°/360° 缝时点停在翻面错误的一侧
+        # (阈值取半宽: 用整宽时跨缝点会停在翻面错误的一侧)
+        wrap = max(1, int(mv.img_w * mv.scale))
+        sw2 = self.screen_width / 2.0
+        half = wrap / 2.0
+        wrapped = False
+
+        def _renorm(points):
+            nonlocal wrapped
+            out = []
+            for x, y in points:
+                nx, ny = x + dx, y + dy
+                if nx > sw2 + half:
+                    nx -= wrap
+                    wrapped = True
+                elif nx < sw2 - half:
+                    nx += wrap
+                    wrapped = True
+                out.append((nx, ny))
+            return out
+
+        v.screen_points = _renorm(pts)
+        v.smooth_screen_points = _renorm(v.smooth_screen_points)
+        if v.bbox is not None:
+            if wrapped:
+                # 有顶点被翻面到另一侧: 旧 bbox 已失效, 必须按新点重建,
+                # 否则可见性裁剪会漏掉翻面后的整段路径
+                xs = [p[0] for p in v.screen_points] or [0.0]
+                ys = [p[1] for p in v.screen_points] or [0.0]
+                pad = 8
+                v.bbox = pygame.Rect(int(min(xs)) - pad, int(min(ys)) - pad,
+                                     int(max(xs) - min(xs)) + 2 * pad,
+                                     int(max(ys) - min(ys)) + 2 * pad)
+            else:
+                v.bbox.move_ip(dx, dy)
+        v._sp_anchor = now
+        if wrapped:
+            # 跨缝帧: 中点位于翻面另一侧, 平移复用不再安全 → 下一帧路径面重建
+            ty._path_cache_key = ()
+        return True
+
+    def _normal_others_dim(self) -> Optional[float]:
+        """正常模式其它台风的显示系数: 1.0=不透明, (0,1)=半透明; None=不显示。"""
+        if self.md != self.MODE_NORMAL:
+            return 1.0
+        mode = getattr(self.cfg, 'normal_other_display', 'translucent')
+        if mode == 'hidden':
+            return None
+        if mode == 'opaque':
+            return 1.0
+        return 0.45
+
     def _draw_typhoons(self, surface):
         current_ty = self.current_typhoon()
         if self.md == self.MODE_EDIT and self.edit_typhoon:
             self.draw_typhoon(surface, self.edit_typhoon, highlight=True)
         else:
+            others_dim = self._normal_others_dim()
             for ty in self.tys:
                 if self.should_draw_typhoon(ty):
                     if not self._is_typhoon_visible(ty):
                         continue
-                    self.draw_typhoon(surface, ty, highlight=(ty == current_ty))
+                    if ty is current_ty:
+                        self.draw_typhoon(surface, ty, highlight=True)
+                    elif others_dim is not None:
+                        self.draw_typhoon(surface, ty, highlight=False, dim=others_dim)
 
     # ── 增量路径渲染缓存（per-typhoon）──
 
@@ -359,18 +484,35 @@ class TySimDrawPathMixin:
         key = self._make_path_cache_key(ty, screen_points, highlight)
 
         # ── 缓存失效：重建 full + traversed ──
-        if ty._path_cache_key != key:
+        # 纯平移复用: 仅视图平移导致 key 过期(首尾点同位移) → 整面平移, 不重建。
+        # 复用成功时头部条件为 False, 落到下方 elif 增量分支: ci 前进/回退的新段在同一帧
+        # 追加到旧坐标系缓存面(blit 同步平移旧锚点带, rel 坐标即缓存系坐标, 结果正确)。
+        if ty._path_cache_key != key and not self._try_pan_reuse_path_cache(ty, screen_points, key):
             # 计算 bbox（仅重建时；命中/追加分支直接取缓存的偏移，法1）
+            pad = self._PAN_REUSE_PAD
             margin = radius + 4
             xs = [p[0] for p in screen_points]
             ys = [p[1] for p in screen_points]
             if self.smooth_path and len(ty.v.smooth_screen_points) >= 2:
                 xs = xs + [p[0] for p in ty.v.smooth_screen_points]
                 ys = ys + [p[1] for p in ty.v.smooth_screen_points]
-            bbox_x = max(0, min(xs) - margin)
-            bbox_y = max(0, min(ys) - margin)
-            bbox_w = min(self.screen_width - bbox_x, max(xs) - bbox_x + margin * 2)
-            bbox_h = min(self.map_height - bbox_y, max(ys) - bbox_y + margin * 2)
+            # 路径包围盒完整建面(不裁窗): 平移复用永无「屏幕外入境条带」;
+            # 仅面积超大(超出留白屏幕面积 1.25 倍)才裁窗, 并禁用复用(回到每帧重建=旧行为)
+            path_w = (max(xs) - min(xs)) + margin * 2
+            path_h = (max(ys) - min(ys)) + margin * 2
+            fit_area = (self.screen_width + 2 * pad) * (self.map_height + 2 * pad) * 1.25
+            if path_w > 2 and path_h > 2 and path_w * path_h <= fit_area:
+                bbox_x = min(xs) - margin
+                bbox_y = min(ys) - margin
+                bbox_w = path_w
+                bbox_h = path_h
+                ty._path_cache_partial = False
+            else:
+                bbox_x = max(-pad, min(xs) - margin)
+                bbox_y = max(-pad, min(ys) - margin)
+                bbox_w = min(self.screen_width + pad - bbox_x, path_w)
+                bbox_h = min(self.map_height + pad - bbox_y, path_h)
+                ty._path_cache_partial = True
             if bbox_w <= 0 or bbox_h <= 0:
                 # K29: 记录空缓存键,避免屏幕外台风每帧重建 bbox。
                 # 同时建立空 full/traversed 面,保证后续帧缓存命中走 3 元组返回,
@@ -378,6 +520,9 @@ class TySimDrawPathMixin:
                 ty._path_cache_key = key
                 ty._last_rendered_ci = cur_idx
                 ty._path_cache_blit = (0, 0)
+                ty._path_cache_origin = (0, 0)
+                ty._path_cache_sp0 = None
+                ty._path_cache_spL = None
                 ty._path_cache_full = pygame.Surface((1, 1), pygame.SRCALPHA)
                 ty._path_cache_traversed = pygame.Surface((1, 1), pygame.SRCALPHA)
                 return ty._path_cache_full, ty._path_cache_traversed, (0, 0)
@@ -447,6 +592,9 @@ class TySimDrawPathMixin:
             ty._last_rendered_ci = cur_idx
             ty._path_cache_key = key
             ty._path_cache_blit = (bbox_x, bbox_y)
+            ty._path_cache_origin = (bbox_x, bbox_y)
+            ty._path_cache_sp0 = screen_points[0] if screen_points else None
+            ty._path_cache_spL = screen_points[-1] if screen_points else None
 
 
         # ── 增量追加：ci 前进时在 traversed 上追加新线段 ──
@@ -731,7 +879,8 @@ class TySimDrawPathMixin:
         self._path_render_view_version += 1
 
     # ── 路径绘制（使用缓存） ──
-    def draw_typhoon(self, surface, ty, highlight):
+    def draw_typhoon(self, surface, ty, highlight, dim: float = 1.0):
+        """绘制台风路径。dim: 整体透明度系数(1.0=不透明, <1=半透明, 用于正常模式其它台风)。"""
         if not ty.pts:
             return
 
@@ -751,9 +900,16 @@ class TySimDrawPathMixin:
 
                 # 缩放/拖动期间同样重建平滑样条,保证路径始终平滑不错位
                 ty.update_screen_points(_stale_equiv, None)
+                ty.v._sp_anchor = None   # 拖拽坐标是旧视图系, 锚点失效
                 ty.v._sp_ver = getattr(self, '_sp_version', 0)
                 self._clear_drag_cache(ty)
                 screen_points = ty.screen_points
+                if not screen_points:
+                    return
+            elif self._try_shift_screen_points(ty):
+                # 纯平移: 屏幕点(含平滑点/bbox)按锚点整页平移, 免重投影+免样条重建
+                screen_points = ty.screen_points
+                ty.v._sp_ver = getattr(self, '_sp_version', 0)
                 if not screen_points:
                     return
             else:
@@ -761,7 +917,8 @@ class TySimDrawPathMixin:
                 # 缩放突发期内同样重建平滑样条,避免缩放时路径退化为折线
                 smooth_rect = pygame.Rect(-50, -50, self.screen_width + 100,
                                           self.map_height + 100)
-                ty.update_screen_points(self.latlon_to_screen, smooth_rect)
+                ty.update_screen_points(self.latlon_to_screen, smooth_rect,
+                                        anchor=self._view_anchor_tuple())
                 ty.v._sp_ver = getattr(self, '_sp_version', 0)
                 screen_points = ty.screen_points
                 if not screen_points:
@@ -778,6 +935,8 @@ class TySimDrawPathMixin:
             else:
                 path_alpha = max(0, int(255 * (1.0 - elapsed * (_INV_FADE_QUICK if mode == 'quick' else _INV_FADE))))
 
+        if dim < 1.0:
+            path_alpha = max(0, int(path_alpha * dim))
         if path_alpha <= 0 and mode != 'never':
             return
 
@@ -816,6 +975,11 @@ class TySimDrawPathMixin:
                     pygame.draw.circle(surface, CUR_POS, live_xy, 2)
             else:
                 cur_idx = ty.ci
+                # 编辑模式(未播放): 高亮圆点跟随选中报点(与信息框/圆环/列表联动一致)
+                if self.md == self.MODE_EDIT and not self.pl:
+                    sel = getattr(self, '_edit_selected_point', None)
+                    if sel is not None and 0 <= sel < n_pts:
+                        cur_idx = sel
                 if 0 <= cur_idx < n_pts:
                     p = ty.pts[cur_idx]
                     x, y = screen_points[cur_idx]
@@ -927,7 +1091,12 @@ class TySimDrawPathMixin:
 
     def _get_precomputed_landfalls(self, ty) -> list:
         """预计算整条路径的登陆点（陆地掩码地理采样，视图无关）。"""
-        key = (id(ty.pts), len(ty.pts))
+        pts = ty.pts
+        if not pts:
+            return []
+        # 键含首末报点内容: 只含 id(pts) 时列表被替换后 id 复用会命中陈旧记录
+        key = (len(pts), pts[0].get('t'), pts[0].get('la'), pts[0].get('lo'),
+               pts[-1].get('t'), pts[-1].get('la'), pts[-1].get('lo'))
         cached = getattr(ty, '_cached_landfalls', None)
         if cached is not None and cached[0] == key:
             return cached[1]
@@ -1044,6 +1213,18 @@ class TySimDrawPathMixin:
             surface.blit(tb, (x + ox, y + oy))
         surface.blit(ts, (x, y))
 
+    @staticmethod
+    def _fmt_day_label(t) -> str:
+        """报点时间 → 整天数标签 '第N天'。t = YYYYMMDDHH[MM]。
+        以报点所在年为第1天(月日相对历年首日的天数), 与季节跨度一致。"""
+        try:
+            dt = datetime(int(t[0:4]), int(t[4:6]), int(t[6:8]))
+            y0 = datetime(dt.year, 1, 1)
+            day = (dt - y0).days + 1
+            return f"第{day}天"
+        except (ValueError, TypeError, IndexError):
+            return t
+
     def _draw_edit_selection(self, surface, ty, screen_points):
         """A1/B7: 编辑模式下绘制选中点高亮圆环+时间标签、悬停提示环、
         以及(开关开启时)全部报点的索引+时间标签。"""
@@ -1071,13 +1252,12 @@ class TySimDrawPathMixin:
             p = ty.pts[i]
             is_sel = (sel == i)
             if is_sel:
-                # 选中: 白/黄圆环 + 时间标签
+                # 选中: 白/黄圆环 + 具体时间标签(MM-DD HH:MM)
                 pygame.draw.circle(surface, (255, 220, 120), (x, y), ring_r + 2, 2)
                 pygame.draw.circle(surface, (255, 255, 255), (x, y), ring_r, 2)
                 t = p.get('t', '')
-                if len(t) >= 10:
-                    from ..utils import fmt_short_time
-                    txt = fmt_short_time(t)
+                if t:
+                    txt = fmt_short_time(str(t))
                     ts = rt(f_s, txt, (255, 220, 120))
                     tb = rt(f_s, txt, (0, 0, 0))
                     self._blit_outlined_text(
@@ -1089,8 +1269,8 @@ class TySimDrawPathMixin:
             if show_labels:
                 t = p.get('t', '')
                 if len(t) >= 10:
-                    from ..utils import fmt_short_time
-                    txt = f"{i + 1} {fmt_short_time(t)}"
+                    # 全部报点标签: 序号 + 整天数(不显示完整时间)
+                    txt = f"{i + 1} {self._fmt_day_label(t)}"
                     ts = rt(f_s, txt, (235, 235, 245))
                     tb = rt(f_s, txt, (0, 0, 0))
                     self._blit_outlined_text(

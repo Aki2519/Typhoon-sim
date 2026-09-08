@@ -240,7 +240,8 @@ def mpi(sst: float, ohc_d26: float, outflow: float, lat: float) -> float:
     ohc_f = clamp(ohc_d26 / 75.0, 0.15, 1.4) ** 0.35
     v *= 0.8 + 0.25 * min(1.0, ohc_f)
     v *= 0.92 + 0.08 * clamp(outflow, 0, 1)
-    v *= 0.72 + 0.28 * min(1.0, math.sin(lat * C['DEG']) / math.sin(18 * C['DEG']))
+    # 纬度项取 |sin|: 南半球 sin 为负会把 MPI 压到近零(而生成区含南半球)
+    v *= 0.72 + 0.28 * min(1.0, abs(math.sin(lat * C['DEG'])) / math.sin(18 * C['DEG']))
     return clamp(v, 0, 195)
 
 
@@ -265,7 +266,7 @@ def sst_clim(lat, lon, month):
     t -= 1.4 * np.exp(-((lon - 285) / 12.0) ** 2) * np.exp(-((lat + 18) / 10.0) ** 2)
     t -= 1.2 * np.exp(-((lon - 10) / 12.0) ** 2) * np.exp(-((lat + 18) / 10.0) ** 2)
     # 季节: 南北半球镜像(南半球 2 月最暖)
-    season = np.where(lat >= 0, month, (month + 6) % 12 + 1)
+    season = np.where(lat >= 0, month, (month + 5) % 12 + 1)
     amp = 0.8 + 1.6 * np.minimum(1.0, a / 30.0)
     t = t + amp * np.cos(2 * np.pi * (season - 8) / 12.0)
     return float(t) if np.ndim(t) == 0 else t
@@ -456,7 +457,8 @@ def init(opts: Optional[dict] = None) -> dict:
             'div': np.zeros((ENVNY, ENVNX), dtype=np.float32),
         },
         'land': build_land(),
-        'lastEnvH': -1.0, 'lastEnsH': -1.0, 'lastGenH': -1.0,
+        # -1e9: 保证第一步 sim_step 就刷新环境(否则 t=1.0 前 env 全零, 台风秒死)
+        'lastEnvH': -1e9, 'lastEnsH': -1.0, 'lastGenH': -1.0,
         'dataState': 'off', 'dataWarn': '',
         'ensemble': None,
     }
@@ -579,7 +581,7 @@ def env_update(sim) -> None:
     else:
         # 风切变(kt, 半球镜像季节)
         shear = 4.0 + 0.28 * np.maximum(0.0, a - 10) + 0.05 * np.maximum(0.0, a - 18) ** 1.5
-        season_a = np.where(LAT >= 0, month, (month + 6) % 12 + 1)
+        season_a = np.where(LAT >= 0, month, (month + 5) % 12 + 1)
         shear += 3.0 * np.abs(np.sin(np.pi * (season_a - 8) / 12.0))
         shear += 2.5 * np.sin(2 * np.pi * (t / 620.0 + (LON - 100.0) / 70.0))
         env['shear'] = np.maximum(SHEAR_MIN_KT, (shear + P['shearOff']) * KT).astype(np.float32)
@@ -939,6 +941,9 @@ def intensity_step(sim, tc, dt: float) -> None:
             dV2 -= 0.5
         tc['vmax'] = clamp(tc['vmax'] + dV2 * dt, 12, 999)
         tc['pmin'] = pmin_from_v(tc['vmax'])
+        # vmax 变了: Holland 廓线半径/形状要一起重算, 否则气压场与风场不自洽
+        tc['rmw'] = rmw_from_v(tc['vmax'])
+        tc['b'] = holland_b(tc['pmin'])
     tc['phase'] = phase
 
     # 消散判定(加强): 弱到极限 / 结构退化累积超限 / 极弱+冷海或深陆
@@ -1152,7 +1157,9 @@ def cloud_step(sim, dt_h: float) -> None:
     rh = _sample_grid(sim['env']['rh'], ENVNX, ENVNY, fx_env, fy_env)
     div = _sample_grid(sim['env']['div'], ENVNX, ENVNY, fx_env, fy_env)
     moist = _smoothstep_arr(25.2, 29.2, sst) * _smoothstep_arr(45, 80, rh)
-    conv = np.clip(-div * 2.2e5, 0, 2.2)
+    # 系数按 kt/km 量级取 2.2e2 并收到 1.0: 原 2.2e5 让 ~30% 格点钉在上界、
+    # ~70% 恰为 0, 辐合退化成符号函数
+    conv = np.clip(-div * 2.2e2, 0.0, 1.0)
     noise = sim['cldNoise'].reshape(ny, nx)
     prod = (0.028 + 0.30 * conv + 0.055 * (noise * 0.5 + 0.5)) * moist
     lo, la = LONc.copy(), LATc.copy()

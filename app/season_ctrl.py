@@ -39,9 +39,28 @@ class SeasonController:
         self._dialog_mgr: object = None
         self._pending: Optional[list] = None      # 未激活台风列表（激活后移除）
         self._pending_src: tuple = ()
+        self._pending_gen: int = 0                # 待激活缓存代次(数据重载/跳转 +1)
 
     def bind(self, dialog_mgr: object = None) -> None:
         self._dialog_mgr = dialog_mgr
+
+    def invalidate_pending(self) -> None:
+        """待激活缓存换代: 台风数据被重载/过滤/替换后必须调用。
+        旧实现只用 id(repo.tys)+len 判版本, 而 load_typhoon_files() 原地
+        clear 重填(同一 list、长度常相同) -> 缓存不失效, _pending 继续持有
+        旧 Typhoon 对象并激活它们, 新对象永不激活。"""
+        self._pending_gen += 1
+        self._pending = None
+        self._pending_src = ()
+        self._start_cache.clear()
+
+    def _ty_identity(self) -> tuple:
+        """台风对象身份指纹(长度 + 首/末对象 id)。
+        旧对象被 _pending/_start_cache 强引用, id 不会被复用, 指纹可靠。"""
+        tys = self.repo.tys
+        if not tys:
+            return ()
+        return (len(tys), id(tys[0]), id(tys[-1]))
 
     @property
     def csa_base(self) -> float:
@@ -202,7 +221,7 @@ class SeasonController:
                     self._dialog_mgr.ace_chart.needs_update = True
 
         # ── 待激活列表：只扫描未开始的台风，激活后移除 ──
-        src = (id(self.repo.tys), len(self.repo.tys))
+        src = (self._pending_gen, self._ty_identity())
         if self._pending is None or src != self._pending_src or self.yf:
             self._pending = [ty for ty in self.repo.tys
                              if not ty.ss and not ty.sf and ty.pts]
@@ -262,6 +281,16 @@ class SeasonController:
         self.st = time_str
         self.current_ace_year = self.get_ace_year(datetime(y, m, d, h))
 
+    def _reset_sim_month_tracker(self) -> None:
+        """清掉 TySim 的月度总结进度。
+
+        时间回拨/重置也会让 ste 变小, 若不清, _check_monthly_summary 会把它
+        误判为 12->1 跨年, 重复弹出上一年的月度总结。"""
+        sim = getattr(getattr(self, '_dialog_mgr', None), 'sim', None)
+        if sim is not None:
+            sim._last_month_key = None
+            sim._last_month_ste = None
+
     def jump_to(self, dt: datetime) -> None:
         """统一时间跳转：设置时间 + 重置全部台风 + 计算ACE + 同步 TySim。"""
         self.calc_years()   # 切模式/跳转路径不调 reset: 确保回卷点数据就绪(R2-2/T3-1)
@@ -272,8 +301,9 @@ class SeasonController:
         self._csa_base = self.csa
         self.current_ace_year = self.get_ace_year(dt)
         self._start_cache.clear()
-        self._pending = None
+        self.invalidate_pending()
         self.yf = False
+        self._reset_sim_month_tracker()
         # 跳转回拨后清空登陆记录/去重位置/完成提示,避免同一段路径被重复统计、
         # 或重新播完该台风时被 _was_fin=True 抑制 ACE 结束提示(R4)
         if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
@@ -339,8 +369,9 @@ class SeasonController:
         self._csa_base = 0.0
         self.current_ace_year = self.ace_engine.ace_year(datetime(self.sty, month, day, hour))
         self._start_cache.clear()
-        self._pending = None
+        self.invalidate_pending()
         self.yf = False
+        self._reset_sim_month_tracker()
         # 年循环：清空 finish note 记录让台风重新触发
         if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
             pb = self._dialog_mgr.sim.playback_ctrl

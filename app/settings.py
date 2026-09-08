@@ -73,6 +73,7 @@ class Settings(DraggableDialog):
         'landfall_vol_scale': 'landfall_vol_text',
         'show_legend': 'legend_text', 'show_graticule': 'graticule_text',
         'show_ocean_areas': 'ocean_areas_text', 'show_coord_hud': 'coord_hud_text',
+        'show_track_label': 'track_label_text',
     }
 
     def __init__(self, s):
@@ -99,6 +100,9 @@ class Settings(DraggableDialog):
         self._shortcuts_btn_rect = pygame.Rect(0, 0, 0, 0)
         self._reload_btn_rect = pygame.Rect(0, 0, 0, 0)
         self._targets: list = []  # [(rect, callback), ...]
+        # 下拉列表项单独放: 它视觉上盖住下方按钮但注册顺序更晚, 必须优先派发,
+        # 否则点击下拉项底部会误触「洋区编辑」按钮
+        self._dropdown_targets: list = []
         self._shortcuts_scroll_y = 0
         self._shortcuts_scrollbar_dragging = False
         self._shortcuts_scrollbar_drag_start_y = 0
@@ -144,6 +148,7 @@ class Settings(DraggableDialog):
                 ('checkbox', 'show_legend'),
                 ('checkbox', 'show_graticule'),
                 ('checkbox', 'show_coord_hud'),
+                ('checkbox', 'show_track_label'),
                 ('button', '信息框自定义'),
                 ('note', 'theme_note'),
             ]
@@ -177,7 +182,13 @@ class Settings(DraggableDialog):
                                                                  (HEMISPHERE_NORTH, HEMISPHERE_SOUTH))],
                  90, self._cb_hemisphere, 'hemisphere_label'),
                 ('section', '时间行为'),
-                ('checkbox', 'ac'), ('checkbox', 'show_info_box_normal'),
+                ('checkbox', 'ac'),
+                ('toggle', 'normal_other_display',
+                 [(rt(f_m, "半透明", (255, 255, 255)), "translucent"),
+                  (rt(f_m, "不透明", (255, 255, 255)), "opaque"),
+                  (rt(f_m, "不显示", (255, 255, 255)), "hidden")],
+                 90, None, 'normal_other_text'),
+                ('checkbox', 'show_info_box_normal'),
                 ('checkbox', 'show_info_box_season'), ('checkbox', 'monthly_summary'),
                 ('checkbox', 'ace_interpolated'), ('checkbox', 'disable_dpi_scaling'),
                 ('section', '消失'),
@@ -224,7 +235,9 @@ class Settings(DraggableDialog):
                 rows += [('checkbox_now', 'basin_filter_enabled'),
                          ('dropdown',)]
             rows += [('section', '显示'),
-                     ('checkbox', 'show_ace_bar'), ('checkbox', 'show_ace_total')]
+                     ('checkbox', 'show_ace_bar'), ('checkbox', 'show_ace_total'),
+                     ('section', '编辑'),
+                     ('btn_ocean_edit',)]
             return rows
         # 数据
         return [
@@ -336,6 +349,8 @@ class Settings(DraggableDialog):
         self.show_graticule = False
         self.show_ocean_areas = False
         self.show_coord_hud = True
+        self.show_track_label = True
+        self.normal_other_display = "translucent"
         self.screen_width = self.sim.screen_width
         self.screen_height = self.sim.screen_height
         self.ace_display_mode = "progress_bar"
@@ -371,7 +386,7 @@ class Settings(DraggableDialog):
         self.path_mode = "markers"
         self.ace_interpolated = False
         self.show_fps = False
-        self.fps_cap = 120
+        self.fps_cap = 60
         self.show_ri_effect = True
         self.show_future_path = True
         self.show_ace_bar = True
@@ -510,6 +525,8 @@ class Settings(DraggableDialog):
         self.graticule_text = rt(f_m, "显示经纬网格:", TX)
         self.ocean_areas_text = rt(f_m, "显示洋区边界:", TX)
         self.coord_hud_text = rt(f_m, "显示鼠标经纬读数:", TX)
+        self.track_label_text = rt(f_m, "显示镜头跟踪指示:", TX)
+        self.normal_other_text = rt(f_m, "同期其它台风:", TX)
         self.color_scheme_text = rt(f_m, "配色方案:", TX)
         self.icon_set_text = rt(f_m, "台风图标:", TX)
         self.icon_set_warn = rt(f_s, "SMCY图标影响性能较大,谨慎使用", (200, 80, 80), 400)
@@ -570,6 +587,8 @@ class Settings(DraggableDialog):
         self.show_graticule = self.sim.show_graticule
         self.show_ocean_areas = self.sim.show_ocean_areas
         self.show_coord_hud = self.sim.show_coord_hud
+        self.show_track_label = getattr(self.sim, 'show_track_label', True)
+        self.normal_other_display = getattr(self.sim, 'normal_other_display', "translucent")
         self.screen_width = self.sim.screen_width
         self.screen_height = self.sim.screen_height
         self.ace_display_mode = self.sim.ace_display_mode
@@ -806,6 +825,10 @@ class Settings(DraggableDialog):
             for row in layout:
                 if row[0] == 'section' and q in str(row[1]).lower():
                     self.tab_index = ti
+                    # 与点击 tab 一致: 不重建输入框会画在新 tab 布局上, 且确认时
+                    # 校验/回写的是旧 tab 的字段键
+                    self._restore_confirm = False
+                    self.rebuild_fields()
                     self._invalidate_tab_static()
                     self._content_scroll_y = 0
                     self._basin_dropdown_open = False
@@ -1089,7 +1112,11 @@ class Settings(DraggableDialog):
     def _on_ok(self):
         if self.apply_settings():
             self._needs_save = False
-            self.sim.show_toast("设置已保存", 'success')
+            # 立即落盘并据此提示: 写盘失败时不能谎报"已保存"
+            if self.sim.save_config(force=True):
+                self.sim.show_toast("设置已保存", 'success')
+            else:
+                self.sim.show_error("设置保存失败(写入配置失败), 更改仅在本次运行有效")
             self._immediate_snapshot = None
             self._deactivate_fields()
             super().deactivate()
@@ -1245,7 +1272,9 @@ class Settings(DraggableDialog):
     def _tab_static_surface(self, dx, dw, layout, ys, total_h):
         """静态层:标签/分组标题/说明/控件底(不含悬停与选中态)。"""
         dark = self.dark_mode
-        key = (self.tab_index, self._tab_variant(), dark, self.sim.color_scheme)
+        # 尺寸进键: 改窗口大小后旧静态层不能复用(会画在错误位置)
+        key = (self.tab_index, self._tab_variant(), dark, self.sim.color_scheme,
+               self.sim.screen_width, self.sim.screen_height)
         cached = self._tab_static_cache.get(key)
         if cached is not None:
             return cached
@@ -1297,6 +1326,8 @@ class Settings(DraggableDialog):
                 bg = SETTINGS_TOGGLE_ON if dark else (200, 205, 215)
                 pygame.draw.rect(surf, bg, b, border_radius=6)
         self._tab_static_cache[key] = surf
+        if len(self._tab_static_cache) > 24:
+            self._tab_static_cache.pop(next(iter(self._tab_static_cache)))
         return surf
 
     def _draw_tab_rows(self, surface, dx, dw, dy, content_top, scroll, mx, my):
@@ -1366,6 +1397,12 @@ class Settings(DraggableDialog):
                 self._add_target(b, self._open_info_box_editor)
                 self._draw_modern_button(surface, b, label,
                                          hover=b.collidepoint(mx, my), accent=False, dark=dark)
+            elif t == 'btn_ocean_edit':
+                # ACE tab: 「洋区编辑」→ 进入主地图洋区编辑模式(仅此入口)
+                b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 180, self.LAYOUT_BTN_H)
+                self._add_target(b, self._enter_ocean_edit)
+                self._draw_modern_button(surface, b, rt(f_m, "洋区编辑", (255, 255, 255)),
+                                         hover=b.collidepoint(mx, my), accent=True, dark=dark)
             elif t == 'dropdown':
                 b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 220, 24)
                 current_basin = self.ace_limit_basin
@@ -1379,6 +1416,7 @@ class Settings(DraggableDialog):
                 dropdown_rect = b
         # 下拉列表最后绘制(不被后续行遮挡)
         if dropdown_rect is not None and self._basin_dropdown_open:
+            self._dropdown_targets = []
             b = dropdown_rect
             ITEM_H = 24
             max_vis = 8
@@ -1397,12 +1435,12 @@ class Settings(DraggableDialog):
                 if item_rect.collidepoint(mx, my):
                     hover_c = SETTINGS_ACCENT if dark else (180, 220, 255)
                     pygame.draw.rect(surface, hover_c, item_rect)
-                self._add_target(item_rect, lambda cd=code: (
+                self._dropdown_targets.append((item_rect, lambda cd=code: (
                     setattr(self, 'ace_limit_basin', cd),
                     setattr(self, '_ace_changed', True),
                     setattr(self, '_needs_save', True),
                     setattr(self, '_basin_dropdown_open', False),
-                    self._apply_filter_now()))
+                    self._apply_filter_now())))
                 item_surfs = self._basin_items.get(code)
                 it = item_surfs[0] if dark else item_surfs[1]
                 surface.blit(it, (item_rect.x + 5, item_rect.y + 3))
@@ -1435,6 +1473,7 @@ class Settings(DraggableDialog):
             ("S",         "打开设置"),
             ("G",         "点列表 (编辑模式可编辑)"),
             ("K",         "台风详情 (正常/编辑) / ACE统计 (风季)"),
+            ("D",         "打开绘画面板 (正常 / 风季 / 编辑)"),
         ]),
         ("✎  编辑操作", (200, 60, 60), [
             ("Ctrl + Z",  "撤销"),
@@ -1460,6 +1499,17 @@ class Settings(DraggableDialog):
         self._ib_editor_rect = pygame.Rect(
             (self.sim.screen_width - w) // 2, (self.sim.screen_height - h) // 2, w, h)
 
+    def _enter_ocean_edit(self):
+        """「洋区编辑」按钮: 关闭设置对话框并进入主地图洋区编辑模式。
+        再次点击(需重开设置)或按 H 退出。"""
+        self._deactivate_fields()
+        self._on_close()
+        if self.active:
+            # _on_close 因"未保存更改"被拦下(需再点一次): 此时不能进编辑模式,
+            # 否则 enter() 的 deactivate_all 会绕过确认直接关闭设置
+            return
+        self.sim.ocean_edit.enter()
+
     def _close_info_box_editor(self):
         self.show_info_box_editor = False
 
@@ -1474,9 +1524,16 @@ class Settings(DraggableDialog):
         from .config import _default_info_box_rows
         r = self._ib_editor_rect
         dark = self.dark_mode
-        # 遮罩 + 面板
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 120))
+        # 遮罩 + 面板: 复用 Dialog._overlay_cache(按尺寸缓存), 否则每帧新建
+        # 全屏 SRCALPHA 面(2560x1540 ≈ 15.7MB 分配)
+        _okey = (self.sim.screen_width, self.sim.screen_height, (0, 0, 0, 120))
+        overlay = self._overlay_cache.get(_okey)
+        if overlay is None:
+            overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 120))
+            self._overlay_cache[_okey] = overlay
+            if len(self._overlay_cache) > 4:
+                self._overlay_cache.pop(next(iter(self._overlay_cache)))
         surface.blit(overlay, (0, 0))
         panel = pygame.Surface(r.size, pygame.SRCALPHA)
         pygame.draw.rect(panel, (22, 28, 44, 245) if dark else (245, 245, 248, 245),
@@ -1990,6 +2047,14 @@ class Settings(DraggableDialog):
                     self.rebuild_fields()
                     return True
                 x_off += w
+            # 下拉列表项优先派发(视觉上盖住下方按钮, 注册顺序却更晚)
+            if self._basin_dropdown_open:
+                for rect, callback in self._dropdown_targets:
+                    if rect.collidepoint(x, y):
+                        for f in self.fields:
+                            f.deactivate()
+                        callback()
+                        return True
             # 统一派发其他点击目标
             for rect, callback in self._targets:
                 if rect.collidepoint(x, y):
@@ -2030,8 +2095,13 @@ class Settings(DraggableDialog):
                         return False
                     validated[key] = parsed
                 elif key == 'span':
-                    # 角点+大小模式：地图宽度（°），数值校验
-                    validated[key] = float(val)
+                    # 角点+大小模式：地图宽度（°）; 上限 360 避免 Mlo=mlo+span 越界
+                    span_v = float(val)
+                    if not (0.1 <= span_v <= 360.0):
+                        self._error_fields.append(field)
+                        self.sim.show_error("跨度 span 需在 0.1~360 之间")
+                        return False
+                    validated[key] = span_v
                 elif key in ('screen_width', 'screen_height'):
                     validated[key] = int(val)
                 elif key in ('point_size', 'icon_size', 'name_size', 'peak_label_size'):
@@ -2070,7 +2140,7 @@ class Settings(DraggableDialog):
             if 'bl_lat' in validated:
                 self.mla = validated['bl_lat']
             if 'span' in validated:
-                self.Mlo = self.mlo + validated['span']
+                self.Mlo = min(360.0, self.mlo + validated['span'])
 
         self.mis = max(0.1, self.mis)
         self.mas = min(20.0, self.mas)
@@ -2143,7 +2213,8 @@ class Settings(DraggableDialog):
                      'icon_set', 'color_scheme', 'show_ace_bar', 'show_ace_total',
                      'basin_filter_enabled', 'screen_width', 'screen_height',
                      'landfall_vol_scale', 'show_legend', 'show_graticule',
-                     'show_ocean_areas', 'show_coord_hud'):
+                     'show_ocean_areas', 'show_coord_hud', 'show_track_label',
+                     'normal_other_display'):
             self._sync(name)
         # N3: ace_geo_limit_enabled 仅由 _apply_filter_now 维护,不在 _sync 列表,
         # 防陈旧本地值覆盖 sim 值造成 ACE 口径分裂

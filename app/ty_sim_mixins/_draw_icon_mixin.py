@@ -2,6 +2,7 @@
 """台风图标 + 名称 + 信息框渲染 Mixin。"""
 from __future__ import annotations
 import functools
+import logging
 import numpy as np
 import pygame
 from ..typhoon import TrackPoint
@@ -17,6 +18,8 @@ from ..constants.fonts import _load_font, SmartFont, FONT_FILE
 from ..utils import get_tropical_points, max_wind_from_points, display_category
 from ..utils import fmt_short_time, peak_point, movement_speed_kt
 from ..ace_engine import _ace_eligible
+
+logger = logging.getLogger(__name__)
 
 _box_font = SmartFont(_load_font(FONT_FILE, 28, 28), _load_font(FONT_FILE, 28, 28))
 _peak_font = SmartFont(_load_font(FONT_FILE, 19, 19), _load_font(FONT_FILE, 19, 19))
@@ -128,15 +131,15 @@ def _apply_purple_filter(surf: pygame.Surface, strength: float) -> pygame.Surfac
     return out
 
 
-# ── TS 弱强度青绿滤镜(45kt 以下逐渐加深) ──
+# ── TS 强度渐变滤镜: 34kt 原图绿 → 49kt 黄绿(与 STS 图标衔接) ──
 
 _TS_GRAD_MIN_WIND = 34
-_TS_GRAD_MAX_WIND = 50
+_TS_GRAD_MAX_WIND = 49
 
 
 def _ts_gradient_t(wind) -> float:
-    """TS 图标滤镜渐变进度: 34kt→0(蓝端), 50kt→1(绿端, 与 STS 同色)。
-    50kt 为渐变端点; 实际 TS 到 48kt 封顶, 49kt 起为 STS。"""
+    """TS 图标滤镜渐变进度: 34kt→0(TS 原图绿, 与 TD 蓝边界清晰), 49kt→1(黄绿=STS 色系)。
+    49kt 为渐变端点(逐 1kt, 缓解 48→49 转 STS 的跳变)。"""
     if wind <= _TS_GRAD_MIN_WIND:
         return 0.0
     if wind >= _TS_GRAD_MAX_WIND:
@@ -150,24 +153,26 @@ _TS_GRAD_LUTS: dict = {}
 def _ts_grad_luts(t_q: int):
     """TS 渐变滤镜 LUT(与 _purple_luts 同构): 每档进度 t 预计算通道系数。
 
-    蓝端(34kt): 压红、微压绿、提蓝+附加蓝(比旧版略蓝);
-    绿端(48kt): 压蓝为主、微提红绿 → 与 STS(0,255,0) 同色系;
+    绿端(34kt): 保持 TS 原图绿色(SMCY TS 视频/简单 TS 图标均为绿);
+    黄绿端(49kt): 提红+少量附蓝、压净蓝 → 与 STS 图标色系(SMCY TS+ #FFFF34 /
+                    简单 STS #B8FF00)衔接, 类别切换无跳变;
     中间按 t 线性插值, 通道系数连续, 无瞬变。"""
     luts = _TS_GRAD_LUTS.get(t_q)
     if luts is None:
         t = t_q / 100.0
-        r_c = -1.00 * (1 - t) - 0.60 * t      # 蓝端压红 → 黄端微压红
-        g_c = -0.15 * (1 - t) + 0.25 * t      # 蓝端微压绿 → 黄端提绿
-        b_c = 0.45 * (1 - t) - 1.00 * t       # 蓝端提蓝 → 黄端压蓝
-        b_a = 0.35 * (1 - t)                  # 蓝端附加蓝(比旧版 0.25 略蓝)
+        r_c = 0.0                                   # 红通道不缩放(保留原纹理)
+        g_c = 0.0                                   # 绿通道不缩放
+        b_c = 0.0 * (1 - t) - 1.00 * t              # 黄绿端压净蓝
+        r_a = 0.80 * t                              # 黄绿端提红 → 与 STS 黄色系衔接
+        b_a = 0.20 * t                              # 黄绿端带少量蓝(SMCY TS+ #FFFF34)
         d = np.arange(256, dtype=np.float32)
         f = d / 255.0
-        # perm 上限放至 1.4: 渐变黄端需要提绿(>1), 与 b_add 不同, 不能 clip 到 1.0
         r_perm = np.rint(np.clip(1.0 + r_c * f, 0.0, 1.4) * 1000).astype(np.int16)
         g_perm = np.rint(np.clip(1.0 + g_c * f, 0.0, 1.4) * 1000).astype(np.int16)
         b_perm = np.rint(np.clip(1.0 + b_c * f, 0.0, 1.4) * 1000).astype(np.int16)
+        r_add = np.rint(255.0 * r_a * f * 1000).astype(np.int32)
         b_add = np.rint(255.0 * b_a * f * 1000).astype(np.int32)
-        luts = (r_perm, g_perm, b_perm, b_add)
+        luts = (r_perm, g_perm, b_perm, r_add, b_add)
         _TS_GRAD_LUTS[t_q] = luts
         if len(_TS_GRAD_LUTS) > 20:
             _TS_GRAD_LUTS.pop(next(iter(_TS_GRAD_LUTS)))
@@ -175,17 +180,17 @@ def _ts_grad_luts(t_q: int):
 
 
 def _apply_ts_gradient_filter(surf: pygame.Surface, wind) -> pygame.Surface:
-    """按风速把彩色部分在 蓝(34kt)↔绿(48kt) 间渐变着色, 白/灰部分基本不受影响。"""
+    """按风速把彩色部分在 绿(34kt, TS 原图)↔黄绿(49kt, STS 色系) 间渐变着色, 白/灰不受影响。"""
     t = _ts_gradient_t(wind)
     t_q = int(round(t * 100))
-    r_perm, g_perm, b_perm, b_add = _ts_grad_luts(t_q)
+    r_perm, g_perm, b_perm, r_add, b_add = _ts_grad_luts(t_q)
     out = surf.copy()
     px = pygame.surfarray.pixels3d(out)
-    r = px[..., 0].astype(np.uint16)
-    g = px[..., 1].astype(np.uint16)
-    b = px[..., 2].astype(np.uint16)
+    r = px[..., 0].astype(np.int32)
+    g = px[..., 1].astype(np.int32)
+    b = px[..., 2].astype(np.int32)
     d = np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b)
-    px[..., 0] = np.clip(r * r_perm[d] // 1000, 0, 255).astype(np.uint8)
+    px[..., 0] = np.clip((r * r_perm[d] + r_add[d]) // 1000, 0, 255).astype(np.uint8)
     px[..., 1] = np.clip(g * g_perm[d] // 1000, 0, 255).astype(np.uint8)
     px[..., 2] = np.clip((b * b_perm[d] + b_add[d]) // 1000, 0, 255).astype(np.uint8)
     del px
@@ -209,6 +214,7 @@ class TySimDrawIconMixin:
         cls._center_scale_cache.clear()
         cls._l3_scale_cache.clear()
         cls._purple_frame_cache.clear()
+        cls._purple_frame_cache_bytes = 0
         cls._ts_grad_cache.clear()
 
     @classmethod
@@ -223,25 +229,17 @@ class TySimDrawIconMixin:
         return scaled
 
     # ── 图标 + 名称 + 信息框 ──
-    def _size_factors(self):
-        mv = self.map_mgr.map_view
-        key = (self.point_size, self.icon_size, self.fix_icon_point_size,
-               mv.scale if mv else None, mv.min_scale if mv else None)
-        if getattr(self, '_size_factor_key', None) != key:
-            prf = self.point_size / 100.0
-            irf = self.icon_size / 100.0
-            if self.fix_icon_point_size and mv and mv.min_scale > 0:
-                k = mv.scale / (mv.min_scale * 2.5)
-                prf *= k
-                irf *= k
-            self._size_factor_key = key
-            self._size_factors_cached = (prf, irf)
-        return self._size_factors_cached
+    # 注: _size_factors 由 TySimDrawPathMixin 提供(MRO 在前); 此处不再重复定义,
+    # 避免两份实现日后只改一份导致图标/路径尺寸不一致
 
     def draw_typhoon_info(self, surface: pygame.Surface, ty) -> None:
         cp = ty.cp()
         if not cp:
             return
+        # 提前渐进预载下一类别图标(SMCY 惰性视频: 首次切换会一次性解码卡顿)
+        self._preload_upcoming_icon(ty)
+        # 接近海岸时预解码登陆特效视频, 避免登陆瞬间首次加载卡顿导致特效缺失
+        self._preload_landfall_effect(ty)
         # 拖拽期间使用与路径相同的坐标系：stale screen_points + drag_offset
         # 平滑路径下沿曲线采样，与活线段/路径一致（B12）
         if self.right_button_dragging and (self._drag_offset_x or self._drag_offset_y):
@@ -402,6 +400,81 @@ class TySimDrawIconMixin:
                 if r: return r
         return None
 
+    # ── 类别切换预载 ──
+    def _preload_upcoming_icon(self, ty) -> None:
+        """下一报点类别与当前不同时, 提前渐进预载新类别 SMCY 视频帧。
+        首次切换类别时视频是惰性打开+解码(几十~上百 ms)→ 画面卡一下,
+        并从进入当前段起每帧解码少量帧, 把成本摊平到切换前的十几帧里。"""
+        try:
+            if self.cfg.icon_set != ICON_SET_SMCY:
+                return
+            pts = ty.pts
+            ci = ty.ci
+            if (not pts or ci < 0 or ci + 1 >= len(pts)
+                    or len(ty.points_time) != len(pts)):
+                return
+            cur_cat = pts[ci].get('cat') or self.get_strength_category(pts[ci]['w'], pts[ci]['st'])
+            nxt_cat = pts[ci + 1].get('cat') or self.get_strength_category(pts[ci + 1]['w'], pts[ci + 1]['st'])
+            if nxt_cat == cur_cat:
+                return
+            st = getattr(ty, '_icon_preload_state', None)
+            key = (ci, nxt_cat)
+            if st is not None and st.get('key') == key and st.get('remain', 1) <= 0:
+                return
+            from ..smcy_icon import get_smcy_manager
+            if st is None or st.get('key') != key:
+                st = {'key': key, 'hemi': 'S' if ty.v.mirror else 'N',
+                      'ts': None, 'remain': 30}
+                ty._icon_preload_state = st
+            mgr = get_smcy_manager()
+            ts = self._smcy_ts_for(ty, nxt_cat, self._size_factors()[1])
+            if st.get('ts') != ts:
+                st['ts'] = ts
+                st['remain'] = 30
+            st['remain'] = mgr.preload_window_step(nxt_cat, st['hemi'], 0, 30, 2, ts)
+        except Exception as ex:
+            ty._icon_preload_state = None
+            logger.debug(f"SMCY 图标预载失败: {ex}", exc_info=True)
+
+    # ── 登陆特效预解码 ──
+    def _preload_landfall_effect(self, ty) -> None:
+        """台风接近(下一报点内)预计算登陆点时, 提前解码 SMCY 登陆特效视频。
+        登陆触发瞬间 `get_landfall_frames` 首次解码约 100-160ms, 会卡一帧且
+        可能让用户看到登陆特效缺失; 提前解码后触发即播。"""
+        try:
+            if self.cfg.icon_set != ICON_SET_SMCY:
+                return
+            pts = ty.pts
+            if not pts:
+                return
+            recs = self._get_precomputed_landfalls(ty)
+            if not recs:
+                return
+            ci = ty.ci
+            # 未经过的最近登陆点, 且距当前报点 <= 1 段(即将登陆)
+            warmed = getattr(ty, '_landfall_warm', None)
+            for rec in recs:
+                if rec['seg'] > ci + 1:
+                    continue
+                if ci > rec['seg']:
+                    continue
+                p = pts[rec['seg']]
+                cat = self.get_strength_category(p.get('w', 0), p.get('st', ''))
+                if warmed is None:
+                    warmed = set()
+                    ty._landfall_warm = warmed
+                if cat in warmed:
+                    continue
+                warmed.add(cat)
+                from ..smcy_icon import get_landfall_frames, get_landed_frame
+                icon_factor = self._size_factors()[1]
+                size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
+                get_landfall_frames(cat, size, size)
+                get_landed_frame(cat, 0, (size, size))
+                break
+        except Exception:
+            pass
+
     # ── 简单图标绘制 ──
     def _draw_simple_icon(self, surface, ty, cat, cp, x, y, icon_factor, icon_alpha):
         ring_img = self.res_mgr.get_image(f"{cat}_ring")
@@ -418,7 +491,7 @@ class TySimDrawIconMixin:
         scale = target_size / max(orig_w, orig_h)
         new_w, new_h = max(1, int(orig_w * scale)), max(1, int(orig_h * scale))
         base_ring = self._get_scaled_image(ring_img, new_w, new_h, cat, self._ring_scale_cache)
-        # TS 强度渐变滤镜: 34kt 蓝 → 50kt 黄(与 STS 同色), 结果按 (尺寸,风速) 缓存
+        # TS 强度渐变滤镜: 34kt 绿(TS 原图) → 49kt 黄绿(与 STS 衔接), 结果按 (尺寸,风速) 缓存
         if cat == 'TS':
             wq = int(round(cp['w']))
             ckey = (new_w, new_h, wq)
@@ -545,18 +618,37 @@ class TySimDrawIconMixin:
                 v._smcy_last_ticks = now - rem
                 # 法32: 运行时预载下一段帧窗口(与解码预算共用,不抢占)
                 # K21: 传与绘制一致的尺寸,避免 get_frame 因尺寸变化清空缓存
+                # N: 渐进预载(每帧最多 3 帧), 避免一次同步解码 30 帧造成 10-30ms 卡顿
                 try:
                     mgr = get_smcy_manager()
                     nxt = (v._smcy_frame + 30) % _TOTAL_FRAMES
                     if not mgr.has_frame_window(cat, hemi, nxt, 30):
                         ts = TySimDrawIconMixin._smcy_ts_for(ty, cat, self._size_factors()[1])
-                        mgr.preload_frame_window(cat, hemi, nxt, 30, ts)
+                        mgr.preload_window_step(cat, hemi, nxt, 30, budget=3, target_size=ts)
                 except Exception:
                     pass
 
     # ── 紫滤镜结果缓存：避免每帧对 C5 图标做 numpy 全图运算 ──
     _purple_frame_cache: dict = {}
+    _purple_frame_cache_bytes: int = 0
     _PURPLE_FRAME_CACHE_MAX = 120
+    # 只按条数封顶时, 放大图标尺寸后单帧可达数 MB, 120 条能吃到数百 MB
+    _PURPLE_FRAME_CACHE_BYTES = 96 * 1024 * 1024
+
+    @classmethod
+    def _cache_purple_frame(cls, key, frame) -> None:
+        """按条数 + 总字节双上限缓存紫滤镜/TS 渐变结果。"""
+        cache = cls._purple_frame_cache
+        old = cache.pop(key, None)
+        if old is not None:
+            cls._purple_frame_cache_bytes -= old.get_width() * old.get_height() * 4
+        cache[key] = frame
+        cls._purple_frame_cache_bytes += frame.get_width() * frame.get_height() * 4
+        while cache and (len(cache) > cls._PURPLE_FRAME_CACHE_MAX
+                         or cls._purple_frame_cache_bytes > cls._PURPLE_FRAME_CACHE_BYTES):
+            k = next(iter(cache))
+            v = cache.pop(k)
+            cls._purple_frame_cache_bytes -= v.get_width() * v.get_height() * 4
 
     def _draw_smcy_frame(self, surface, ty, cat, frame_idx, x, y, icon_factor, icon_alpha,
                          wind: int = 0):
@@ -584,11 +676,9 @@ class TySimDrawIconMixin:
                 if raw is None:
                     return
                 frame = _apply_purple_filter(raw, tier[1])
-                if len(cache) >= self._PURPLE_FRAME_CACHE_MAX:
-                    cache.pop(next(iter(cache)))
-                cache[key] = frame
+                self._cache_purple_frame(key, frame)
         elif is_ts:
-            # TS 强度渐变滤镜（34kt 蓝 → 50kt 黄, 与 STS 同色），结果按帧缓存
+            # TS 强度渐变滤镜（34kt 绿 → 49kt 黄绿, 与 STS 衔接），结果按帧缓存
             wq = int(round(wind))
             key = ('tsg', cat, hemi, frame_idx, ts, wq)
             cache = TySimDrawIconMixin._purple_frame_cache
@@ -598,9 +688,7 @@ class TySimDrawIconMixin:
                 if raw is None:
                     return
                 frame = _apply_ts_gradient_filter(raw, wq)
-                if len(cache) >= self._PURPLE_FRAME_CACHE_MAX:
-                    cache.pop(next(iter(cache)))
-                cache[key] = frame
+                self._cache_purple_frame(key, frame)
         else:
             frame = get_smcy_manager().get_frame(cat, hemi, frame_idx, ts)
             if frame is None:
@@ -890,7 +978,8 @@ class TySimDrawIconMixin:
         prev_pt = ty.pts[idx - 1] if 0 < idx < len(ty.pts) else None
         peak = peak_point(ty.pts)
         peak_t = peak['t'] if peak else ''
-        mv = movement_speed_kt(ty.pts, ty.points_time, ty.ci)
+        # 用显示点索引(idx)而非播放位置(ty.ci): 编辑模式回看选中点时移速才对应
+        mv = movement_speed_kt(ty.pts, ty.points_time, idx)
         # ── S0 行配置(顺序 + 显隐 + 平滑) + 背景/阴影开关 ──
         rows_cfg = self.info_box_rows or []
         bg_on = bool(getattr(self, 'info_box_bg', False))
@@ -938,7 +1027,8 @@ class TySimDrawIconMixin:
 
             def build_row(key, smooth, max_w):
                 """按行 key 生成 (surface, gap, is_ace); 无内容返回 None。
-                所有文字带黑描边(加粗可读); 风速行用对应趋势色描边。"""
+                所有文字带黑描边(加粗可读); 风速行与名称一致使用黑描边,
+                文字色保留趋势色(↑橙/↓蓝)。"""
                 def rt_o(font, text, color, outline=(0, 0, 0)):
                     return _outline_text(rt(font, text, color, max_w, smooth), outline)
 
@@ -965,12 +1055,12 @@ class TySimDrawIconMixin:
                     return (rt_o(ifs, f"位置: {lat_val:.1f}°{lat_dir}, {lon_disp:.1f}°{lon_dir}", tc), 3, False)
                 if key == 'wind':
                     wind_line = f"风速: {point['w']} kt"
-                    wind_color = tc
                     if prev_pt is not None and point['w'] != prev_pt['w']:
                         d = point['w'] - prev_pt['w']
                         wind_line += f"  {'↑' if d > 0 else '↓'}{abs(d)}"
-                        wind_color = trend_up if d > 0 else trend_dn
-                    return (rt_o(ifs, wind_line, wind_color, wind_color), 3, False)
+                    # 与台风名称样式一致: 白字 + 强度色描边(无趋势色)
+                    outline = self._get_max_wind_color(ty)
+                    return (rt_o(ifs, wind_line, (255, 255, 255), outline), 3, False)
                 if key == 'cat':
                     cat = point.get('cat', self.get_strength_category(point['w'], point['st']))
                     pres_str = f"{point['p']} hPa" if point['p'] != 0 else "未知"

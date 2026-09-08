@@ -6,7 +6,7 @@
   "map_corner_mode": true,
   "cmp": null,
   "ac": true,
-  "md": "season",
+  "md": "edit",
   "sp": 1.0,
   "mis": 0.1,
   "mas": 16.0,
@@ -17,7 +17,6 @@
   "start_maximized": true,
   "window_topmost": false,
   "fullscreen": false,
-  "first_run_done": true,
   "ace_display_mode": "progress_bar",
   "ace_geo_limit_enabled": true,
   "ace_limit_mode": "basin",
@@ -45,7 +44,7 @@
   "point_name_mode": true,
   "hemisphere": "north",
   "point_size": 150,
-  "icon_size": 250,
+  "icon_size": 300,
   "name_size": 100,
   "peak_label_size": 100,
   "fix_icon_point_size": false,
@@ -56,12 +55,12 @@
   "smooth_path_segments": 10,
   "smooth_path_mode": "catmull",
   "edit_snap_step": 0.1,
-  "show_edit_point_labels": true,
+  "show_edit_point_labels": false,
   "path_mode": "line",
-  "show_future_path": true,
+  "show_future_path": false,
   "ace_interpolated": true,
   "show_fps": false,
-  "fps_cap": 120,
+  "fps_cap": 60,
   "monthly_summary": false,
   "show_ri_effect": true,
   "show_ace_bar": true,
@@ -75,7 +74,10 @@
   "basin_filter_enabled": true,
   "show_legend": false,
   "show_graticule": false,
-  "show_ocean_areas": true,
+  "show_ocean_areas": false,
+  "show_coord_hud": true,
+  "show_track_label": true,
+  "normal_other_display": "translucent",
   "tn": {},
   "info_box_rows": [
     {
@@ -125,5 +127,6 @@
     }
   ],
   "info_box_bg": false,
-  "info_box_text_shadow": true
+  "info_box_text_shadow": true,
+  "info_box_scale": 1.2
 }

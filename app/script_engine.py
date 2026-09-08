@@ -37,6 +37,12 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+# 重复执行保护: repeat 展开上限。
+# 每次迭代都 copy.deepcopy 一份模板命令, 无上限时 repeat 999999999 或
+# 嵌套 repeat 会瞬间构造出海量命令对象(内存/解析卡死), 故解析期即拒绝。
+_MAX_REPEAT_COUNT = 1000
+_MAX_EXPANDED_COMMANDS = 20000
+
 # ── 坐标 / 日期解析 ──
 
 def _parse_lon(s: str) -> float:
@@ -375,6 +381,9 @@ class _Parser:
         if not m:
             raise ValueError(f"第{self._pos}行: repeat 格式错误: {line}")
         count = int(m.group(1))
+        if count > _MAX_REPEAT_COUNT:
+            raise ValueError(
+                f"第{self._pos}行: repeat 次数 {count} 超过上限 {_MAX_REPEAT_COUNT}: {line}")
 
         # 收集缩进块的全部行
         block_lines = []
@@ -397,6 +406,13 @@ class _Parser:
         template._pos = 0
         template_script = template.parse()
         n_per_iter = sum(1 for c in template_script.commands if c.type == CMD_TARGET)
+        # 重复执行保护: 展开后总命令数上限(嵌套 repeat 逐层相乘,
+        # 无上限时双层 repeat 就会 deepcopy 出天量命令)
+        expanded = count * max(1, len(template_script.commands))
+        if expanded > _MAX_EXPANDED_COMMANDS:
+            raise ValueError(
+                f"第{self._pos}行: repeat 展开后命令数 {expanded} 超过上限 "
+                f"{_MAX_EXPANDED_COMMANDS} (repeat {count} × {len(template_script.commands)} 条)")
         # base 从本解析器已累计的目标数继续,使 repeat 展开目标与前后顶层目标全局唯一编号;
         # 每次迭代都深拷贝模板,避免原地重编号污染模板,导致后续迭代 index 值漂移(叠加重复偏移)
         import copy

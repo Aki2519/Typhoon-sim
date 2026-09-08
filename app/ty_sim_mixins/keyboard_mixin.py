@@ -68,6 +68,16 @@ class TySimKeyboardMixin:
                         found = ty
                         break
             self.edit_typhoon = found if found else self.tys[0]
+        # 重载后 edit_typhoon 是新对象(点数/顺序可能变化, 甚至换成 tys[0] 另一个台风),
+        # 旧选中索引会指向错误报点或越界(Delete/Enter 会操作未选中的报点):
+        # 与 switch_mode/_switch_edit_typhoon 一致, 按新点数夹紧/复位
+        if self.md == self.MODE_EDIT:
+            _n = len(self.edit_typhoon.pts) if self.edit_typhoon else 0
+            _sel = getattr(self, '_edit_selected_point', None)
+            if _sel is None or not (0 <= _sel < _n):
+                _sel = 0 if _n else None
+            self._edit_selected_point = _sel
+            self._last_edited_point = _sel
 
         if hasattr(self, 'season_ctrl') and self.md == self.MODE_SEASON:
             sc = self.season_ctrl
@@ -167,7 +177,9 @@ class TySimKeyboardMixin:
         return False
 
     def _key_x(self) -> bool:
-        self.sp = 1.0
+        # 与 _key_left/_key_right/_key_plus/_key_minus 一致: 钳制到配置速度区间,
+        # 否则用户在设置里把 mis 调到 >1.0 后按 X 会把 sp 写成低于下限的非法值
+        self.sp = min(self.mas, max(self.mis, 1.0))
         return True
 
     def _key_left(self) -> bool:
@@ -344,6 +356,13 @@ class TySimKeyboardMixin:
         self.script_dialog.activate()
         return True
 
+    def _key_d(self) -> bool:
+        """D: 打开绘画面板(正常/风季/编辑模式)。"""
+        if self.md in (self.MODE_NORMAL, self.MODE_SEASON, self.MODE_EDIT):
+            self.dialog_mgr.paint_dialog.activate()
+            return True
+        return False
+
     def set_window_topmost(self, state: bool) -> bool:
         if os.name == 'nt':
             try:
@@ -374,6 +393,13 @@ class TySimKeyboardMixin:
     def switch_mode(self) -> None:
         if hasattr(self, '_panel'):
             self._panel = None
+
+        # 洋区编辑模式: H/模式按钮 = 退出并还原进入时的模式(不进循环)
+        oe = getattr(self, 'ocean_edit', None)
+        if oe is not None and oe.active:
+            oe.exit()
+            return
+
         if self.md == self.MODE_SEASON:
             self._cached_season_st = self.st
             self._cached_season_ste = self.ste
@@ -579,7 +605,8 @@ class TySimKeyboardMixin:
         return True
 
     def _btn_track(self) -> bool:
-        if self.md == self.MODE_SEASON:
+        # 风季/正常模式提供镜头跟踪(仅按钮入口, 无键盘快捷键)
+        if self.md in (self.MODE_SEASON, self.MODE_NORMAL):
             self.dialog_mgr.track_dialog.activate()
         return True
 

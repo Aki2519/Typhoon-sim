@@ -205,7 +205,9 @@ class InputField:
         ticks_from_start = elapsed - self._BS_DELAY
         expected_ticks = int(ticks_from_start / self._BS_INTERVAL)
         if expected_ticks > self._bs_tick:
-            chars_to_delete = expected_ticks - self._bs_tick
+            # 钳制单帧删除量: 窗口失焦/休眠/长卡顿后 elapsed 会暴涨,
+            # expected_ticks - _bs_tick 一次可达上百, 不钳制会一帧清空输入框
+            chars_to_delete = min(expected_ticks - self._bs_tick, 4)
             deleted_any = False
             for _ in range(chars_to_delete):
                 if self.selection_start is not None and self.selection_end is not None:
@@ -235,7 +237,7 @@ class InputField:
         ticks_from_start = elapsed - self._LR_DELAY
         expected_ticks = int(ticks_from_start / self._LR_INTERVAL)
         if expected_ticks > self._lr_tick:
-            chars_to_move = expected_ticks - self._lr_tick
+            chars_to_move = min(expected_ticks - self._lr_tick, 4)
             # 按住方向键期间中途按下 Shift 开始选区：锚点必须是"移动前"的光标位置,
             # 否则用移动后的最终 cursor 当锚点会把选区塌缩成一点(见历史 N-round 选区 bug)。
             anchor = self.cursor_pos

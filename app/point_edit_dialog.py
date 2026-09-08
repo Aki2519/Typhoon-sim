@@ -109,9 +109,17 @@ class PointEditDialog(DraggableDialog):
             if initial_values and key in initial_values:
                 val = initial_values[key]
                 if key == 'lat' and val != "":
-                    val = lat_to_display(float(val))
+                    try:
+                        val = lat_to_display(float(val))
+                    except (TypeError, ValueError):
+                        # 数据中的纬度不是数字(空/None/脏值): 保留原文本,
+                        # 由 submit() 的 parse_lat 给出"纬度格式不正确"提示
+                        val = str(val)
                 elif key == 'lon' and val != "":
-                    val = lon_to_display(float(val))
+                    try:
+                        val = lon_to_display(float(val))
+                    except (TypeError, ValueError):
+                        val = str(val)
             self.fields[i].set_text(val)
 
     def _update_pos_title(self) -> None:

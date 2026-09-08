@@ -138,9 +138,16 @@ def main():
         while running:
             cap = 60 if (perf() - getattr(sim, '_last_interact', 0) < 100) \
                 else max(0, getattr(sim.cfg, 'fps_cap', 120))
-            dt = clock.tick(cap) / 1000.0
+            # 钳制 dt: 一次长卡顿(首次加载/GC)会让动画型状态(月度总结滑入滑出、
+            # 平滑相机)整段跳过, 单帧最多按 100ms 推进
+            dt = min(clock.tick(cap) / 1000.0, 0.1)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    # 关窗是洋区编辑改动的最后保存机会(唯一保存入口是 exit)
+                    try:
+                        sim.ocean_edit.exit()
+                    except Exception:
+                        pass
                     running = False
                 elif event.type == pygame.VIDEORESIZE:
                     sim.handle_resize(event.w, event.h)
@@ -153,6 +160,8 @@ def main():
             sim.draw(screen)
             sim._t_update_ms = t1 - t0
             sim._t_draw_ms = perf() - t1
+            # 视觉资源惰性预热: 首屏/交互期后台执行, 不阻塞启动
+            sim._tick_warmup()
             pygame.display.flip()
             if last_resize_save and perf() - last_resize_save > 1000:
                 last_resize_save = 0

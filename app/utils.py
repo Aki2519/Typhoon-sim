@@ -56,7 +56,8 @@ def find_insensitive_path(base_path: str) -> Optional[str]:
                         result = os.path.join(directory, f)
                         break
     if result is not None:
-        if len(_fip_cache) > 128:
+        _fip_cache.pop(base_path, None)   # 命中即刷新为最近使用(近似 LRU)
+        if len(_fip_cache) >= 128:
             _fip_cache.pop(next(iter(_fip_cache)))
         _fip_cache[base_path] = result
     return result

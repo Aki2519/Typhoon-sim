@@ -28,6 +28,11 @@ BASINS = {
 
 
 def basin_of(lat: float, lon: float) -> str:
+    # NaN/无穷坐标拒绝而非静默误判(SH/WP)
+    if not (math.isfinite(lat) and math.isfinite(lon)):
+        raise ValueError(f'basin_of: 非法坐标 lat={lat}, lon={lon}')
+    if not (0.0 <= lon <= 360.0):
+        lon %= 360.0        # 统一到 0-360°E(BASINS 按 0-360 定义)
     # MD 先于 NI/AL: 地中海东段(0-36°E)与 NI 的 0-100E 经纬重叠、西段(350-360)被 AL 截获,
     # 故 MD 必须在二者之前(否则东地中海被 NI、西地中海被 AL 截获)。
     for code in ('MD', 'NI', 'WP', 'SH', 'CP', 'EP', 'AL'):
@@ -206,7 +211,8 @@ def basin_monthly_counts(tys: Optional[List[dict]] = None) -> Dict[str, np.ndarr
     """逐盆地逐月生成数经验分布(1-12 月)。返回 {basin: (12,) counts}。
     无基准盆地(2000+ 无官评)用气候学季节分布占位并标注。"""
     key = 'monthly_counts'
-    if key in _CACHE:
+    # 显式传入子集样本时必须绕过全局缓存(否则返回全量结果)
+    if tys is None and key in _CACHE:
         return _CACHE[key]
     tys = tys if tys is not None else load_xrq()
     out = {b: np.zeros(12, dtype=int) for b in BASINS}
@@ -241,15 +247,16 @@ def basin_monthly_counts(tys: Optional[List[dict]] = None) -> Dict[str, np.ndarr
         else:
             # 北印度洋双季: 4-6 月(季风前)+ 10-12 月(孟加拉湾秋旋),年均 ~6
             out[b] = np.array([0, 0, 0, 0.5, 1.0, 0.7, 0.2, 0.2, 0.3, 0.8, 1.5, 1.0]) * scale
-    _CACHE[key] = out
-    _CACHE['no_baseline'] = no_baseline
+    if tys is None:
+        _CACHE[key] = out
+        _CACHE['no_baseline'] = no_baseline
     return out
 
 
 def genesis_points(tys: Optional[List[dict]] = None) -> Dict[str, List[Tuple[float, float]]]:
     """逐盆地生成点(首报)经纬度列表。"""
     key = 'genesis'
-    if key in _CACHE:
+    if tys is None and key in _CACHE:
         return _CACHE[key]
     tys = tys if tys is not None else load_xrq()
     out = {b: [] for b in BASINS}
@@ -259,14 +266,15 @@ def genesis_points(tys: Optional[List[dict]] = None) -> Dict[str, List[Tuple[flo
             continue
         la, lo = pts[0][1], pts[0][2]
         out[basin_of(la, lo)].append((la, lo))
-    _CACHE[key] = out
+    if tys is None:
+        _CACHE[key] = out
     return out
 
 
 def wind_pressure_pairs(tys: Optional[List[dict]] = None) -> List[Tuple[int, int]]:
     """风压散点 (w, p),用于 KZC 标定与验证。"""
     key = 'wp'
-    if key in _CACHE:
+    if tys is None and key in _CACHE:
         return _CACHE[key]
     tys = tys if tys is not None else load_xrq()
     out = []
@@ -274,14 +282,15 @@ def wind_pressure_pairs(tys: Optional[List[dict]] = None) -> List[Tuple[int, int
         for t, la, lo, w, p, st in _pts_of(ty):
             if w > 0 and p > 0:
                 out.append((w, p))
-    _CACHE[key] = out
+    if tys is None:
+        _CACHE[key] = out
     return out
 
 
 def wind_change_distribution(tys: Optional[List[dict]] = None) -> Dict[str, np.ndarray]:
     """Vmax 逐 6h 变化率分布(增强/减弱分位)。返回 {mode: ndarray}。"""
     key = 'dwind'
-    if key in _CACHE:
+    if tys is None and key in _CACHE:
         return _CACHE[key]
     tys = tys if tys is not None else load_xrq()
     pos, neg = [], []
@@ -293,9 +302,11 @@ def wind_change_distribution(tys: Optional[List[dict]] = None) -> Dict[str, np.n
                 pos.append(d)
             elif d < 0:
                 neg.append(d)
-    _CACHE[key] = {'up': np.array(pos) if pos else np.array([5, 10, 15]),
-                   'down': np.array(neg) if neg else np.array([-15, -10, -5])}
-    return _CACHE[key]
+    out = {'up': np.array(pos) if pos else np.array([5, 10, 15]),
+           'down': np.array(neg) if neg else np.array([-15, -10, -5])}
+    if tys is None:
+        _CACHE[key] = out
+    return out
 
 
 def ace_of(ty: dict) -> float:
@@ -340,22 +351,24 @@ def _sample_bilinear(fld: np.ndarray, la: float, lo: float) -> float:
 def genesis_gpi_threshold(gpi_map, tys=None) -> float:
     """历史生成点处的 GPI 经验分布 40 分位(环境允许性阈值)。
     遍历 xrq 2000-2025 生成点,用 gpi 场(按生成月)双线性采样生成点 GPI。
-    E3/R2-7: 缓存键含场内容指纹与 tys 身份,不同月份/不同样本集不串值。"""
-    key = ('gpi_thr', id(gpi_map), gpi_map.shape,
-           round(float(np.nanmean(np.nan_to_num(gpi_map))), 6),
-           round(float(np.nanstd(np.nan_to_num(gpi_map))), 6),
-           id(tys) if tys is not None else None)
-    if key in _CACHE:
-        return _CACHE[key]
-    tys = tys if tys is not None else load_xrq()
+    E3/R2-7: 缓存键含场内容指纹与 tys 身份;显式传样本集时不写缓存。"""
+    # gpi_map=None 兜底分支必须先于 key 构建(避免对 None 取 shape/mean)
+    use_cache = (gpi_map is not None and tys is None)
     if gpi_map is None:
-        vals = []
-        for ty in tys:
-            pts = _pts_of(ty)
-            if pts:
-                vals.append(pts[0][3])
-        _CACHE[key] = float(np.percentile(vals, 40)) if vals else 15.0
-        return _CACHE[key]
+        # 无 GPI 场时返回文档化安全常数(与 GPI 量纲一致; 不用风速分位冒充阈值)
+        return 15.0
+    if use_cache:
+        # 内容指纹做键(id() 对每次新分配的场不稳定, 会让缓存永不命中且无限增长)
+        # 用分桶直方图哈希增强指纹(仅 shape+mean+std 会碰撞)
+        g = np.nan_to_num(gpi_map)
+        hist, _ = np.histogram(g, bins=16, range=(float(np.nanmin(g)), float(np.nanmax(g)) + 1e-9))
+        digest = tuple(int(v) for v in hist)
+        key = ('gpi_thr', gpi_map.shape,
+               round(float(np.nanmean(g)), 6),
+               round(float(np.nanstd(g)), 6), digest)
+        if key in _CACHE:
+            return _CACHE[key]
+    tys = tys if tys is not None else load_xrq()
     gpi = gpi_map
     vals = []
     for ty in tys:
@@ -374,8 +387,9 @@ def genesis_gpi_threshold(gpi_map, tys=None) -> float:
     gv = gpi[~np.isnan(gpi)]
     if len(gv):
         thr = min(thr, float(np.percentile(gv, 60)))
-    _CACHE[key] = thr
-    return _CACHE[key]
+    if use_cache:
+        _CACHE[key] = thr
+    return thr
 
 
 if __name__ == '__main__':

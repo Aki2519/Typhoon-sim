@@ -429,7 +429,9 @@ def build_real_library(years: range = LIB_YEARS) -> Dict[str, List[int]]:
             sst = _fetch_era5_component('sst', y, mo, missing)
             mslp = _fetch_era5_component('mslp', y, mo, missing)
             rh = _fetch_era5_component('rh700', y, mo, missing)
-            if None in (u850, v850, u200, v200, u500, v500, sst, mslp, rh):
+            # 不能用 None in (...): ndarray == None 返回数组, 会抛 ValueError
+            if any(x is None for x in (u850, v850, u200, v200, u500, v500,
+                                       sst, mslp, rh)):
                 continue
             sh = np.hypot(u200 - u850, v200 - v850)
             uu, vv = steer_from_winds([(u850, v850), (u500, v500),

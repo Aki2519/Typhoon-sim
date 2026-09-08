@@ -19,10 +19,11 @@ from ..utils import max_wind_from_points
 from ..utils import peak_point, movement_speed_kt
 from ..control_panel import ControlPanel
 
-_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'font')
-_font_date = pygame.font.Font(os.path.join(_FONT_DIR, FONT_FILE), 54)
+_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'font')
+# 统一走 _load_font(带缓存/字体回退): pygame.font.Font 在字体缺失时直接抛异常且绕过缓存
+_font_date = _load_font(FONT_FILE, 54, 54)
 _font_sub = SmartFont(_load_font(FONT_FILE, 27, 27), _load_font(FONT_FILE, 27, 27))
-_font_month = pygame.font.Font(os.path.join(_FONT_DIR, FONT_FILE), 30)
+_font_month = _load_font(FONT_FILE, 30, 30)
 _font_box = SmartFont(_load_font(FONT_FILE, 18, 18), _load_font(FONT_FILE, 18, 18))
 _font_ace_title = SmartFont(_load_font(FONT_FILE, 18, 18), _load_font(FONT_FILE, 18, 18))
 _font_ace = SmartFont(_load_font(FONT_FILE, 34, 34), _load_font(FONT_FILE, 34, 34))
@@ -117,8 +118,8 @@ def _faded_copy(surf: pygame.Surface, alpha: int) -> pygame.Surface:
 class TySimDrawInfoBoxesMixin:
     """风季模式下的多台风信息框 + 季节时钟 + ACE + 控制面板。"""
 
-    _season_info_box_cache: dict = {}
-    _season_info_box_last_data: dict = {}
+    # _season_info_box_cache / _season_info_box_last_data 由 TySim._init_attributes
+    # 创建为实例属性(类级共享会跨实例污染并泄漏台风对象)
     _season_box_line_h: int = 0
     _clock_arc_surf = None
 
@@ -137,6 +138,12 @@ class TySimDrawInfoBoxesMixin:
     def _render_info_box(self, ty, box_w: int, box_h: int):
         """渲染信息框主体（不含实时ACE数字）。
         返回 (box, ace_x, ace_y, tc)：数字由调用方每帧单独绘制。"""
+        if not ty.pts:
+            # 新建未加点台风: 画空框, 避免 ty.pts[0] IndexError
+            box = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+            tc0 = (215, 225, 245) if getattr(self, 'dark_mode', True) else TXT
+            pygame.draw.rect(box, INFO_BOX_BORDER, (0, 0, box_w, box_h), 2, 12)
+            return box, 0, 0, tc0
         # ── 检查缓存 ──
         cp = ty.cp()
         dark = getattr(self, 'dark_mode', True)
@@ -145,6 +152,7 @@ class TySimDrawInfoBoxesMixin:
         key_data = (
             ty.b, ty.n, ty.tace,
             ty.cust, ty.sname, ty.start_time,   # 名称字段(编辑名称后缓存失效)
+            cp.get('name', '') if cp else '',   # 逐点名称模式下当前点名变化
             cp['w'] if cp else 0,
             cp['st'] if cp else '',
             cp['p'] if cp else 0,
@@ -491,10 +499,11 @@ class TySimDrawInfoBoxesMixin:
 
         title = _stroked(_font_ace_title, "Accumulated Cyclone Energy", (200, 200, 210))
         surface.blit(title, (x - 1, 8 - 1))
-        pygame.draw.rect(surface, (255, 255, 255), (x, 32, w, h), 3)
+        # 先画黄条进度, 再画白框描边(白框覆盖黄条, 避免黄条压住边框)
         if total_ace > 0:
             fw = int(w * min(1.0, current_ace / total_ace))
             pygame.draw.rect(surface, (255, 200, 0), (x, 32, fw, h))
+        pygame.draw.rect(surface, (255, 255, 255), (x, 32, w, h), 3)
 
         # 数值每帧变化（插值模式），按量化值缓存合成面
         val = f"{current_ace:.4f}"

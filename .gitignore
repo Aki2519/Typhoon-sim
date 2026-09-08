@@ -31,11 +31,14 @@ simulator/env/generated/
 simulator/env/wrfdir/
 simulator/env/realdir/
 simulator/wrf/case/input/
+simulator/wrf/case/wrfout/
+simulator/wrf/case/nested_olr/
 simulator/v4f/land_0.5.npz
 sim_output/
 simulator/logs/
 video/
 assets/ty_history/
+app/temp.json
 wget-log
 
 # Ghidra 反汇编产物(大文件不入库, 保留 .txt 分析输出)

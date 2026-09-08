@@ -264,6 +264,30 @@ class SMCYIconManager:
             self._touch(key)
             stream.preload_window(frame_idx, count, target_size)
 
+    def preload_window_step(self, category: str, hemisphere: str,
+                             frame_idx: int, count: int = 30, budget: int = 2,
+                             target_size: Optional[Tuple[int, int]] = None) -> int:
+        """渐进预加载: 单次最多解码 budget 帧, 避免一次性解码造成卡顿。
+        返回窗口内仍未解码的帧数(0 = 完成)。首次调用会打开视频流(几十 ms, 预载时发生)。"""
+        key = self._make_key(category, hemisphere)
+        stream = self._streams.get(key)
+        if stream is None:
+            stream = self._open(category, hemisphere)
+        if stream is None:
+            return 0
+        self._touch(key)
+        end = min(frame_idx + count, stream._frame_count)
+        decoded = 0
+        for i in range(frame_idx, end):
+            if i in stream._cache:
+                continue
+            if decoded >= max(1, budget):
+                break
+            if stream.get_frame(i, target_size) is not None:
+                decoded += 1
+        done = sum(1 for i in range(frame_idx, end) if i in stream._cache)
+        return max(0, end - frame_idx - done)
+
     def has_frame_window(self, category: str, hemisphere: str,
                          frame_idx: int, count: int = 30) -> bool:
         """法32: 帧窗口是否已全部在缓存(避免无谓重复预载)。"""
@@ -306,7 +330,9 @@ class SMCYIconManager:
 
     @staticmethod
     def _make_key(category: str, hemisphere: str) -> str:
-        hemi = 'N' if hemisphere == HEMISPHERE_NORTH else 'S'
+        # 调用方既有 "north"/"south" 常量也有 'N'/'S' 字面量, 统一按首字母归一化,
+        # 否则预载会落到相反半球的键上(实际播放的流永远预热不到)
+        hemi = 'N' if str(hemisphere).upper().startswith('N') else 'S'
         return f"{hemi}:{category}"
 
     def _touch(self, key: str) -> None:
@@ -315,12 +341,17 @@ class SMCYIconManager:
         self._access_order.append(key)
 
     def _evict_lru(self) -> None:
-        while len(self._streams) > _MAX_STREAMS and self._access_order:
-            oldest = self._access_order.pop(0)
-            if oldest in self._streams:
-                self._streams[oldest].release()
-                del self._streams[oldest]
-                logger.debug(f"SMCY: LRU 回收 {oldest}")
+        while len(self._streams) > _MAX_STREAMS:
+            if self._access_order:
+                oldest = self._access_order.pop(0)
+                if oldest not in self._streams:
+                    continue          # 已 unload 的键: 继续找下一个
+            else:
+                # 兜底: 未登记进 _access_order 的流也必须能被驱逐, 否则上限失效
+                oldest = next(iter(self._streams))
+            self._streams[oldest].release()
+            del self._streams[oldest]
+            logger.debug(f"SMCY: LRU 回收 {oldest}")
 
     def _get_file_name(self, category: str) -> Optional[str]:
         if category in _TC_CATEGORIES:
@@ -337,7 +368,7 @@ class SMCYIconManager:
             logger.warning(f"SMCY: 未找到类别映射 {category}")
             return None
 
-        hemi_prefix = 'N' if hemisphere == HEMISPHERE_NORTH else 'S'
+        hemi_prefix = 'N' if str(hemisphere).upper().startswith('N') else 'S'
         parts = file_name.split('/')
         if len(parts) != 2:
             return None
@@ -366,8 +397,12 @@ class SMCYIconManager:
                 stream.set_scale_size((self._icon_size_cache, self._icon_size_cache))
 
         key = self._make_key(category, hemisphere)
+        old = self._streams.get(key)
+        if old is not None:
+            old.release()          # 同键重复打开: 先释放旧流, 避免句柄泄漏
         self._streams[key] = stream
         self._sizes[key] = stream.orig_size
+        self._touch(key)           # 新流必须登记进 LRU, 否则驱逐时会被误杀
         self._evict_lru()
 
         logger.info(f"SMCY: 打开 {video_name} ({stream.orig_size[0]}x{stream.orig_size[1]})")
@@ -584,11 +619,15 @@ def get_summary_frame(cat: str, hemi: str, idx: int,
         if not stream.is_open:
             return None
         _summary_streams[key] = stream
-        while len(_summary_streams) > _MAX_SUMMARY_STREAMS and _summary_access:
-            oldest = _summary_access.pop(0)
-            if oldest in _summary_streams:
-                _summary_streams[oldest].release()
-                del _summary_streams[oldest]
+        while len(_summary_streams) > _MAX_SUMMARY_STREAMS:
+            if _summary_access:
+                oldest = _summary_access.pop(0)
+                if oldest not in _summary_streams:
+                    continue
+            else:
+                oldest = next(iter(_summary_streams))
+            _summary_streams[oldest].release()
+            del _summary_streams[oldest]
     if key in _summary_access:
         _summary_access.remove(key)
     _summary_access.append(key)
@@ -629,11 +668,19 @@ def preload_summary_streams(data: list, bar_h: int = 64, max_w: int = 0) -> int:
                     stream = _VideoStream(_summary_video_path(cat, hemi))
                     if stream.is_open:
                         _summary_streams[key] = stream
-                        while len(_summary_streams) > _MAX_SUMMARY_STREAMS and _summary_access:
-                            oldest = _summary_access.pop(0)
-                            if oldest in _summary_streams:
-                                _summary_streams[oldest].release()
-                                del _summary_streams[oldest]
+                        # 预载的流也要登记 LRU, 否则超出上限时一个都回收不掉
+                        if key in _summary_access:
+                            _summary_access.remove(key)
+                        _summary_access.append(key)
+                        while len(_summary_streams) > _MAX_SUMMARY_STREAMS:
+                            if _summary_access:
+                                oldest = _summary_access.pop(0)
+                                if oldest not in _summary_streams:
+                                    continue
+                            else:
+                                oldest = next(iter(_summary_streams))
+                            _summary_streams[oldest].release()
+                            del _summary_streams[oldest]
                         if target:
                             stream.get_frame(0, target)
                         opened += 1

@@ -10,6 +10,9 @@ import pygame
 
 from .spline import position_at_arc
 
+# 单帧时间跳变上限(ms): 卡顿/失焦期间不瞬移, 逐帧小步追进以保留逐点/登陆检测
+_MAX_FRAME_ADVANCE_MS = 66
+
 if TYPE_CHECKING:
     from .ty_sim import TySim
     from .typhoon import TrackPoint
@@ -39,6 +42,9 @@ class TyphoonSimMixin:
 
     def update_move(self, current_time: float, speed_factor: float = 1.0,
                     is_paused: bool = False) -> bool:
+        # 单帧时间跳变钳制(最大 66ms): 卡顿/切窗/首次加载新图标导致的大时间差
+        # 若直接累加, 台风可能一帧跳过整段路径 → 中途的登陆/逐点特效被跳过。
+        # 钳制后台风以慢速追上, 每帧只前进一小段, 登陆检测(逐位置采样)不会漏检。
         ipos = self.v.ipos
         last_idx = len(self.pts) - 1
         if not ipos or self.ci >= last_idx:
@@ -52,7 +58,20 @@ class TyphoonSimMixin:
         if self.ci + 1 >= len(self.points_time):
             return False
         if self.lut > 0:
-            self.at += (current_time - self.lut) * 0.001 * speed_factor
+            adv_ms = current_time - self.lut
+            if adv_ms < 0:
+                adv_ms = 0.0          # 时间回拨/重置: 不倒扣模拟时间
+            # 钳制不是丢弃: 超出单帧上限的部分记入欠账, 后续帧继续追赶,
+            # 否则一次卡顿会让台风永久慢于墙上时钟("慢速追上"的注释才成立)
+            debt = getattr(self, '_adv_debt_ms', 0.0) + adv_ms
+            if debt > _MAX_FRAME_ADVANCE_MS:
+                adv_ms = _MAX_FRAME_ADVANCE_MS
+                debt -= adv_ms
+            else:
+                adv_ms = debt
+                debt = 0.0
+            self._adv_debt_ms = debt
+            self.at += adv_ms * 0.001 * speed_factor
         self.lut = current_time
 
         target = self.points_time[self.ci + 1]

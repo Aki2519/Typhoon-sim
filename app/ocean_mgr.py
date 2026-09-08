@@ -25,6 +25,8 @@ class OceanArea:
         self._proc_vertices: List[Tuple[float, float]] = []
         self._proc_lon_center: float = 0.0
         self._edges: list = []
+        self._bbox: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+        self._hemisphere_north: bool = False
         self._is_hemisphere = self._detect_hemisphere()
         if not self._is_hemisphere:
             self._preprocess()

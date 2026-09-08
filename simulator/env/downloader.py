@@ -208,8 +208,10 @@ def ohc_from_temperature(t3d, depths=OHC_DEPTHS) -> float:
             dz.append((depths[i + 1] - depths[i - 1]) / 2.0)
     ohc = np.zeros(t3d.shape[1:], dtype=float)
     for i, t in enumerate(t3d[:len(dz)]):
-        ohc += RHO * CP * t * dz[i]
-    return ohc / 1e4      # J/m² → kJ/cm²
+        # OHC 只积分超过 26°C 的暖水柱(标准定义); 积分总温度会把量级放大
+        # 3 个数量级, 与库合同(5~180 kJ/cm²)不符
+        ohc += RHO * CP * np.maximum(t - 26.0, 0.0) * dz[i]
+    return ohc / 1e7      # J/m² → kJ/cm² (1 kJ/cm² = 1e7 J/m²)
 
 
 def fetch_range(var: str, years: range) -> Dict[str, str]:

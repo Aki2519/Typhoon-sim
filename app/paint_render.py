@@ -158,6 +158,10 @@ class TrackMapRenderer:
     def __init__(self, opts: Optional[dict] = None) -> None:
         o = opts or {}
         self.scheme = o.get("scheme", "app")
+        # Ty4 原版: 路径宽度/定点大小为角度制 (Settings.ini: Track=0.05°, Point=0.4°)
+        # 渲染时按“每度像素 k”换算; path_width/point_size 为像素兜底
+        self.track_deg = float(o.get("track_deg", 0.05))
+        self.point_deg = float(o.get("point_deg", 0.4))
         self.path_width = max(1, int(o.get("path_width", 2)))
         self.point_size = max(1, int(o.get("point_size", 4)))
         self.margin_w = float(o.get("margin_w", 0.0))     # 半宽留空
@@ -216,6 +220,10 @@ class TrackMapRenderer:
         out_w, out_h = max(320, out_w), max(240, out_h)
 
         self._point_density = self._compute_point_density(tys, bounds, inner)
+
+        # 角度制尺寸换算: 每度像素 k = 内容区宽/经度跨度(与纬度等比例, 保持正形)
+        span_lon = max(1e-6, bounds[1] - bounds[0])
+        self._k = inner.w / span_lon
 
         surf = pygame.Surface((out_w, out_h), pygame.SRCALPHA)
         self._draw_background(surf, bounds, inner, map_surface, out_w, out_h)
@@ -363,27 +371,100 @@ class TrackMapRenderer:
                 self._draw_ty_points(surf, draw_pts, bounds, inner)
 
     def _draw_ty_path(self, surf, pts, bounds, inner):
+        """路径线：Ty4 原版为白色细线（被定点遮挡），非强度色。宽度 = track_deg*每度像素。
+
+        相邻点按“球面最近距离”连线：经度取环面最短差((lon2-lon1+180)%360-180, 恒≤180)，
+        因此跨 0°/180° 子午线洋区(如南大西洋 SA)内的路径段会被正确连接,
+        不会横穿整幅地图；纬度差 |dlat|>90 视为异常跳段跳过。
+        """
         if len(pts) < 2:
             return
-        coords = []
+        line_w = max(1, int(round(self.track_deg * self._k)))
+        prev = None
         for p in pts:
             c = self._proj(float(p.get('lo', 0)), float(p.get('la', 0)), bounds, inner)
-            if c is not None:
-                coords.append((c, p))
-        if len(coords) < 2:
-            return
-        for i in range(1, len(coords)):
-            (x1, y1), _ = coords[i - 1]
-            (x2, y2), p2 = coords[i]
-            dx, dy = x2 - x1, y2 - y1
-            if dx * dx + dy * dy > (inner.w // 2) ** 2:
+            if c is None:
+                prev = None
                 continue
-            cat = _eff_category(p2)
-            pygame.draw.line(surf, scheme_color(self.scheme, cat),
-                             (x1, y1), (x2, y2), self.path_width)
+            if prev is not None:
+                (x1, y1), p1 = prev
+                x2, y2 = c
+                lo1 = float(p1.get('lo', 0))
+                lo2 = float(p.get('lo', 0))
+                dlon = ((lo2 - lo1 + 180.0) % 360.0) - 180.0   # 环面最短经度差
+                dlat = float(p.get('la', 0)) - float(p1.get('la', 0))
+                if abs(dlat) > 90.0:
+                    prev = (c, p)
+                    continue
+                # 解包目标点经度到与上一束同轴的连续值, 使线段沿最短方向绘制
+                c2 = self._proj(lo1 + dlon, float(p.get('la', 0)), bounds, inner)
+                if c2 is not None:
+                    pygame.draw.line(surf, (255, 255, 255), (x1, y1), c2, line_w)
+            prev = (c, p)
+
+    # ── Ty4 原版定点点型规则 ──
+    #   普通:   圆形(强度色); 正式报 full 大小, 非正式报小点
+    #   SS:     TS 色正方形;  SD: TD 色正方形
+    #   EX 系:  三角形 — ED/ES/LO 用 TS 色, E1..E5 用 C1..C5 色
+    #   EX 气压分级: ED 1005-1001 / ES 1000-986 / E1 985-971 / E2 970-961 /
+    #               E3 960-951 / E4 950-940 / E5 <940 / LO >1005
+    @staticmethod
+    def ex_pressure_category(pres) -> str:
+        """气压 → EX 细化类别 (ED/ES/E1..E5/LO)。气压缺失视为 ES(居中)。"""
+        try:
+            pres = float(pres or 0)
+        except (TypeError, ValueError):
+            pres = 0.0
+        if pres <= 0:
+            return "ES"
+        if pres > 1005:
+            return "LO"
+        if pres >= 1001:
+            return "ED"
+        if pres >= 986:
+            return "ES"
+        if pres >= 971:
+            return "E1"
+        if pres >= 961:
+            return "E2"
+        if pres >= 951:
+            return "E3"
+        if pres >= 940:
+            return "E4"
+        return "E5"
+
+    def _point_style(self, p) -> tuple:
+        """返回 (形状, 颜色)。形状: 'circle'/'square'/'triangle'。"""
+        st = str(p.get('st', '')).upper()
+        if st == "SS":
+            return ("square", scheme_color(self.scheme, "TS"))
+        if st == "SD":
+            return ("square", scheme_color(self.scheme, "TD"))
+        if st in ("EX", "ED", "ES", "E1", "E2", "E3", "E4", "E5", "LO"):
+            ex = self.ex_pressure_category(p.get('p', p.get('pres', 0)))
+            color = scheme_color(self.scheme, "TS") if ex in ("ED", "ES", "LO") else scheme_color(self.scheme, ex.replace("E", "C"))
+            return ("triangle", color)
+        return ("circle", scheme_color(self.scheme, _eff_category(p)))
+
+    def _draw_shape(self, surf, shape, color, cx, cy, r):
+        if shape == "square":
+            pygame.draw.rect(surf, color, (cx - r, cy - r, r * 2, r * 2))
+        elif shape == "triangle":
+            h = r * 1.6
+            pts3 = [(cx, cy - h * 0.62), (cx - r, cy + h * 0.38), (cx + r, cy + h * 0.38)]
+            pygame.draw.polygon(surf, color, pts3)
+        else:
+            pygame.draw.circle(surf, color, (cx, cy), r)
+
+    @staticmethod
+    def _is_official(p) -> bool:
+        """正式报判定: 地球 UTC 时间为 00/06/12/18 时（t 字段形如 'YYYYMMDDHH'）。"""
+        t = str(p.get('t', '') or '')
+        hh = t[8:10] if len(t) >= 10 else t[-2:]
+        return bool(hh) and hh in ("00", "06", "12", "18")
 
     def _draw_ty_points(self, surf, pts, bounds, inner):
-        r = self.point_size
+        r = max(2, int(round(self.point_deg * self._k * 0.5)))
         if self.draw_rad != "none":
             self._draw_radii(surf, pts, bounds, inner)
         pool = pts if self.all_points else pts[-1:]
@@ -391,8 +472,9 @@ class TrackMapRenderer:
             c = self._proj(float(p.get('lo', 0)), float(p.get('la', 0)), bounds, inner)
             if c is None:
                 continue
-            cat = _eff_category(p)
-            pygame.draw.circle(surf, scheme_color(self.scheme, cat), c, r)
+            shape, color = self._point_style(p)
+            rr = r if self._is_official(p) else max(1, r // 2)
+            self._draw_shape(surf, shape, color, c[0], c[1], rr)
 
     def _draw_radii(self, surf, pts, bounds, inner):
         pool = pts

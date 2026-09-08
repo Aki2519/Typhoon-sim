@@ -252,5 +252,6 @@ def _split_date(date):
         y, mo, d = int(date[0]), int(date[1]), int(date[2])
     # BUG-11: 输入校验(字符串"2026-08-12"等非法输入不再产生垃圾索引)
     if not (1 <= mo <= 12 and 1 <= d <= 31):
-        return 1, 1, 1
+        # 只回退非法月/日, 保留年份(否则会查到公元 1 年的数据)
+        return y, 1, 1
     return y, mo, d

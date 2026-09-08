@@ -366,7 +366,9 @@ class RealFieldAPI:
         if out.get('uv_steer') is not None:
             u850 = out['uv_steer'][0]
             v850 = out['uv_steer'][1]
-            out['vort850'] = _vorticity(u850, v850)
+            lats, _lons = self._target_grid()
+            out['vort850'] = _vorticity(u850, v850, lats,
+                                        self.grid_step, self.grid_step)
         if all(k in out for k in ('sst', 'shear', 'rh700')) and 'vort850' in out:
             out['gpi'] = _gpi(out['sst'], out['shear'], out['rh700'], out['vort850'])
         # ohc 代理(暖水柱热焓, 只参与 S>0.55 时的 PI 调制)
@@ -397,11 +399,18 @@ class RealFieldAPI:
         day = self._derive(raw, src)
         day['_source'] = np.array([src])  # 供标注
         self._save_cache(dt, day)
-        # BUG-5: 进程内缓存 LRU 上限(避免 36 个月模拟无界增长 ~300MB)
-        if len(self._cache) >= 128:
-            self._cache.pop(next(iter(self._cache)))
-        self._cache[('day', key)] = day
+        self._cache_put(key, day)
         return day
+
+    def _cache_put(self, key: str, day: Dict[str, np.ndarray]) -> None:
+        """写入进程内日缓存并维持 LRU 上限(命中/写入都刷新最近使用)。
+        旧实现只有 _day_fields 一处设上限, 磁盘命中路径(_load_day)完全绕过。"""
+        ck = ('day', key)
+        if ck in self._cache:
+            self._cache.pop(ck)          # 重插到末尾 = 最近使用
+        elif len(self._cache) >= 128:
+            self._cache.pop(next(iter(self._cache)))
+        self._cache[ck] = day
 
     def _load_day(self, dt: date) -> Dict[str, np.ndarray]:
         key = dt.isoformat()
@@ -411,7 +420,9 @@ class RealFieldAPI:
             if day is None:
                 day = self._day_fields(dt)
             else:
-                self._cache[('day', key)] = day
+                self._cache_put(key, day)
+        else:
+            self._cache_put(key, day)    # 命中刷新 LRU 顺序
         return day
 
     def get_field(self, var: str, dt0) -> Optional[np.ndarray]:
@@ -525,16 +536,21 @@ def _rh_to_q(rh, t, p) -> np.ndarray:
     return np.maximum(0.0, (rh / 100.0) * qs) * 1000.0           # g/kg
 
 
-def _vorticity(u: np.ndarray, v: np.ndarray) -> np.ndarray:
+def _vorticity(u: np.ndarray, v: np.ndarray,
+               lat: Optional[np.ndarray] = None,
+               dlat: float = 1.0, dlon: float = 1.0) -> np.ndarray:
+    """相对涡度 ζ = (1/(a·cosφ))∂v/∂λ - (1/a)∂u/∂φ (s^-1)。
+    格距必须按实际抓取网格传入(默认 1° 保持旧行为); 缺 cosφ 会把高纬
+    东西向梯度按赤道尺度高估。"""
     u = np.nan_to_num(u, nan=0.0)
     v = np.nan_to_num(v, nan=0.0)
-    # ζ = ∂v/∂lon(axis=1) - ∂u/∂lat(axis=0) (场布局 (lat, lon))
-    # (修正: 原实现 v 接 axis0/u 接 axis1 即 ∂v/∂lat-∂u/∂lon 仍交叉, 现改为
-    #  gradient(v,axis1)-gradient(u,axis0)。)
-    du_dlat = np.gradient(u, axis=0)
-    dv_dlon = np.gradient(v, axis=1)
-    DEG_M = 111320.0
-    return (dv_dlon - du_dlat) / DEG_M
+    deg_m = 111320.0
+    dv_dlon = np.gradient(v, axis=1) / (deg_m * dlon)
+    du_dlat = np.gradient(u, axis=0) / (deg_m * dlat)
+    if lat is not None and len(lat) == u.shape[0]:
+        coslat = np.cos(np.deg2rad(np.asarray(lat, dtype=float)))[:, None]
+        dv_dlon = dv_dlon / np.maximum(coslat, 1e-6)
+    return dv_dlon - du_dlat
 
 
 def _gpi(sst, shear, rh, vort) -> np.ndarray:

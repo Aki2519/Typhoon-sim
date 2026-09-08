@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import logging
 import math
 import os
 import json
@@ -17,6 +18,8 @@ import numpy as np
 import pygame
 
 from app.constants import f_s, rt
+
+logger = logging.getLogger(__name__)
 
 # 图层: (id, 名称, 快捷键) — 已去掉云图图层
 SIM_LAYERS = [
@@ -82,7 +85,9 @@ class _SimPathTy:
 
     __slots__ = ('pts', 'ci', 'v', 'screen_points',
                  '_path_cache_key', '_path_cache_full', '_path_cache_traversed',
-                 '_path_cache_blit', '_last_rendered_ci')
+                 '_path_cache_blit', '_last_rendered_ci',
+                 '_path_cache_partial', '_path_cache_origin',
+                 '_path_cache_sp0', '_path_cache_spL')
 
     def __init__(self):
         self.pts = []
@@ -94,6 +99,10 @@ class _SimPathTy:
         self._path_cache_traversed = None
         self._path_cache_blit = (0, 0)
         self._last_rendered_ci = -1
+        self._path_cache_partial = False
+        self._path_cache_origin = (0, 0)
+        self._path_cache_sp0 = None
+        self._path_cache_spL = None
 
 
 class SimModeMixin:
@@ -126,7 +135,7 @@ class SimModeMixin:
             from simulator.simcore import render as _R
             _R.set_label_fn(lambda t, c: rt(f_s, t, c))
         except Exception:
-            pass
+            logger.debug("simcore 文本渲染注入失败", exc_info=True)
 
     def _sim_sync_path_ty(self, tc) -> _SimPathTy:
         """按 tc 的 track 构建/更新轻量路径对象(仅点增长时重建)。"""
@@ -440,7 +449,7 @@ class SimModeMixin:
                          particles=self.sim_particles,
                          icon_fn=self._sim_draw_tc_icon)
         except Exception:
-            pass
+            logger.debug("模拟模式图层渲染失败", exc_info=True)
         # 台风路径: 完全复用其它模式的点阵/渐变线渲染(不自行绘制)
         if 'track' in self.sim_layers:
             for tc in self.sim_v4['tcs']:
@@ -453,7 +462,7 @@ class SimModeMixin:
                     surface.blit(full, pos)
                     surface.blit(trav, pos)
                 except Exception:
-                    pass
+                    logger.debug("模拟模式路径渲染失败", exc_info=True)
         self._sim_draw_hud(surface)
         if self._sim_msg and pygame.time.get_ticks() - self._sim_msg_t < 2500:
             txt = rt(f_s, self._sim_msg, (255, 230, 100))
@@ -505,7 +514,7 @@ class SimModeMixin:
                 self._draw_simple_icon(surface, icon_ty, cat, cp, x, y,
                                        icon_factor, 255)
         except Exception:
-            pass
+            logger.debug("模拟模式图标绘制失败", exc_info=True)
 
     # ── 左上角时间轴(圆环钟) + 季节样式信息框 ──
     def _sim_calendar(self, sim) -> tuple:
@@ -573,7 +582,7 @@ class SimModeMixin:
                 surface.blit(wsurf, (max(0, sw - wsurf.get_width() - 12),
                                      8 + badge.get_height() + 3))
         except Exception:
-            pass
+            logger.debug("模拟模式数据徽标绘制失败", exc_info=True)
         # 季节样式信息框(时钟下方, 与季节模式同起点 y=245)
         y = 245
         for tc in sim['tcs']:

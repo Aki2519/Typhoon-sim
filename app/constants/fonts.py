@@ -7,7 +7,7 @@ from typing import Tuple, Dict
 from functools import lru_cache
 from collections import OrderedDict
 
-_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'font')
+_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'font')
 
 FONT_FILE = 'MapleMono-NF-CN-Medium.ttf'
 

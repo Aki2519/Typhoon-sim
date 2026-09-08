@@ -1,4 +1,4 @@
-﻿# py/view_state.py
+# py/view_state.py
 """地图视图状态：屏幕尺寸、坐标转换、台风屏幕点更新。"""
 from __future__ import annotations
 
@@ -61,6 +61,15 @@ class ViewState:
             return 0, 0
         return self._map_mgr.map_view.geo_to_screen(lo, la)
 
+    def _view_anchor(self):
+        """屏幕点视图锚点: 与 geo_to_screen 两段式取整同源, 纯平移时按锚点整页位移。"""
+        mv = self._map_mgr.map_view
+        if mv is None:
+            return None
+        return (int(mv.view_x * mv.scale), int(mv.view_y * mv.scale),
+                mv.scale, getattr(mv, '_bottom_align', False),
+                self.screen_width, self.map_height)
+
     def screen_to_latlon(self, x: int, y: int) -> Tuple[float, float]:
         if self._map_mgr.map_view is None:
             return 0.0, 0.0
@@ -72,13 +81,15 @@ class ViewState:
         f = self.latlon_to_screen
         sw, sh = self.screen_width, self.map_height
         view_rect = pygame.Rect(-50, -50, sw + 100, sh + 100)
+        anchor = self._view_anchor()
         for ty in tys:
-            ty.update_screen_points(f, view_rect)
+            ty.update_screen_points(f, view_rect, anchor=anchor)
             for attr in ('_cached_max_wind', '_cached_peak_info', '_cached_max_wind_color', '_cached_peaks', '_cached_name_colors'):
                 if hasattr(ty, attr):
                     delattr(ty, attr)
-        if edit_typhoon:
-            edit_typhoon.update_screen_points(f)
+        if edit_typhoon and edit_typhoon not in tys:
+            # 编辑模式下 edit_typhoon 也在 tys 中: 跳过可避免同一台风被重投影两次
+            edit_typhoon.update_screen_points(f, anchor=anchor)
             for attr in ('_cached_max_wind', '_cached_peak_info', '_cached_max_wind_color', '_cached_peaks', '_cached_name_colors'):
                 if hasattr(edit_typhoon, attr):
                     delattr(edit_typhoon, attr)

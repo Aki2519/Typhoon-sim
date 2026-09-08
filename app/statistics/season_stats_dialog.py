@@ -60,7 +60,14 @@ class SeasonStatsDialog(DraggableDialog):
         stats = self._stats_data
 
         def king(v, fmt):
-            return fmt.format(v[0], v[1]) if v else "-"
+            # v[1] 可能为 None/非数值(登陆记录/坏数据), 直接 format 会
+            # TypeError/ValueError 让整个统计面板崩掉; 统一降级为 "-"
+            if not v or len(v) < 2 or not isinstance(v[1], (int, float)):
+                return "-"
+            try:
+                return fmt.format(v[0], v[1])
+            except (TypeError, ValueError):
+                return "-"
 
         return [
             ("数量统计", [

@@ -103,6 +103,12 @@ class TySimEventMixin:
 
         self.input_handler.handle_event(e)
 
+        # 洋区编辑模式: 事件优先交给洋区编辑器(选点/拖点/加点/删点/H 退出)
+        oe = getattr(self, 'ocean_edit', None)
+        if oe is not None and oe.active:
+            if oe.handle_event(e):
+                return True
+
         # 编辑模式：右键优先拖动报点（未命中点时右键仍可拖地图）
         if self.md == self.MODE_EDIT and self.edit_typhoon and not self.dialog_mgr.any_active():
             if self._handle_drag_point(e):
@@ -309,7 +315,8 @@ class TySimEventMixin:
                 self._invalidate_path_cache_for_ty(ty)
                 self.refresh_typhoon_after_point_change(ty)
                 self._refresh_ace_data(ty)
-                self.dialog_mgr.point_list.save_typhoon_to_file(ty)
+                # 拖点保存为静默(每次松手都落盘, 但不弹"已保存"提示)
+                self.dialog_mgr.point_list.save_typhoon_to_file(ty, silent=True)
                 self._drag_needs_save = False
             return True
         return False

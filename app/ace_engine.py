@@ -349,6 +349,11 @@ class ACEEngine:
             if cached is not None and cached[0] == key and id(ty) not in affected_set:
                 acc = cached[1]
             else:
+                # 重算前先把旧年份并入变更集: 点编辑可能把报点改到别的 ACE 年
+                # 或移出 ACE 地理范围, 新 acc 里已无该年; 只并新键会漏掉"消失的
+                # 年份", 该年 timeline/台风列表缓存保持旧值(局部刷新数据不完整)
+                if cached is not None:
+                    changed_years.update(cached[1].keys())
                 acc = {}
                 for p in ty.pts:
                     ay = p.get('ace_year', 0)
@@ -369,9 +374,15 @@ class ACEEngine:
                 sim._ace_typhoon_cache.pop(year, None)
         # 只重建受影响年份的图表数据
         for year, ace in yad.items():
-            if ace > 0 and (full or year in changed_years
-                            or year not in sim._ace_timeline_cache):
+            if not (full or year in changed_years
+                    or year not in sim._ace_timeline_cache):
+                continue
+            if ace > 0:
                 sim._ace_timeline_cache[year] = self.build_timeline_cache(year)
                 sim._ace_typhoon_cache[year] = self.typhoon_ace_list(year)
+            else:
+                # 该年 ACE 已归零: 缓存必须删除, 否则图表仍显示旧曲线
+                sim._ace_timeline_cache.pop(year, None)
+                sim._ace_typhoon_cache.pop(year, None)
         if hasattr(sim, '_sync_to_season_ctrl'):
             sim._sync_to_season_ctrl()

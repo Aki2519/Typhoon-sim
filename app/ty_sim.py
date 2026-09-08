@@ -2,6 +2,7 @@
 """台风路径模拟系统主控制类。"""
 from __future__ import annotations
 
+import os
 import pygame
 import logging
 from typing import List, Optional, Dict, Tuple
@@ -9,7 +10,8 @@ from datetime import datetime
 
 from .constants import (f_s, rt, TXT, CPH, CONFIG_FILE,
                          SEASON_SPEED_DEFAULT, MAX_INFO_BOX_SLOTS,
-                         HEMISPHERE_SOUTH, MODE_NORMAL, MODE_SEASON, MODE_EDIT)
+                         HEMISPHERE_SOUTH, MODE_NORMAL, MODE_SEASON, MODE_EDIT,
+                         MODE_OCEAN_EDIT)
 from .config import AppConfig
 from .typhoon import Typhoon
 from .landfall_effect import LandfallEffect
@@ -22,6 +24,7 @@ from .season_ctrl import SeasonController
 from .input_ctrl import InputController
 from .renderer import Renderer
 from .monthly_summary import MonthlySummary
+from .ocean_edit import OceanEditMode
 
 from .ty_sim_mixins import (
     TySimUtilsMixin,
@@ -75,7 +78,10 @@ class _RepoProperty:
         if repo is None:
             # repo 尚未挂载(如 _init_attributes 阶段/二次实例化)时,
             # 回退到实例字典,避免构造初期读写 crash(B19)
-            return object.__getattribute__(obj, '__dict__')[self._name]
+            try:
+                return object.__getattribute__(obj, '__dict__')[self._name]
+            except KeyError:
+                raise AttributeError(self._name) from None
         return getattr(repo, self._name)
 
     def __set__(self, obj: TySim, value) -> None:
@@ -94,6 +100,7 @@ class TySim(TySimUtilsMixin,
     MODE_SEASON = MODE_SEASON
     MODE_EDIT = MODE_EDIT
     MODE_SIM = "sim"
+    MODE_OCEAN_EDIT = MODE_OCEAN_EDIT
 
     _REPO_FIELDS = frozenset({'tys', 'cti', 'edit_typhoon', '_all_tys_backup'})
 
@@ -187,35 +194,10 @@ class TySim(TySimUtilsMixin,
         self.update_all_screen_points()
         self.map_mgr.update_land_mask()
 
-        preload_particles()
-        # 预加载登陆特效帧 / Landed 流 / SMCY 主图标视频（按当前图标大小）
-        try:
-            from .smcy_icon import preload_landfall_effects, preload_icon_streams
-            icon_factor = self._size_factors()[1]
-            lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
-            marker = max(6, int(13 * self.cfg.point_size / 100.0))
-            preload_landfall_effects(lf_size, int(marker * 96 / 40))
-            if getattr(self.cfg, 'icon_set', '') == 'smcy':
-                from .smcy_icon import preload_icon_streams
-                n = preload_icon_streams(self.tys, icon_factor)
-                logger.debug(f"SMCY 图标流预加载: {n} 个")
-            # 登陆点标记 png 预热
-            from .ty_sim_mixins._draw_path_mixin import preload_landfall_markers
-            from .landfall_effect import landfall_marker_name
-            names = set()
-            for w, cat in ((40, 'TS'), (60, 'C1'), (80, 'C2'), (100, 'C3'), (120, 'C4'), (155, 'C5'), (170, 'C5')):
-                n = landfall_marker_name(w, cat)
-                if n:
-                    names.add(n)
-            preload_landfall_markers(list(names), marker)
-            # 摘要视频流预热
-            from .smcy_icon import preload_summary_streams
-            bar_h = 64
-            n2 = preload_summary_streams(self.tys, bar_h, self.screen_width - 520 - 20)
-            if n2:
-                logger.debug(f"Summary 流预加载: {n2} 个")
-        except Exception:
-            logger.debug("特效/图标预加载失败", exc_info=True)
+        # 视觉资源预加载改为惰性预热: 构造不阻塞, 由主循环空闲时调用
+        # _warmup_visuals() 分批执行, 启动只做必要加载(台风/地图/图标)。
+        self._warmup_started = False
+        self._warmup_done = False
 
         if self.window_topmost:
             self.set_window_topmost(self.window_topmost)
@@ -229,6 +211,73 @@ class TySim(TySimUtilsMixin,
 
         self._dialog_stack: list = []
         self.landfall_records: list = []
+
+    def _warmup_steps(self) -> list:
+        """预热步骤表: 每帧执行一步。
+
+        原来一次性执行会同步解码 16 个登陆 mp4 + 最多 30 路视频流, 首帧后
+        突然卡数百 ms~数秒; 拆成 4 步后单帧卡顿显著下降。
+        """
+        def _particles():
+            preload_particles()
+
+        def _landfall():
+            from .smcy_icon import preload_landfall_effects
+            icon_factor = self._size_factors()[1]
+            lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
+            marker = max(6, int(13 * self.cfg.point_size / 100.0))
+            preload_landfall_effects(lf_size, int(marker * 96 / 40))
+
+        def _icons():
+            from .smcy_icon import preload_icon_streams
+            if getattr(self.cfg, 'icon_set', '') == 'smcy':
+                n = preload_icon_streams(self.tys, self._size_factors()[1])
+                logger.debug(f"SMCY 图标流预加载: {n} 个")
+
+        def _summary():
+            from .smcy_icon import preload_summary_streams
+            n2 = preload_summary_streams(self.tys, 64, self.screen_width - 520 - 20)
+            if n2:
+                logger.debug(f"Summary 流预加载: {n2} 个")
+
+        return [(_particles, "粒子预加载"), (_landfall, "特效预加载"),
+                (_icons, "图标流预加载"), (_summary, "Summary 流预加载")]
+
+    def _warmup_visuals(self) -> None:
+        """主循环空闲时执行的视觉资源预热（分步, 每帧一步, 失败不致命）。
+
+        原来在构造里同步阻塞的预加载, 现改为渲染首屏后由 main 主循环逐步执行:
+        启动只做必要加载(台风/地图/图标), 特效/图标流/视频帧交给预热,
+        避免登陆/播放瞬间卡顿。
+        """
+        if self._warmup_done:
+            return
+        steps = self._warmup_steps()
+        idx = getattr(self, '_warmup_step_idx', 0)
+        if idx >= len(steps):
+            self._warmup_done = True
+            return
+        fn, label = steps[idx]
+        self._warmup_step_idx = idx + 1
+        try:
+            fn()
+        except Exception:
+            logger.debug(f"{label}失败", exc_info=True)
+
+    def _tick_warmup(self) -> None:
+        """主循环每帧调用: 轮到预热时执行一次 _warmup_visuals(主线程一次性)。
+
+        设计: 启动后 main 循环在 splash 步进/首帧交互期调用, 预热完成为 no-op。
+        若尚未到预热时刻(warmup_deadline 未到)则跳过, 让首帧优先画出。"""
+        if self._warmup_done:
+            return
+        if not getattr(self, '_warmup_started', False):
+            self._warmup_started = True
+            self._warmup_deadline = pygame.time.get_ticks() + 1200
+            return
+        if pygame.time.get_ticks() < self._warmup_deadline:
+            return
+        self._warmup_visuals()
 
     @classmethod
     def _install_descriptors(cls) -> None:
@@ -305,7 +354,19 @@ class TySim(TySimUtilsMixin,
 
         self._edit_selected_point: Optional[int] = None
         self._init_tracking()
+        # 月度总结进度(时间回拨/重置时必须清, 否则被误判成 12->1 跨年重复触发)
+        self._last_month_key = None
+        self._last_month_ste = None
         self._last_edited_point: Optional[int] = None
+        # 信息框缓存必须是实例属性: 类属性被所有 TySim 实例共享, 键又是 Typhoon
+        # 对象 → 跨实例污染 + 强引用泄漏
+        self._season_info_box_cache: Dict = {}
+        self._season_info_box_last_data: Dict = {}
+        # repo 未挂载期间读取该描述符不应 KeyError(构造初期窗口)
+        self._all_tys_backup: list = []
+
+        # 洋区编辑模式控制器(仅「设置→ACE tab→洋区编辑」入口)
+        self.ocean_edit = OceanEditMode(self)
 
     def _init_resource_managers(self) -> None:
         self.res_mgr = ResourceManager()
@@ -349,11 +410,14 @@ class TySim(TySimUtilsMixin,
         self.mode_desc_season = rt(f_s, "模式: 风季", TXT)
         self.mode_desc_edit = rt(f_s, "模式: 编辑", TXT)
 
-    def save_config(self, force: bool = False) -> None:
+    def save_config(self, force: bool = False) -> bool:
+        """保存配置。返回是否成功; 失败时保留脏标记以便下次重试。"""
         if not force and not self._config_needs_save:
-            return
-        self.cfg.save(CONFIG_FILE)
+            return True
+        if not self.cfg.save(CONFIG_FILE):
+            return False
         self._config_needs_save = False
+        return True
 
     def _refresh_ace_data(self, ty=None) -> None:
         # 法4: 点编辑传受影响台风,只重算该台风涉及的年份
@@ -400,15 +464,15 @@ class TySim(TySimUtilsMixin,
             return f"{base}{year}" if (base and year) else (base or year)
         # 三档显示模式(0=完整 / 1=年份+风暴名 / 2=风暴名)
         if mode == 0:
-            # 完整: 年份 + 风暴名 + 文件id(洋区小写+编号), 如 "2025 90W wpA0"
-            fid = f"{ty.basin.lower()}{ty.n}" if (ty.basin and ty.n) else (ty.n or "")
-            if sname and fid:
-                return f"{year} {sname} {fid}"
+            # 完整: 年份 + 编号 + 文件名ID(从文件名提取, 含年份尾), 如 "2025 90W wpA02025"
+            fid = self._file_id_from_path(ty)
             if sname:
+                if fid and fid != sname:
+                    return f"{year} {sname} {fid}"
                 return f"{year} {sname}"
             if fid:
                 return f"{year} {fid}"
-            return year
+            return f"{year} {base}" if base else year
         if mode == 1:
             if sname:
                 return f"{year} {sname}"
@@ -421,6 +485,27 @@ class TySim(TySimUtilsMixin,
         if base:
             return base
         return year
+
+    @staticmethod
+    def _file_id_from_path(ty: Typhoon) -> str:
+        """从台风文件名提取 ID 段(如 '2025 A0W wpA02025(2560).dat' → 'wpA02025')。
+
+        规则: 文件名去扩展名后取最后一个词(空格分隔), 再去掉括号(副本标记);
+        无 filename 时返回空串。"""
+        fp = getattr(ty, 'filepath', None)
+        if not fp:
+            return ""
+        name = os.path.basename(fp)
+        stem = os.path.splitext(name)[0]
+        words = stem.split()
+        if not words:
+            return ""
+        fid = words[-1]
+        # 去掉副本括号, 如 "(2561)" / "(2560)"
+        idx = fid.find('(')
+        if idx >= 0:
+            fid = fid[:idx]
+        return fid.strip()
 
     def current_typhoon(self) -> Optional[Typhoon]:
         return self.tys[self.cti] if self.tys and 0 <= self.cti < len(self.tys) else None
@@ -534,7 +619,18 @@ class TySim(TySimUtilsMixin,
         if self._view_dirty:
             self._view_dirty = False
             self.map_mgr.update_land_mask()
-            if not self.right_button_dragging:
+        if not self.right_button_dragging:
+            # 陆地状态只与台风当前位置有关、与视图无关: 用位置指纹去重,
+            # 避免镜头跟踪/拖动时每帧对全部台风做陆地掩码采样
+            _sig_list = []
+            for _ty in self.tys:
+                _pos = _ty.cpos()
+                if _pos:
+                    _sig_list.append((id(_ty), round(_pos['la'], 3),
+                                      round(_pos['lo'], 3)))
+            _sig = tuple(_sig_list)
+            if _sig != getattr(self, '_land_state_sig', None):
+                self._land_state_sig = _sig
                 self._sync_land_state()
 
         # 缩放突发结束后：一次合并路径缓存失效 + 惰性恢复平滑样条（拖18/拖12）
@@ -573,7 +669,7 @@ class TySim(TySimUtilsMixin,
         self._sync_season_state()
         if self.md == MODE_SEASON and self.pl:
             self._check_monthly_summary()
-        self._update_tracking(ct)
+        self._update_tracking(ct, dt)
         self._ms.update(dt)
 
     def _update_window_title(self) -> None:
@@ -597,7 +693,7 @@ class TySim(TySimUtilsMixin,
                 title = "模拟 · 台风数值模拟"
             pygame.display.set_caption(title)
         except Exception:
-            pass
+            logger.debug("窗口标题更新失败", exc_info=True)
 
     def _set_playing(self, playing: bool, dialog_auto: bool = False) -> None:
         """设置播放状态并同步播放按钮文字。"""

@@ -97,7 +97,7 @@ class AppConfig:
     show_future_path: bool = True
     ace_interpolated: bool = False
     show_fps: bool = False
-    fps_cap: int = 120
+    fps_cap: int = 60   # CPU 软件渲染下 120 帧预算仅 8.3ms; 60 保帧时间稳定
     monthly_summary: bool = True
 
     show_ri_effect: bool = True
@@ -116,6 +116,8 @@ class AppConfig:
     show_graticule: bool = False
     show_ocean_areas: bool = False
     show_coord_hud: bool = True
+    show_track_label: bool = True   # 左上角镜头跟踪指示(可关, 便于录屏)
+    normal_other_display: str = "translucent"   # 正常模式其它台风: translucent/opaque/hidden
 
     tn: Dict[str, str] = field(default_factory=dict)
 
@@ -247,10 +249,19 @@ class AppConfig:
                 out = max(0.1, out)
             elif fld.name == 'mas':
                 out = max(0.1, out)
+            elif fld.name == 'edit_snap_step':
+                # 0 = 关闭吸附(合法哨兵); 负值会让洋区编辑网格 while 永不终止
+                out = max(0.0, min(out, 10.0))
+            elif fld.name == 'volume':
+                out = max(0.0, min(out, 1.0))
             return out
         if t.startswith('Dict['):
             # N8: null/非 dict 用 default_factory 兜底,绝不返回 MISSING
             if isinstance(v, dict):
+                if fld.name == 'tn':
+                    # 值必须是字符串: 坏值会传给 Typhoon.cust 并在排序时 .lower() 崩溃
+                    return {str(k): val for k, val in v.items()
+                            if isinstance(val, str)}
                 return v
             return AppConfig._default_for(fld)
         if t == 'list' or t.startswith('List['):
@@ -277,12 +288,19 @@ class AppConfig:
             return AppConfig._default_for(fld)
         return v if isinstance(v, str) else AppConfig._default_for(fld)
 
-    def save(self, path: str) -> None:
-        # N8: 保存失败仅记日志,不中断退出/模式切换
+    def save(self, path: str) -> bool:
+        """保存配置。返回是否成功(失败仅记日志, 不中断退出/模式切换)。"""
+        tmp = path + ".tmp"
         try:
-            tmp = path + ".tmp"
             with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump({k: getattr(self, k) for k in self._serialize_fields()}, f, indent=2)
             os.replace(tmp, path)
+            return True
         except (TypeError, OSError, ValueError) as e:
             logger.warning(f"配置保存失败: {path}: {e}")
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
+            return False

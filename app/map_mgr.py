@@ -52,11 +52,22 @@ class MapView:
         px = (lon - self.lon_min) * self._scale_x
         py = (self.lat_max - lat) * self._scale_y
         ox, oy = self._draw_offset()
-        half_sw, half_img_w = self._cached_extras
-        ddx = px - self.view_x
-        if ddx > half_sw + half_img_w: ddx -= self.img_w
-        elif ddx < half_sw - half_img_w: ddx += self.img_w
-        return int(ddx * self.scale) + ox, int((py - self.view_y) * self.scale) + oy
+        # 两段式取整(与地图 blit 同源): int(坐标*scale) - int(视图*scale)。
+        # 若直接取整整段差值 int((坐标-视图)*scale), 平移时与地图的舍入相位不同,
+        # 路径/台风相对底图会有 ±1px 抖动式偏移。
+        vx = int(self.view_x * self.scale)
+        vy = int(self.view_y * self.scale)
+        x = int(px * self.scale) - vx + ox
+        y = int(py * self.scale) - vy + oy
+        # 环绕: 距屏幕中心超过半个图宽则按图宽像素翻面(取离屏幕中心最近的副本)。
+        # 阈值必须是半宽: 用整宽时跨 0°/360° 缝的点会停在翻面错误的一侧, 表现为路径点消失。
+        wrap = max(1, int(self.img_w * self.scale))
+        half = wrap / 2.0
+        if x > self.screen_width / 2.0 + half:
+            x -= wrap
+        elif x < self.screen_width / 2.0 - half:
+            x += wrap
+        return x, y
 
     def screen_to_geo(self, sx, sy):
         ox, oy = self._draw_offset()
@@ -71,11 +82,14 @@ class MapView:
 
     def move_view(self, dx, dy):
         old_vx, old_vy = self.view_x, self.view_y
-        self.view_x -= dx / self.scale
-        self.view_y -= dy / self.scale
-        self.view_x %= self.img_w
+        new_vx = self.view_x - dx / self.scale
+        new_vy = self.view_y - dy / self.scale
+        self.view_x = new_vx % self.img_w
+        self.view_y = new_vy
         self._clamp_view_y()
-        return (self.view_x - old_vx) * self.scale, (self.view_y - old_vy) * self.scale
+        # 返回未取模的真实位移: 屏幕内容确实位移 (new-old)*scale 像素;
+        # 若对取模后的差再取"最短方向", 单次位移 ≥ 半个世界时符号会翻转(拖拽反向跳)
+        return (new_vx - old_vx) * self.scale, (self.view_y - old_vy) * self.scale
 
     def zoom_at(self, factor, mx, my):
         ox, oy = self._draw_offset()
@@ -233,6 +247,7 @@ class MapManager:
         self._cached_render_hash = None
         self._land_pending: bool = False
         self._land_due: int = 0
+        self._land_lazy: bool = False
         self._land_geo_alpha: Optional[bytes] = None
         self._land_geo_w: int = 0
         self._land_geo_h: int = 0
@@ -314,23 +329,23 @@ class MapManager:
         now = pygame.time.get_ticks()
         vh = self._view_hash()
         if vh == self._cached_render_hash:
-            # 视图稳定后补做被推迟的陆地掩码重建
-            if self._land_pending and now >= self._land_due:
+            # 视图稳定后补做被推迟的陆地掩码重建（仅当掩码已构建过且被标记 pending）
+            if self._land_pending and not self._land_lazy and now >= self._land_due:
                 self._rebuild_land_and_overlay()
                 self._land_pending = False
             return
         # 地图渲染必须立即更新（视觉）；
-        # 陆地掩码非视觉（仅登陆检测用），视图变化期间整体推迟
+        # 陆地掩码非视觉（仅登陆检测用），懒加载——只有实际用到 is_land_at_*
+        # 时才重建（首次调用触发），启动时不需要掩码，省下 land.png 加载。
         if self._land_orig is None and not os.path.exists(LAND_MASK):
             # 无掩码文件：整条路径跳过，避免每个移动事件都重建
             self._land_alpha_bytes = None
             self._land_pending = False
-        elif self._land_alpha_bytes is None:
-            self._rebuild_land_and_overlay()
-            self._land_pending = False
+            self._land_lazy = False
         else:
-            self._land_pending = True
-            self._land_due = now + self._LAND_REBUILD_DELAY_MS
+            # 掩码懒加载：标记 lazy, 由 _ensure_land_mask 首次 is_land 时重建
+            self._land_lazy = True
+            self._land_pending = False
         w, h = self.sim.screen_width, self.sim.map_height
         if (self._cached_map_render is None
                 or self._cached_map_render.get_size() != (w, h)):
@@ -338,7 +353,27 @@ class MapManager:
         self.map_view.draw(self._cached_map_render, pygame.Rect(0, 0, w, h))
         self._cached_render_hash = vh
 
+    def _ensure_land_mask(self) -> None:
+        """确保陆地掩码已构建（懒加载）。由 is_land_at_screen/geo 首次调用触发，
+        仅一次；掩码加载失败或文件不存在时置空并跳过。"""
+        if self._land_alpha_bytes is not None:
+            return
+        if self._land_orig is None and not os.path.exists(LAND_MASK):
+            return
+        if self._land_orig is None:
+            self._land_orig = self._load_land_orig()
+        if self._land_orig is None:
+            self._land_alpha_bytes = None
+            self._land_w = 0
+            self._land_lazy = False
+            self._land_pending = False
+            return
+        self._rebuild_land_and_overlay()
+        self._land_lazy = False
+        self._land_pending = False
+
     def is_land_at_screen(self, sx, sy):
+        self._ensure_land_mask()
         ab = self._land_alpha_bytes
         if ab is None:
             return False

@@ -163,14 +163,15 @@ def load_months(var: str, year: Optional[int] = None,
     if not os.path.exists(p):
         return None
     try:
-        z = np.load(p, allow_pickle=True)
-        # 库文件用 'months'; 气候态文件用 'clim'
-        if 'months' in z:
-            months = np.asarray(z['months'], dtype=np.float32)
-        elif 'clim' in z:
-            months = np.asarray(z['clim'], dtype=np.float32)
-        else:
-            return None
+        # with 关闭 NpzFile 的 zip 句柄(否则滞留到 GC)
+        with np.load(p, allow_pickle=True) as z:
+            # 库文件用 'months'; 气候态文件用 'clim'
+            if 'months' in z:
+                months = np.asarray(z['months'], dtype=np.float32)
+            elif 'clim' in z:
+                months = np.asarray(z['clim'], dtype=np.float32)
+            else:
+                return None
         _cache_set(key, months)
         return months
     except Exception:

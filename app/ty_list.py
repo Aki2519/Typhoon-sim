@@ -15,7 +15,7 @@ from .constants import (
 )
 from .input_field import InputField
 from .dialog_base import DraggableDialog
-from .utils import display_category
+from .utils import display_category, lat_to_display, lon_to_display
 from typing import List, Dict, Tuple
 
 
@@ -119,7 +119,7 @@ class TyList(DraggableDialog):
         self._build_basin_order()
         self.search_field.deactivate()
         self._apply_filter(reset_page=False)
-        self.current_page = min(self.current_page, self.get_total_pages() - 1)
+        self.current_page = max(0, min(self.current_page, self.get_total_pages() - 1))
         if self._filtered_indices:
             start = self.get_page_start()
             self.si = self._filtered_indices[start] if start < len(self._filtered_indices) else -1
@@ -497,7 +497,10 @@ class TyList(DraggableDialog):
                     page = self._pos_map.get(self.ei, -1) // self.rows_per_page
                 except (ValueError, AttributeError):
                     page = self.current_page
-                self.current_page = page
+                # ei 不在当前过滤集合时 _pos_map.get 返回 -1, 整除后为 -1,
+                # 会让 get_page_start() 变负 → 绘制/命中测试按负索引回绕到列表末尾,
+                # 必须与 _set_page 一样夹紧到 [0, 总页数-1]
+                self.current_page = max(0, min(page, self.get_total_pages() - 1))
                 self.si = self.ei
                 self._clear_edit_field()
                 ty = self.sim.tys[self.ei]
@@ -676,7 +679,7 @@ class TyList(DraggableDialog):
     def _after_list_mutation(self):
         """台风增删后刷新过滤/页码/选中,并清理编辑状态(索引可能已移位)。"""
         self._apply_filter(reset_page=False)
-        self.current_page = min(self.current_page, self.get_total_pages() - 1)
+        self.current_page = max(0, min(self.current_page, self.get_total_pages() - 1))
         start = self.get_page_start()
         self.si = self._filtered_indices[start] if start < len(self._filtered_indices) else -1
         self.ei = -1
@@ -856,9 +859,15 @@ class TyList(DraggableDialog):
         dn = self.sim.get_display_name(ty)
         text_surface.blit(rt(f_m, f"台风: {dn}", tc), (10, 10))
         fp, lp = ty.pts[0], ty.pts[-1]
-        text_surface.blit(rt(f_s, f"点数: {len(ty.pts)}   时长: {_fmt_timespan(fp['t'], lp['t'])}", tc), (10, 40))
-        text_surface.blit(rt(f_s, f"起点: {_fmt_short_time(fp['t'])}  {fp['la']:.1f}°N, {fp['lo']:.1f}°E", tc), (10, 90))
-        text_surface.blit(rt(f_s, f"终点: {_fmt_short_time(lp['t'])}  {lp['la']:.1f}°N, {lp['lo']:.1f}°E", tc), (10, 110))
+        # 缺字段兜底(TrackPoint 有默认值, sim 模式的 pts 可能是普通 dict)
+        t0, t1 = fp.get('t') or '', lp.get('t') or ''
+        # 内部经度 0-360 制、南半球纬度为负: 必须走 NSEW 格式化,
+        # 原硬编码 "°N/°E" 会把 300°E 显示成 "300.0°E"(应为 60.0W)、-20 显示成 "-20.0°N"
+        la0, lo0 = lat_to_display(fp.get('la') or 0.0), lon_to_display(fp.get('lo') or 0.0)
+        la1, lo1 = lat_to_display(lp.get('la') or 0.0), lon_to_display(lp.get('lo') or 0.0)
+        text_surface.blit(rt(f_s, f"点数: {len(ty.pts)}   时长: {_fmt_timespan(t0, t1)}", tc), (10, 40))
+        text_surface.blit(rt(f_s, f"起点: {_fmt_short_time(t0)}  {la0}, {lo0}", tc), (10, 90))
+        text_surface.blit(rt(f_s, f"终点: {_fmt_short_time(t1)}  {la1}, {lo1}", tc), (10, 110))
         vp = [p for p in ty.pts if p['st'].upper() not in ('MD', 'SS', 'SD', 'EX', 'LO')]
         if vp:
             mwp = max(vp, key=lambda p: p['w'])

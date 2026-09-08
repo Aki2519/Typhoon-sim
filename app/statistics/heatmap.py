@@ -1,6 +1,7 @@
 # py/statistics/path_heatmap.py
 """台风 ACE 热力图对话框 — 径向累积 + ace-heat.png 色彩映射。"""
 from __future__ import annotations
+import logging
 import math
 import os
 import pygame
@@ -12,6 +13,8 @@ from ..constants import (f_s, f_m, rt, TXT, DIALOG_TITLE_BAR_HEIGHT, SUCAI_DIR,
 from ..dialog_base import DraggableDialog
 from .chart_helpers import render_map_subset
 
+logger = logging.getLogger(__name__)
+
 
 # ── ace-heat.png 色表加载 ──
 _heat_img = None
@@ -21,14 +24,26 @@ _HEAT_H = 0
 
 def _load_heat():
     global _heat_img, _HEAT_H, _heat_lut
-    if _heat_img is not None:
+    if _heat_img is not None or _HEAT_H < 0:
         return
     path = os.path.join(SUCAI_DIR, 'SMCY', 'resource', 'ace-heat.png')
     if os.path.exists(path):
-        img = PILImage.open(path)
-        _heat_img = img.convert('RGBA')
-        _HEAT_H = _heat_img.height - 1
-        _heat_lut = [_heat_img.getpixel((0, yy))[:4] for yy in range(_HEAT_H + 1)]
+        try:
+            img = PILImage.open(path)
+            rgba = img.convert('RGBA')
+            heat_h = rgba.height - 1
+            heat_lut = [rgba.getpixel((0, yy))[:4] for yy in range(heat_h + 1)]
+        except Exception as e:
+            # 色表损坏/不可读时保持空数据: 两个读取点都会走降级色阶,
+            # 热力图仍可绘制, 而不是让加载异常冒泡到渲染路径
+            logger.warning("热力图色表加载失败 %s: %s", path, e)
+            _heat_img = None
+            _HEAT_H = -1
+            _heat_lut = []
+            return
+        _heat_img = rgba
+        _HEAT_H = heat_h
+        _heat_lut = heat_lut
 
 
 def _ace_heat_color(value: float) -> tuple:

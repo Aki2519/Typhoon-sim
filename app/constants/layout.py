@@ -13,6 +13,7 @@ MODE_NORMAL = "normal"
 MODE_SEASON = "season"
 MODE_EDIT = "edit"
 MODE_SIM = "sim"
+MODE_OCEAN_EDIT = "ocean_edit"
 
 FADE_DURATION = 30.0
 FADE_DURATION_QUICK = 1.5
@@ -25,7 +26,7 @@ ICON_SET_NAMES = {ICON_SET_SIMPLE: "简单图标", ICON_SET_SMCY: "SMCY图标"}
 ICON_SET_DEFAULT = ICON_SET_SIMPLE
 
 SUCAI_DIR = "./assets/"
-SOUND_DIR = "./sound/"
+SOUND_DIR = "./assets/sound/"
 MAP_DIR = "./map/"
 TYPHOON_DIR = "./typhoon/"
 CONFIG_FILE = "config.json"

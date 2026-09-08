@@ -29,7 +29,7 @@ _NON_TROPICAL = ('MD', 'SS', 'SD', 'EX', 'LO')
 
 _outlined_cache: dict = {}
 
-# 紫色滤镜结果缓存: (帧 id, tier) → 已滤镜帧,避免每帧 numpy 全图运算
+# 紫色滤镜结果缓存: (cat, hemi, 帧号, size, 滤镜强度) → 已滤镜帧,避免每帧 numpy 全图运算
 _purple_frame_cache: dict = {}
 _PURPLE_CACHE_MAX = 96
 
@@ -81,7 +81,7 @@ class SummaryListDialog(Dialog):
         self._pending: Optional[object] = None   # 'close' 或目标页码
         self._open_t = 0
         self._bg: Optional[pygame.Surface] = None
-        # 视频帧节流缓存: key=(cat, hemi, size) → (获取时间, 帧)
+        # 视频帧节流缓存: key=(cat, hemi, size) → (获取时间, 帧, 帧号)
         self._row_frame_cache: dict = {}
 
     def deactivate(self):
@@ -232,8 +232,12 @@ class SummaryListDialog(Dialog):
         # 原用 _WIND_C2_MIN(86,满 C2)会把 83-85kt 的 C2- 台风漏在 C1 里,链断档。
         c2 = 0
         c4st = 0
+        engine = sim.ace_engine
         for ty in sim.tys:
-            ypts = [p for p in ty.pts if p.get('ace_year') == year]
+            # 与 calculate_season_stats(C1/C3/C5 行)同口径: 当年报点 + ACE 生效地理范围,
+            # 否则 latlon/basin 限制下 C2/C4 行会多算范围外报点, 与同表其余行不一致
+            ypts = [p for p in ty.pts if p.get('ace_year') == year
+                    and engine.point_in_limit(p['la'], p['lo'])]
             if basin_area is not None:
                 ypts = [p for p in ypts if basin_area.contains(p['la'], p['lo'])]
             tp = [p for p in ypts if (p.get('st') or '').upper() not in _NON_TROPICAL]
@@ -256,7 +260,7 @@ class SummaryListDialog(Dialog):
             stat('C5', "C5数量", stats['total_c5']),
         ]
         wk = stats.get('wind_king')
-        if wk:
+        if wk and isinstance(wk[1], (int, float)):
             wk_wind = int(wk[1])
             # 按性质推断风王等级：找到该台风热带报点中的最大风速点
             wk_cat = sim.gsc(wk_wind, "")
@@ -411,13 +415,17 @@ class SummaryListDialog(Dialog):
             frame = get_summary_frame(row['cat'], row['hemi'], idx, rect.size)
             if len(self._row_frame_cache) > 32:
                 self._row_frame_cache.pop(next(iter(self._row_frame_cache)))
-            self._row_frame_cache[key] = (now, frame)
+            # 帧号一并入缓存: 紫滤镜缓存键需要它做帧身份(见下)
+            self._row_frame_cache[key] = (now, frame, idx)
         else:
-            frame = entry[1]
+            frame, idx = entry[1], entry[2]
         if frame is not None:
             tier = _purple_tier(row.get('wind', 0)) if row['cat'] == 'C5' else None
             if tier is not None:
-                pkey = (id(frame), tier)
+                # 键必须含 (类别, 半球, 帧号, 尺寸, 滤镜强度): 原键 (id(frame), tier)
+                # 里的 id 是内存地址, _VideoStream LRU 逐出帧后地址会被新解码帧复用,
+                # 命中到别帧/别类别的已滤镜面 → 串色/画面定格
+                pkey = (row['cat'], row['hemi'], idx, rect.size, tier[1])
                 filtered = _purple_frame_cache.get(pkey)
                 if filtered is None:
                     filtered = _apply_purple_filter(frame, tier[1])

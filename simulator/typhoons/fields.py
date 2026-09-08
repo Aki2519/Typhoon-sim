@@ -216,6 +216,6 @@ def fields_merged(api, a, b) -> bool:
     if v_peak < 20.0:
         return False
     dlon = (vf.LON - mid_lo + 180.0) % 360.0 - 180.0
-    mid = np.hypot(vf.LAT - mid_la, dlon) <= 111.0   # 中点 1°
+    mid = np.hypot(vf.LAT - mid_la, dlon) * DEG_KM <= 111.0   # 中点 1°(111km)
     v_mid = float(np.nanmean(sp[mid])) if mid.sum() > 0 else v_peak
     return v_mid < 0.35 * v_peak

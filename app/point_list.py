@@ -2,6 +2,7 @@
 """报点列表对话框。"""
 from __future__ import annotations
 
+import os
 import pygame
 import time
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ from .constants import (
     POINT_LIST_ROWS_PER_PAGE, POINT_LIST_WIDTH, POINT_LIST_ROW_HEIGHT, POINT_LIST_HEADER_Y,
     DIALOG_TITLE_BAR_HEIGHT,
     SETTINGS_TEXT_LIGHT, SETTINGS_TEXT_DIM,
+    MODE_EDIT,
 )
 from .input_field import InputField
 from .dialog_base import DraggableDialog
@@ -637,15 +639,20 @@ class PointList(DraggableDialog):
 
     # ── 保存 ──
 
-    def save_typhoon_to_file(self, ty):
-        """保存台风到文件（公共接口）。"""
-        self._save(ty)
+    def save_typhoon_to_file(self, ty, silent: bool = False):
+        """保存台风到文件（公共接口）。
 
-    def _save(self, ty):
+        silent=True 时静默保存(拖动报点等高频路径), 不弹"已保存"提示。"""
+        self._save(ty, silent=silent)
+
+    def _save(self, ty, silent: bool = False):
         if not ty.filepath:
             self.sim.show_error("台风无文件路径,无法保存")
             return
-        self.sim.repo.ensure_simple_bdeck_copy(ty)
+        if not self.sim.repo.ensure_simple_bdeck_copy(ty):
+            # 转换失败时 ty.filepath 仍指向原始 JTWC 文件: 继续写会覆盖原始数据
+            self.sim.show_error("保存失败: JTWC 转换失败, 已放弃保存以保护原始数据")
+            return
         lines = []
         if not ty.pts:
             # 空 pts: 重写占位注释头(否则重载后台风丢失,R2-20)
@@ -670,19 +677,23 @@ class PointList(DraggableDialog):
             lines.append(
                 f"{basin}, {ty.n},{pt['t']},{minutes:>3s},chunshu,   0,"
                 f"{lat_field},{lon_field},{wind},{pressure}, {pt['st']},    {pt.get('name', '')}")
+        tmp = ty.filepath + '.tmp'
         try:
-            # 写盘前自动备份(误操作可找回);备份失败不阻塞保存
-            import shutil
-            if os.path.exists(ty.filepath):
-                try:
-                    shutil.copy2(ty.filepath, ty.filepath + ".bak")
-                except Exception:
-                    pass
-            with open(ty.filepath, 'w', encoding='utf-8') as f:
+            # 原子写: 直接 open(...,'w') 在写盘失败时会截断原文件
+            with open(tmp, 'w', encoding='utf-8') as f:
                 f.write("\n".join(lines))
+            os.replace(tmp, ty.filepath)
             self._needs_save = False
-            self.sim.show_toast(f"已保存 {os.path.basename(ty.filepath)}", 'success')
+            if not silent:
+                # 编辑模式: 保存是高频自动行为(撤销/重做/拖点/改点), 不弹打扰
+                if getattr(self.sim, 'md', None) != MODE_EDIT:
+                    self.sim.show_toast(f"已保存 {os.path.basename(ty.filepath)}", 'success')
         except (IOError, OSError) as e:
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
             self.sim.show_error(f"保存文件失败: {e}")
 
     # ── 绘制 ──

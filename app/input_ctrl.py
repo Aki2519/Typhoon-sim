@@ -22,6 +22,7 @@ class InputController:
             pygame.K_o:             sim._key_o,
             pygame.K_s:             sim._key_s,
             pygame.K_t:             sim._key_t,
+            pygame.K_d:             sim._key_d,
             pygame.K_x:             sim._key_x,
             pygame.K_LEFT:          sim._key_left,
             pygame.K_RIGHT:         sim._key_right,

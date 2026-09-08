@@ -1,5 +1,6 @@
 # py/statistics/chart_helpers.py
 from __future__ import annotations
+import logging
 import math
 import pygame
 from datetime import datetime, timedelta
@@ -11,6 +12,8 @@ from ..constants import (
     ACE_CHART_DEFAULT_WIDTH, ACE_CHART_DEFAULT_HEIGHT,
     ACE_CHART_PADDING_LEFT, ACE_CHART_PADDING_RIGHT, ACE_CHART_PADDING_TOP,
 )
+
+logger = logging.getLogger(__name__)
 
 DASH_COLOR = (180, 180, 200, 80)
 WINDOW_WIDTH_SCALE = 1.2
@@ -175,8 +178,10 @@ def render_map_subset(surf: pygame.Surface, sim,
             scaled = pygame.transform.smoothscale(panel, (bw, bh))
             scaled.set_alpha(alpha)
             surf.blit(scaled, (bx, by))
-    except Exception:
-        pass
+    except Exception as e:
+        # 底图裁剪/缩放失败(尺寸异常等)时跳过该底图层, 但必须留痕:
+        # 仅由 heatmap/path_comparison 的 _render 缓存路径调用, 不会每帧触发
+        logger.warning("底图裁剪失败: %s", e)
 
 
 def build_basin_order(sim) -> dict:

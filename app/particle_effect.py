@@ -84,8 +84,15 @@ def play_eri_sound(volume: float = 0.6) -> None:
 
 def clear_caches() -> None:
     """清空粒子特效静态缓存,配合资源重置调用(与 landfall/summary 一致)。"""
+    global _eri_frames, _note_ts_frames, _eri_sound, _note_ts_sound
     RIEffect._scaled_cache.clear()
     RIEffect._faded_cache.clear()
+    # 模块级帧/音效缓存此前未清: 切图标集时 GIF 帧与 Sound 常驻内存;
+    # 且 _eri_frames 加载失败会被置成 [] 而非 None, 之后永不重试
+    _eri_frames = None
+    _note_ts_frames = None
+    _eri_sound = None
+    _note_ts_sound = None
 
 
 def play_note_ts_sound(volume: float = 0.6) -> None:

@@ -19,13 +19,19 @@ class TrackDialog(DraggableDialog):
         super().activate()
         sim = self.sim
         w = 460
-        # 选项行: 关闭 / 全部活跃 / 每个活跃台风
+        # 选项行: 风季=关闭/全部活跃/每个活跃台风; 正常=关闭/当前播放台风
         options = []
         options.append(("关闭镜头跟踪", 'off', None))
-        options.append(("跟踪全部活跃台风", 'all', None))
-        active = [ty for ty in sim.tys if ty.act and not ty.sf and ty.pts]
-        for ty in active:
-            options.append((f"跟踪: {sim.get_display_name(ty)}", 'single', ty))
+        if sim.md == sim.MODE_SEASON:
+            options.append(("跟踪全部活跃台风", 'all', None))
+            active = [ty for ty in sim.tys if ty.act and not ty.sf and ty.pts]
+            for ty in active:
+                options.append((f"跟踪: {sim.get_display_name(ty)}", 'single', ty))
+        else:
+            # 正常模式: 只跟踪当前播放台风(自动随 [ ] / 自动连播切换)
+            cur = sim.current_typhoon()
+            if cur is not None and cur.pts:
+                options.append((f"跟踪: {sim.get_display_name(cur)}", 'single', cur))
 
         row_h = 34
         h = 30 + 10 + len(options) * row_h + 12
@@ -34,8 +40,14 @@ class TrackDialog(DraggableDialog):
 
         tc = SETTINGS_TEXT_LIGHT if self.dark_mode else TXT
         self._rows = []
-        cur = (self.sim.tracking_mode,
-               self.sim.tracking_typhoon if self.sim.tracking_mode == 'single' else None)
+        if sim.md == sim.MODE_SEASON:
+            cur = (self.sim.tracking_mode,
+                   self.sim.tracking_typhoon if self.sim.tracking_mode == 'single' else None)
+        else:
+            # 正常模式: 当前勾选状态 = 跟踪开启 + 跟踪对象为当前台风
+            cur_ty = sim.current_typhoon()
+            cur = (self.sim.tracking_mode if self.sim.tracking_mode != 'off' else 'off',
+                   cur_ty if self.sim.tracking_mode != 'off' else None)
         for label, mode, ty in options:
             if mode == 'single' and ty is None:
                 # 风季没有活跃台风时仍可显示占位(当前无活跃)

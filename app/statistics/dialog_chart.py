@@ -771,8 +771,11 @@ class ACEChartDialog(ChartGridMixin, DraggableDialog):
             self._exporting = True
             tmp = pygame.Surface((self.window_width, full_h))
             self.draw(tmp)
-            self._exporting = False
         finally:
+            # 导出标志必须在 finally 复位: draw 抛异常时若留在 True,
+            # 后续 draw 会永久跳过 _draw_top_buttons/_draw_scrollbar,
+            # 且 _sort_btn_rect 被置零, 排序/翻页控件彻底失效
+            self._exporting = False
             # 无论 draw 是否抛异常都恢复尺寸/滚动,避免对话框状态永久损坏
             self.bg_rect.x, self.bg_rect.y = ox, oy
             self.bg_rect.height = old_h

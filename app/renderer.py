@@ -78,7 +78,10 @@ class Renderer:
 
     def _draw_ocean_areas(self, surface: pygame.Surface) -> None:
         """洋区边界 + 盆域标签(可选 overlay)。
-        逐段画线并跳过跨屏跳动(反经线/越界顶点不再横穿屏幕), 分界线加粗。"""
+
+        相邻顶点按“球面最近距离”连线：经度取环面最短差((lo2-lo1+180)%360-180)，
+        目标点经度解包到与上一点同轴，避免跨 0°/180° 洋区(如 SA)横穿屏幕；
+        纬度差 >90 视为异常跳段跳过。分界线加粗。"""
         sim = self.sim
         try:
             oa = getattr(getattr(sim, 'res_mgr', None), 'ocean_areas', None)
@@ -87,24 +90,41 @@ class Renderer:
             sw, sh = sim.screen_width, getattr(sim, 'map_height', 0)
             blue = (80, 140, 220)
             for area in getattr(oa, 'areas', None) or []:
-                verts = getattr(area, '_proc_vertices', None) or getattr(area, 'vertices', None) or []
+                verts = getattr(area, 'vertices', None) or []
                 if len(verts) < 3:
                     continue
-                pts = []
+                # 生成“解包后”的边界顶点（环面最短展开，跨缝连续）
+                unwrapped = []
+                prev_lo = None
+                ok = True
                 for v in verts:
+                    la, lo = v[0], v[1]
+                    if prev_lo is None:
+                        unwrapped.append((la, lo))
+                    else:
+                        dlon = ((lo - prev_lo + 180.0) % 360.0) - 180.0
+                        if abs(la - unwrapped[-1][0]) > 90.0:
+                            ok = False
+                            break
+                        unwrapped.append((la, prev_lo + dlon))
+                    prev_lo = unwrapped[-1][1]
+                if not ok or not unwrapped:
+                    continue
+                # 投影所有解包顶点（经度可能超出 0..360，直映可正常取模）
+                pts = []
+                for la, lo in unwrapped:
                     try:
-                        x, y = sim.latlon_to_screen(v[0], v[1])
+                        x, y = sim.latlon_to_screen(la, lo)
                         pts.append((int(x), int(y)))
                     except Exception:
                         pts.append(None)
                 n = len(pts)
-                # 边界: 逐段画线, 跳过跨屏跳动(偏移太远的片段截断到视口)
+                # 边界: 逐段画线, 跳过解包后仍跨屏跳动的片段(正常不应出现)
                 for i in range(n):
                     p0, p1 = pts[i], pts[(i + 1) % n]
                     if p0 is None or p1 is None:
                         continue
                     if abs(p1[0] - p0[0]) > sw * 0.7 or abs(p1[1] - p0[1]) > sh:
-                        _clip_seg_rect(surface, p0, p1, sw, sh, blue, 2)
                         continue
                     pygame.draw.line(surface, blue, p0, p1, 2)
                 # 薄区域填充: 非相邻边界距离 ≤ √2·0.1°(≈0.1414°) → 蓝色实心
@@ -193,8 +213,13 @@ class Renderer:
         # 经纬网格(可选, 地图之上、台风之下)
         if getattr(sim.cfg, 'show_graticule', False):
             self._draw_graticule(surface)
-        if getattr(sim.cfg, 'show_ocean_areas', False):
+        if getattr(sim.cfg, 'show_ocean_areas', False) or getattr(sim, 'ocean_edit', None) and sim.ocean_edit.active:
             self._draw_ocean_areas(surface)
+
+        # 洋区编辑模式: 顶点高亮 + 提示(仅该模式渲染)
+        oe = getattr(sim, 'ocean_edit', None)
+        if oe is not None and oe.active:
+            oe.draw(surface)
 
         if not hidden:
             # 时间轴(圆环钟): 风季/模拟在左上角, 正常/编辑在左下角(功能栏上方)
@@ -210,8 +235,8 @@ class Renderer:
 
         sim._draw_typhoons(surface)
 
-        # 镜头跟踪指示(左上角,不参与隐藏模式)
-        if not hidden:
+        # 镜头跟踪指示(左上角, F1 隐藏界面或设置中关闭开关后不显示)
+        if not hidden and getattr(sim.cfg, 'show_track_label', True):
             track_label = getattr(sim, 'tracking_label', lambda: "")()
             if track_label:
                 ts = rt(f_s, track_label, (255, 230, 120))

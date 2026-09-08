@@ -95,8 +95,10 @@ class TySimUtilsMixin:
             segs = max(1, self.cfg.smooth_path_segments)
             arcs = ty.v._smooth_arc_lengths
             i0 = ty.ci * segs
+            if i0 >= len(arcs):
+                i0 = len(arcs) - 1     # 与 typhoon_sim._move_on_curve 同款钳制
             i1 = min((ty.ci + 1) * segs, len(arcs) - 1)
-            if i1 == i0:
+            if i1 <= i0:
                 i1 = i0 + 1 if i0 + 1 < len(arcs) else i0
             seg_start = arcs[i0]
             seg_total = arcs[i1] - seg_start
@@ -118,6 +120,7 @@ class TySimUtilsMixin:
         ty._ace_year_events = None
         ty._ace_ty_yearly = None
         ty._officials = None   # 微优化1: RI 官方报索引缓存失效
+        ty._ipol_key = None    # 法20 插值缓存: 点数据变更必须失效
         ty.recalc_simulated_times()
         self._reposition_typhoon_on_path(ty)
 
@@ -303,6 +306,15 @@ class TySimUtilsMixin:
                                   if getattr(v, 'ty', None) is not ty]
         except Exception:
             pass
+        # 镜头跟踪状态: 删除台风后必须清引用, 否则相机被锁在已删除台风的位置,
+        # 且 _tracking_seen 永久持有已删除对象(强引用泄漏)
+        seen = getattr(self, '_tracking_seen', None)
+        if seen is not None:
+            seen.discard(ty)
+        if getattr(self, 'tracking_typhoon', None) is ty:
+            self.tracking_typhoon = None
+        if getattr(self, '_tracked_ty', None) is ty:
+            self._tracked_ty = None
         # ACE 数据全量刷新(删除后重算总计/年份/图表缓存)
         self._refresh_ace_data()
         self.update_all_screen_points()
@@ -336,6 +348,7 @@ class TySimUtilsMixin:
         new_lo = max(0.0, min(360.0, pt['lo'] + dx * step))
         if new_la == pt['la'] and new_lo == pt['lo']:
             return False
+        ty.push_snapshot()      # 与其它编辑路径一致: 微调必须可撤销
         pt['la'] = new_la
         pt['lo'] = new_lo
         from ..typhoon_render import _clear_geo_spline_cache

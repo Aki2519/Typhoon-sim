@@ -25,7 +25,8 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 文件在 simulator/wrf/ 下: 上溯三级才是工程根目录(否则 CLI 找不到 simulator 包)
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, BASE)
 from simulator.wrf import wrfout_to_fields as WF   # noqa: E402
 

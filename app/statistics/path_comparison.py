@@ -1,4 +1,4 @@
-﻿# py/statistics/path_comparison.py
+# py/statistics/path_comparison.py
 """多台风路径对比对话框。右侧选择栏，复选框管理台风可见性。含强度对比图。"""
 from __future__ import annotations
 import pygame
@@ -154,6 +154,8 @@ class PathComparisonDialog(DraggableDialog):
         geo_ratio = (Mlon - mlon) / max(0.1, Mlat - mlat)
         box_h = int(box_w / geo_ratio)
         box_h = max(100, min(2000, box_h))
+        # 高度不超屏(否则底部按钮/关闭按钮被推出屏幕外)
+        box_h = min(box_h, max(100, self.sim.screen_height - 160))
 
         new_h = box_h + box_y + 80
         if new_h != self.bg_rect.height:

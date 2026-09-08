@@ -45,13 +45,15 @@ class SimSettingsDialog(DraggableDialog):
         return max(500, min(6000, int(self._get('_particle_count', 3000))))
 
     def activate(self) -> None:
-        self.active = True
+        # 必须走基类: 登记 _dialog_stack 并失效 dialog_mgr._active_count,
+        # 否则 any_active() 恒为 False → 点击穿透到地图、面板无法被统一关闭
+        super().activate()
         self.bg_rect = pygame.Rect(
             (self.sim.screen_width - 440) // 2, 150, 440, 320)
         self._layout_valid = False
 
     def deactivate(self) -> None:
-        self.active = False
+        super().deactivate()
 
     # ── 绘制 ──
     def draw(self, surface: pygame.Surface) -> None:

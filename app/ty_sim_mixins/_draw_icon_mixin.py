@@ -147,6 +147,17 @@ def _ts_gradient_t(wind) -> float:
     return (wind - _TS_GRAD_MIN_WIND) / (_TS_GRAD_MAX_WIND - _TS_GRAD_MIN_WIND)
 
 
+def _ts_wind_bucket(wind) -> int:
+    """TS 渐变风速量化(3kt 一档)。
+
+    逐 1kt 做缓存键会让滤镜几乎每帧失效(实测约 0.55 次/帧、每次 ~4ms 的
+    numpy 全图运算); 3kt 一档在绿→黄绿渐变上肉眼无差别, 重算降到约 1/3。"""
+    try:
+        return int(round(float(wind) / 3.0)) * 3
+    except (TypeError, ValueError):
+        return _TS_GRAD_MIN_WIND
+
+
 _TS_GRAD_LUTS: dict = {}
 
 
@@ -493,7 +504,7 @@ class TySimDrawIconMixin:
         base_ring = self._get_scaled_image(ring_img, new_w, new_h, cat, self._ring_scale_cache)
         # TS 强度渐变滤镜: 34kt 绿(TS 原图) → 49kt 黄绿(与 STS 衔接), 结果按 (尺寸,风速) 缓存
         if cat == 'TS':
-            wq = int(round(cp['w']))
+            wq = _ts_wind_bucket(cp['w'])
             ckey = (new_w, new_h, wq)
             cring = self._ts_grad_cache.get(ckey)
             if cring is None:
@@ -679,7 +690,7 @@ class TySimDrawIconMixin:
                 self._cache_purple_frame(key, frame)
         elif is_ts:
             # TS 强度渐变滤镜（34kt 绿 → 49kt 黄绿, 与 STS 衔接），结果按帧缓存
-            wq = int(round(wind))
+            wq = _ts_wind_bucket(wind)
             key = ('tsg', cat, hemi, frame_idx, ts, wq)
             cache = TySimDrawIconMixin._purple_frame_cache
             frame = cache.get(key)

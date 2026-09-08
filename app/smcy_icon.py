@@ -107,6 +107,17 @@ class _VideoStream:
     def _read_at(self, idx: int):
         """用最合适的游标读取指定帧：可快进则 grab+read，否则 seek（新开/复用游标）。"""
         now = pygame.time.get_ticks()
+        if idx == 0:
+            # 首帧快路径: 刚打开的流游标就在第 0 帧, 直接 read 即可。
+            # 原逻辑会再开一个 VideoCapture + set(POS_FRAMES,0)(实测 ~30ms),
+            # 预载二三十路流时光这一项就要数秒。
+            c0 = self._cursors[0]
+            if c0['pos'] is None and self._cap.isOpened():
+                ret, frame_bgr = self._cap.read()
+                if ret:
+                    c0['pos'] = 0
+                    c0['use'] = now
+                    return ret, frame_bgr
         best = None
         for c in self._cursors:
             p = c['pos']
@@ -507,14 +518,30 @@ def get_landed_frame(category: str, idx: int,
     return stream.get_frame(idx, target_size)
 
 
-def preload_landfall_effects(lf_size: int, landed_size: int = 0) -> None:
-    """预加载全部登陆特效帧与 Landed 流，避免登陆瞬间的解码卡顿。"""
+def _data_hemispheres(data: list) -> tuple:
+    """数据中实际出现的半球, 返回 'N'/'S' 短形式(空数据回退北半球)。
+
+    图标/摘要视频按 (类别, 半球) 分开存储, 文件名用 Summary-N-/N- 前缀:
+    只预载用到的半球可把预载流数减半; 必须是 'N'/'S' 而非 "north"/"south",
+    否则摘要视频路径拼不出正确文件名。"""
+    hemis = set()
+    for ty in data:
+        v = getattr(ty, 'v', None)
+        hemis.add('S' if getattr(v, 'mirror', False) else 'N')
+    if not hemis:
+        hemis.add('N')
+    return tuple(sorted(hemis))
+
+
+def iter_preload_landfall_effects(lf_size: int, landed_size: int = 0):
+    """逐步预加载登陆特效: 每 yield 一次 = 完成一个类别(供主循环分帧消费)。"""
     seen = set()
     for cat, name in _LANDFALL_MAP.items():
         if name in seen:
             continue
         seen.add(name)
         get_landfall_frames(cat, lf_size, lf_size)
+        yield
     seen.clear()
     for cat, name in _LANDED_MAP.items():
         if name in seen:
@@ -523,36 +550,38 @@ def preload_landfall_effects(lf_size: int, landed_size: int = 0) -> None:
         stream = _open_landed(cat)
         if stream is not None and landed_size > 0:
             stream.get_frame(0, (landed_size, landed_size))
+        yield
     logger.info(f"登陆特效预加载完成 (lf={lf_size}, landed={landed_size})")
 
 
-def preload_icon_streams(data: list, icon_factor: float = 0.0) -> int:
-    """按台风数据中出现的 (类别, 半球) 预打开 SMCY 图标视频流，
-    解码首帧到缓存（避免播放时 OpenCV seek 卡顿）。
-    尺寸与 _draw_smcy_frame 完全一致（量化 + EX 倍率，R27/B35）。
-    返回实际打开的流数（上限受 _MAX_STREAMS 约束）。"""
+def preload_landfall_effects(lf_size: int, landed_size: int = 0) -> None:
+    """预加载全部登陆特效帧与 Landed 流，避免登陆瞬间的解码卡顿。"""
+    for _ in iter_preload_landfall_effects(lf_size, landed_size):
+        pass
+
+
+def iter_preload_icon_streams(data: list, icon_factor: float = 0.0):
+    """逐步预打开 SMCY 图标视频流: 每 yield 一次 = 打开/预热一路流。
+
+    类别取自数据中所有报点(而非只看首点), 半球只取数据实际用到的,
+    避免预载用不到的流(每路 open+首帧解码约 100-250ms)。"""
     mgr = get_smcy_manager()
     categories = set()
     for ty in data:
-        cat = None
-        try:
-            cat = ty.pts[0].get('cat', '')
-        except (IndexError, AttributeError):
-            pass
-        if cat in _TC_CATEGORIES or cat in _EX_CATEGORIES or cat in _DB_CATEGORIES:
-            categories.add(cat)
-    # 保证最常用强度级别始终预打开
-    for cat in ('C4', 'C3', 'C2', 'C1', 'TS', 'TD'):
-        if cat not in categories:
-            categories.add(cat)
-    opened = 0
+        for p in getattr(ty, 'pts', ()) or ():
+            cat = p.get('cat', '')
+            if cat in _TC_CATEGORIES or cat in _EX_CATEGORIES or cat in _DB_CATEGORIES:
+                categories.add(cat)
+    if not categories:
+        categories.update(('C4', 'C3', 'C2', 'C1', 'TS', 'TD'))
+    hemis = _data_hemispheres(data)
     available = _MAX_STREAMS - len(mgr._streams)
     for cat in sorted(categories):
         size_mult = 3.0 if cat == 'EX' else 1.5
         target = max(20, 4 * round(70 * icon_factor * size_mult / 4)) if icon_factor > 0 else 0
-        for hemi in (HEMISPHERE_NORTH, HEMISPHERE_SOUTH):
+        for hemi in hemis:
             if available <= 0:
-                return opened
+                return
             key = mgr._make_key(cat, hemi)
             if key in mgr._streams:
                 continue
@@ -568,8 +597,17 @@ def preload_icon_streams(data: list, icon_factor: float = 0.0) -> int:
                         scale = target / max(ow, oh)
                         ts = (max(1, int(ow * scale)), max(1, int(oh * scale)))
                         stream.get_frame(0, ts)
-                opened += 1
-    return opened
+            yield
+
+
+def preload_icon_streams(data: list, icon_factor: float = 0.0) -> int:
+    """按台风数据中出现的 (类别, 半球) 预打开 SMCY 图标视频流并解码首帧。
+    返回实际打开的流数（上限受 _MAX_STREAMS 约束）。"""
+    mgr = get_smcy_manager()
+    before = len(mgr._streams)
+    for _ in iter_preload_icon_streams(data, icon_factor):
+        pass
+    return len(mgr._streams) - before
 
 
 # ── 摘要视频 ──
@@ -641,27 +679,25 @@ def set_summary_scale(w: int, h: int) -> None:
         stream.set_scale_size(size)
 
 
-def preload_summary_streams(data: list, bar_h: int = 64, max_w: int = 0) -> int:
-    """按台风数据中出现的 (类别, 半球) 预打开摘要视频流并解码首帧。
-    返回实际打开的流数。max_w 为绘制时实际可用宽度（B35 尺寸一致）。"""
+def iter_preload_summary_streams(data: list, bar_h: int = 64, max_w: int = 0):
+    """逐步预打开摘要视频流: 每 yield 一次 = 处理一个 (类别, 半球)。"""
     from .summary_effect import TyphoonSummary
     cats = set()
     for ty in data:
         cat = TyphoonSummary._find_peak(ty)
         if cat and cat in _SUMMARY_CATS:
             cats.add(cat)
-    for cat in ('C5', 'C4', 'C3', 'C2', 'C1', 'TS', 'TD'):
-        if cat not in cats:
-            cats.add(cat)
+    if not cats:
+        cats.update(('C5', 'C4', 'C3', 'C2', 'C1', 'TS', 'TD'))
+    hemis = _data_hemispheres(data)
     target = None
     if bar_h > 0:
         if max_w > 0:
             target = (min(bar_h * 20, max_w), bar_h)
         else:
             target = (bar_h * 20, bar_h)
-    opened = 0
     for cat in sorted(cats):
-        for hemi in ('N', 'S'):
+        for hemi in hemis:
             if has_summary_video(cat, hemi):
                 key = f"{hemi}:{cat}"
                 if key not in _summary_streams:
@@ -683,8 +719,16 @@ def preload_summary_streams(data: list, bar_h: int = 64, max_w: int = 0) -> int:
                             del _summary_streams[oldest]
                         if target:
                             stream.get_frame(0, target)
-                        opened += 1
-    return opened
+            yield
+
+
+def preload_summary_streams(data: list, bar_h: int = 64, max_w: int = 0) -> int:
+    """按台风数据中出现的 (类别, 半球) 预打开摘要视频流并解码首帧。
+    返回实际打开的流数。max_w 为绘制时实际可用宽度（B35 尺寸一致）。"""
+    before = len(_summary_streams)
+    for _ in iter_preload_summary_streams(data, bar_h, max_w):
+        pass
+    return len(_summary_streams) - before
 
 
 _smcy_manager: Optional[SMCYIconManager] = None

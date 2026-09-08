@@ -183,6 +183,58 @@ class MapView:
             self._pan_cache_key = key
         return self._pan_cache_surf
 
+    _PAN_WINDOW_MARGIN = 512   # 窗口缓存四周留出的平移余量(屏幕 px)
+
+    def _window_cache(self):
+        """放大后整图缓存放不下时, 缓存"当前视野 + 四周余量"的窗口。
+
+        跟踪/拖动时视图每帧都在变, 若每帧都从原图 transform.scale(实测 ~4ms/帧),
+        60fps 下会吃掉四分之一帧预算; 窗口缓存把重建摊到每 ~512px 平移一次。
+        跨 0°/360° 缝或余量不足的窗口直接放弃缓存(交回逐帧缩放), 避免拼接取整误差。"""
+        sw, sh = self.screen_width, self.screen_height
+        # 缓存按 ox=oy=0 渲染: 若地图未能铺满屏幕(ox/oy 非零)则放弃缓存,
+        # 避免缓存与屏幕偏移叠加错位
+        if self._draw_offset() != (0, 0):
+            return None
+        map_w = int(math.ceil(self.img_w * self.scale))
+        map_h = int(math.ceil(self.img_h * self.scale))
+        cw = min(sw + 2 * self._PAN_WINDOW_MARGIN, map_w)
+        ch = min(sh + 2 * self._PAN_WINDOW_MARGIN, map_h)
+        if cw < sw or ch < sh:
+            return None
+        vw = cw / self.scale
+        vh = ch / self.scale
+        if vw > self.img_w + 1e-6 or vh > self.img_h + 1e-6:
+            return None
+        sx = self.view_x % self.img_w
+        sy = self._src_y(min(sh / self.scale, self.img_h))
+        step = self._PAN_WINDOW_MARGIN / self.scale
+        # 量化到整数源像素: 消除缩放相位漂移(非整数原点会让缓存与逐帧渲染
+        # 相差不到 1px 的分数像素, 重建时出现微跳), 同时让 key 稳定、缓存可命中
+        vx0 = float(math.floor(min(
+            math.floor(max(0.0, sx - step) / step) * step,
+            max(0.0, self.img_w - vw))))
+        vy0 = float(math.floor(min(
+            math.floor(max(0.0, sy - step) / step) * step,
+            max(0.0, self.img_h - vh))))
+        # 当前屏幕必须完整落在窗口内(窗口不跨缝), 否则本帧退回逐帧缩放
+        if (sx < vx0 - 1e-9 or sx + sw / self.scale > vx0 + vw + 1e-6
+                or sy < vy0 - 1e-9 or sy + sh / self.scale > vy0 + vh + 1e-6):
+            return None
+        key = (round(self.scale, 6), sw, sh, round(vx0, 3), round(vy0, 3),
+               cw, ch, getattr(self, '_bottom_align', False))
+        if getattr(self, '_win_cache_key', None) != key:
+            surf = pygame.Surface((cw, ch))
+            old_vx, old_vy = self.view_x, self.view_y
+            self.view_x, self.view_y = vx0, vy0
+            try:
+                self._render_mip_window(surf, surf.get_rect(), 0, 0)
+            finally:
+                self.view_x, self.view_y = old_vx, old_vy
+            self._win_cache_surf = surf
+            self._win_cache_key = key
+        return self._win_cache_surf, vx0, vy0
+
     def _render_mip_window(self, screen, dest_rect, ox=None, oy=None):
         vw = min(dest_rect.width / self.scale, self.img_w)
         vh = min(dest_rect.height / self.scale, self.img_h)
@@ -214,11 +266,11 @@ class MapView:
     def draw(self, screen, dest_rect=None):
         if dest_rect is None:
             dest_rect = pygame.Rect(0, 0, self.screen_width, self.screen_height)
-        screen.fill((120, 120, 120), dest_rect)
 
         cache = self._pan_cache()
         if cache is not None:
             # 纯平移：缓存整图按滚动偏移 blit（含 wrap），不做任何缩放
+            screen.fill((120, 120, 120), dest_rect)
             sx = self.view_x % self.img_w
             vh = min(dest_rect.height / self.scale, self.img_h)
             sy = self._src_y(vh)
@@ -229,8 +281,25 @@ class MapView:
             screen.blit(cache, (dest_rect.left + dx, dest_rect.top + dy))
             if dx + cw < dest_rect.width:
                 screen.blit(cache, (dest_rect.left + dx + cw, dest_rect.top + dy))
-        else:
-            self._render_mip_window(screen, dest_rect)
+            return
+        win = self._window_cache()
+        if win is not None:
+            # 放大态: 窗口缓存按偏移 blit, 重建只在平移出余量时发生。
+            # 只贴可见子矩形(整窗 9M px 全贴比贴屏幕 3.8M px 慢一倍多),
+            # 且缓存必然铺满屏幕, 可省掉每帧全屏 fill
+            surf, vx0, vy0 = win
+            sx = self.view_x % self.img_w
+            sy = self._src_y(min(dest_rect.height / self.scale, self.img_h))
+            dx = int(vx0 * self.scale) - int(sx * self.scale)
+            dy = int(vy0 * self.scale) - int(sy * self.scale)
+            area = pygame.Rect(-dx, -dy, dest_rect.width, dest_rect.height)
+            area = area.clip(surf.get_rect())
+            if area.width >= dest_rect.width and area.height >= dest_rect.height:
+                screen.blit(surf, (dest_rect.left + dx + area.x,
+                                   dest_rect.top + dy + area.y), area)
+                return
+        screen.fill((120, 120, 120), dest_rect)
+        self._render_mip_window(screen, dest_rect)
 
 
 class MapManager:

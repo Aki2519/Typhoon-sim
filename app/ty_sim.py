@@ -193,6 +193,11 @@ class TySim(TySimUtilsMixin,
         self.renderer = Renderer(self)
         self.update_all_screen_points()
         self.map_mgr.update_land_mask()
+        # 陆地掩码(大 PNG 解码 + alpha 查表, 实测 ~1.1-1.4s)在构造/splash 阶段
+        # 一次性构建: 否则窗口出现后第一帧 update 的陆地状态同步才触发, 造成可见卡顿
+        self.map_mgr._ensure_land_mask()
+        # 经纬度掩码查表同样在 splash 阶段预构建(~0.3s), 避免首帧陆地判定卡顿
+        self.map_mgr.is_land_at_geo(0.0, 0.0)
 
         # 视觉资源预加载改为惰性预热: 构造不阻塞, 由主循环空闲时调用
         # _warmup_visuals() 分批执行, 启动只做必要加载(台风/地图/图标)。
@@ -212,57 +217,58 @@ class TySim(TySimUtilsMixin,
         self._dialog_stack: list = []
         self.landfall_records: list = []
 
-    def _warmup_steps(self) -> list:
-        """预热步骤表: 每帧执行一步。
+    def _warmup_jobs(self) -> list:
+        """预热任务表: [(label, generator)]。
 
-        原来一次性执行会同步解码 16 个登陆 mp4 + 最多 30 路视频流, 首帧后
-        突然卡数百 ms~数秒; 拆成 4 步后单帧卡顿显著下降。
-        """
-        def _particles():
-            preload_particles()
-
-        def _landfall():
-            from .smcy_icon import preload_landfall_effects
-            icon_factor = self._size_factors()[1]
-            lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
-            marker = max(6, int(13 * self.cfg.point_size / 100.0))
-            preload_landfall_effects(lf_size, int(marker * 96 / 40))
-
-        def _icons():
-            from .smcy_icon import preload_icon_streams
-            if getattr(self.cfg, 'icon_set', '') == 'smcy':
-                n = preload_icon_streams(self.tys, self._size_factors()[1])
-                logger.debug(f"SMCY 图标流预加载: {n} 个")
-
-        def _summary():
-            from .smcy_icon import preload_summary_streams
-            n2 = preload_summary_streams(self.tys, 64, self.screen_width - 520 - 20)
-            if n2:
-                logger.debug(f"Summary 流预加载: {n2} 个")
-
-        return [(_particles, "粒子预加载"), (_landfall, "特效预加载"),
-                (_icons, "图标流预加载"), (_summary, "Summary 流预加载")]
+        每个生成器每 yield 一次表示完成一小步(通常是一路视频流/一个类别),
+        由 _warmup_visuals 逐帧消费; 原来一次性执行会同步解码 16 个登陆 mp4
+        + 最多 30 路视频流, 首帧后卡数秒。"""
+        from . import smcy_icon as S
+        from .particle_effect import iter_preload_particles
+        icon_factor = self._size_factors()[1]
+        lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))
+        marker = max(6, int(13 * self.cfg.point_size / 100.0))
+        jobs = [("粒子预加载", iter_preload_particles()),
+                ("特效预加载", S.iter_preload_landfall_effects(
+                    lf_size, int(marker * 96 / 40)))]
+        if getattr(self.cfg, 'icon_set', '') == 'smcy':
+            jobs.append(("图标流预加载",
+                         S.iter_preload_icon_streams(self.tys, icon_factor)))
+            jobs.append(("Summary 流预加载",
+                         S.iter_preload_summary_streams(
+                             self.tys, 64, self.screen_width - 520 - 20)))
+        return jobs
 
     def _warmup_visuals(self) -> None:
-        """主循环空闲时执行的视觉资源预热（分步, 每帧一步, 失败不致命）。
+        """主循环空闲时逐帧执行的视觉资源预热（每帧一小步, 失败不致命）。
 
-        原来在构造里同步阻塞的预加载, 现改为渲染首屏后由 main 主循环逐步执行:
-        启动只做必要加载(台风/地图/图标), 特效/图标流/视频帧交给预热,
-        避免登陆/播放瞬间卡顿。
+        只在暂停/无对话框/未拖拽时执行, 播放或交互期间自动暂停, 避免抢占主线程;
+        启动只做必要加载(台风/地图/图标), 特效/图标流/视频帧在随后几帧内逐步就绪。
         """
         if self._warmup_done:
             return
-        steps = self._warmup_steps()
-        idx = getattr(self, '_warmup_step_idx', 0)
-        if idx >= len(steps):
-            self._warmup_done = True
-            return
-        fn, label = steps[idx]
-        self._warmup_step_idx = idx + 1
-        try:
-            fn()
-        except Exception:
-            logger.debug(f"{label}失败", exc_info=True)
+        if self.pl or self.right_button_dragging or self.dialog_mgr.any_active():
+            return          # 交互/播放期间不抢占主线程, 空闲后继续
+        jobs = getattr(self, '_warmup_jobs_cache', None)
+        if jobs is None:
+            jobs = self._warmup_jobs()
+            self._warmup_jobs_cache = jobs
+        while True:
+            idx = getattr(self, '_warmup_job_idx', 0)
+            if idx >= len(jobs):
+                self._warmup_done = True
+                return
+            label, gen = jobs[idx]
+            try:
+                next(gen)
+            except StopIteration:
+                self._warmup_job_idx = idx + 1
+                continue
+            except Exception:
+                logger.debug(f"{label}失败", exc_info=True)
+                self._warmup_job_idx = idx + 1
+                continue
+            return       # 本帧只做一步
 
     def _tick_warmup(self) -> None:
         """主循环每帧调用: 轮到预热时执行一次 _warmup_visuals(主线程一次性)。

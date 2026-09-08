@@ -24,11 +24,21 @@ _note_ts_frames: Optional[List[pygame.Surface]] = None
 _note_ts_sound: Optional[pygame.mixer.Sound] = None
 
 
-def preload_particles() -> None:
+def iter_preload_particles():
+    """逐步预加载粒子资源: 每 yield 一次 = 完成一项(供主循环分帧消费)。"""
     _load_eri_gif()
+    yield
     _load_note_ts_frames()
+    yield
     _load_eri_sound()
+    yield
     _load_note_ts_sound()
+    yield
+
+
+def preload_particles() -> None:
+    for _ in iter_preload_particles():
+        pass
 
 
 def _load_eri_sound():

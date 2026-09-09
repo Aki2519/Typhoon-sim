@@ -196,6 +196,15 @@ class MapView:
         # 避免缓存与屏幕偏移叠加错位
         if self._draw_offset() != (0, 0):
             return None
+        # 快速拖动(单帧位移 > 120px)时放弃缓存: 窗口重建跟不上, 每帧重建反而
+        # 比逐帧缩放慢(实测 600px/帧: 30.6ms vs 11.3ms); 停下后自动恢复缓存
+        prev = getattr(self, '_win_prev_view', None)
+        self._win_prev_view = (self.view_x, self.view_y)
+        if prev is not None:
+            ddx = (self.view_x - prev[0] + self.img_w / 2.0) % self.img_w - self.img_w / 2.0
+            ddy = self.view_y - prev[1]
+            if abs(ddx) * self.scale > 120.0 or abs(ddy) * self.scale > 120.0:
+                return None
         map_w = int(math.ceil(self.img_w * self.scale))
         map_h = int(math.ceil(self.img_h * self.scale))
         cw = min(sw + 2 * self._PAN_WINDOW_MARGIN, map_w)

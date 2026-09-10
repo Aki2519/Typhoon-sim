@@ -34,22 +34,29 @@ LAND_EDGE = (186, 170, 124)
 VIDEO_LAYERS = ('video_olr', 'video_refl', 'video_sfc', 'video_mid',
                 'video_high', 'video_station', 'video_center', 'video_track')
 
-_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))), 'font')
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 字体实际放在 assets/font(旧目录 font/ 已废弃, 仅作兼容回退):
+# 路径不对时会静默退化成 FreeType 默认西文字体 → 中文标题全变成方块
+_FONT_DIRS = (os.path.join(_ROOT, 'assets', 'font'), os.path.join(_ROOT, 'font'))
 _FT_FONTS = {}
 
 
 def _font(size: int):
     import pygame.freetype as ft
     if size not in _FT_FONTS:
+        found = False
         for name in ('MapleMono-NF-CN-Medium.ttf', 'MapleMono-NF-CN-Light.ttf',
                      'msyhbd.ttc'):
-            path = os.path.join(_FONT_DIR, name)
-            if os.path.exists(path):
-                _FT_FONTS[size] = ft.Font(path, size)
+            for d in _FONT_DIRS:
+                path = os.path.join(d, name)
+                if os.path.exists(path):
+                    _FT_FONTS[size] = ft.Font(path, size)
+                    found = True
+                    break
+            if found:
                 break
-        else:
-            _FT_FONTS[size] = ft.Font(None, size)
+        if not found:
+            _FT_FONTS[size] = ft.Font(None, size)   # 西文兜底(中文会缺字形)
     return _FT_FONTS[size]
 
 
@@ -604,7 +611,7 @@ def render_sfc(api, dt, typhoons=None, w=1280, h=760) -> pygame.Surface:
     """地面形势(F10): D01 左 = SLP 等值线 + 24h 降水填色 + H/L/T 标记;
     D02 右 = 10m 风矢量 + SLP 等值线(以台风中心为焦点)。"""
     s = new_canvas(w, h)
-    draw_title(s, "D01 SLP (hPa) & 24h Precip. (mm)  |  D02 SLP (hPa) & 10m Wind (m/s)")
+    draw_title(s, "D01 海平面气压 (hPa) 与 24h 降水 (mm)  |  D02 海平面气压 (hPa) 与 10m 风 (m/s)")
     draw_timestamp(s, dt, 10, 36)
     gap, margin, y0, ph = 10, 48, 60, h - 130
     pw = (w - margin * 2 - gap * 3) // 2
@@ -756,7 +763,7 @@ def render_mid(api, dt, typhoons=None, w=1280, h=760) -> pygame.Surface:
     """中低层(F10): 500hPa 高度(蓝 dam 等值线)+500hPa 温度(红虚 °C)+
     850hPa 风羽(黑)+低空急流紫填色+850hPa 比湿≥12 g/kg 绿阴影。"""
     s = new_canvas(w, h)
-    draw_title(s, "500 hPa Height (dam) and Temp (°C), 850 hPa Wind (barb)")
+    draw_title(s, "500 hPa 位势高度 (dam) 与温度 (°C), 850 hPa 风 (风羽)")
     draw_timestamp(s, dt, 10, 36)
     rect, inner = _whole_panel(s, w, h)
     g = _SPAN_GLOBAL
@@ -801,7 +808,7 @@ def render_high(api, dt, typhoons=None, w=1280, h=760) -> pygame.Surface:
     """高空(F10): 100hPa 高度(dam 等值线)+200hPa 风羽(黑)+散度填色+
     高空急流紫填色。"""
     s = new_canvas(w, h)
-    draw_title(s, "100 hPa Height (dam), 200 hPa Wind (m/s) and Divergence (10⁻⁶ s⁻¹)")
+    draw_title(s, "100 hPa 位势高度 (dam), 200 hPa 风 (m/s) 与散度 (10⁻⁶ s⁻¹)")
     draw_timestamp(s, dt, 10, 36)
     rect, inner = _whole_panel(s, w, h)
     g = _SPAN_GLOBAL
@@ -887,7 +894,7 @@ def render_center(api, dt, typhoon=None, ref=None, w=800, h=560) -> pygame.Surfa
     from simulator.typhoons import gen as _g
     s = new_canvas(w, h)
     states = (typhoon.get('states') if typhoon else None) or []
-    draw_title(s, "Typhoon Intensity | Center Pressure (hPa) & Max Wind (kt)")
+    draw_title(s, "台风强度 | 中心气压 (hPa) 与最大风速 (kt)")
     asz = _axis_size(w)
     if ref:
         _render(s, "JMA", w - 60, 30, size=12, color=(220, 40, 40))
@@ -954,9 +961,9 @@ def render_center(api, dt, typhoon=None, ref=None, w=800, h=560) -> pygame.Surfa
 def render_track(api, dt, typhoon=None, best=None, w=800, h=560) -> pygame.Surface:
     """路径对比: 模拟按中心气压着色,时间标注稀疏化。"""
     s = new_canvas(w, h)
-    draw_title(s, f"Typhoon Track ({MODEL_TAG}, colored by central pressure)")
+    draw_title(s, f"台风路径 ({MODEL_TAG}, 按中心气压着色)")
     if best:
-        _render(s, "Best Track", 10, 30, size=12, color=(220, 40, 40))
+        _render(s, "最佳路径 Best Track", 10, 30, size=12, color=(220, 40, 40))
     _render(s, MODEL_TAG, 10, 46, size=12, color=(30, 80, 220))
     rect = pygame.Rect(60, 60, w - 120, h - 120)
     inner = _map_inner(rect, 80.0, 50.0)

@@ -2,8 +2,10 @@
 """统一渲染器：组合所有绘制逻辑。"""
 from __future__ import annotations
 
-import pygame
+import time
 from typing import Tuple, TYPE_CHECKING
+
+import pygame
 
 from .constants import (
     BG, ERROR_BG, ERROR_BORDER, f_m, f_s, rt,
@@ -192,83 +194,104 @@ class Renderer:
             box.blit(ts, (28, yy - 1))
         surface.blit(box, (x, y))
 
-    def _draw_scene(self, surface: pygame.Surface, hidden: bool = False) -> None:
+    # 场景图层表: 顺序即 z 序。
+    # 原先 z 序靠 _draw_scene 里 if/elif 的书写顺序隐式维持, 加一层要在多处插;
+    # 现在顺序是一份可断言的数据(见 tests/test_render_layers.py), 各层自带可见性判定。
+    def scene_layers(self, hidden: bool = False):
         sim = self.sim
-        surface.fill(BG)
-        # 模拟模式: 先画地图底图, 再叠加 SimCore 图层(不再全屏覆盖地图)
-        if getattr(sim, 'md', None) == getattr(sim, 'MODE_SIM', 'sim'):
-            sim._draw_map(surface)
-            if not hidden:
-                sim._sim_render(surface)
-            return
-        sim._draw_map(surface)
-
-        # 经纬网格(可选, 地图之上、台风之下)
-        if getattr(sim.cfg, 'show_graticule', False):
-            self._draw_graticule(surface)
-        if getattr(sim.cfg, 'show_ocean_areas', False) or getattr(sim, 'ocean_edit', None) and sim.ocean_edit.active:
-            self._draw_ocean_areas(surface)
-
-        # 洋区编辑模式: 顶点高亮 + 提示(仅该模式渲染)
+        is_sim = getattr(sim, 'md', None) == getattr(sim, 'MODE_SIM', 'sim')
+        md = getattr(sim, 'md', None)
         oe = getattr(sim, 'ocean_edit', None)
-        if oe is not None and oe.active:
-            oe.draw(surface)
 
-        if not hidden:
-            # 时间轴(圆环钟): 风季/模拟在左上角, 正常/编辑在左下角(功能栏上方)
-            if sim.md == sim.MODE_SEASON:
+        def _clock(surface) -> None:
+            # 时间轴(圆环钟): 风季在左上角, 正常/编辑在左下角(功能栏上方)
+            if md == sim.MODE_SEASON:
                 sim.draw_season_clock(surface)
                 sim._ms.draw(surface)
-            elif sim.md in (sim.MODE_NORMAL, sim.MODE_EDIT):
+            elif md in (sim.MODE_NORMAL, sim.MODE_EDIT):
                 clock_y = max(0, sim.map_height - 250 - 8)
                 sim.draw_season_clock(surface, origin=(0, clock_y))
 
-            if getattr(sim, 'show_ace_bar', True):
-                sim.draw_ace_display(surface)
+        def _track_label(surface) -> None:
+            label = getattr(sim, 'tracking_label', lambda: "")()
+            if not label:
+                return
+            ts = rt(f_s, label, (255, 230, 120))
+            tb = rt(f_s, label, (0, 0, 0))
+            for ox, oy in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1),
+                           (1, -1), (1, 0), (1, 1)):
+                surface.blit(tb, (12 + ox, 12 + oy))
+            surface.blit(ts, (12, 12))
 
-        sim._draw_typhoons(surface)
-
-        # 镜头跟踪指示(左上角, F1 隐藏界面或设置中关闭开关后不显示)
-        if not hidden and getattr(sim.cfg, 'show_track_label', True):
-            track_label = getattr(sim, 'tracking_label', lambda: "")()
-            if track_label:
-                ts = rt(f_s, track_label, (255, 230, 120))
-                tb = rt(f_s, track_label, (0, 0, 0))
-                for ox, oy in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)):
-                    surface.blit(tb, (12 + ox, 12 + oy))
-                surface.blit(ts, (12, 12))
-
-        if not hidden:
-            # 季节信息框画在台风路径之后,保证信息框文字不被路径线遮挡
-            # (与正常模式信息框 z 序一致)
-            if sim.md == sim.MODE_SEASON:
-                if sim.show_info_box_season:
-                    sim.draw_season_info_boxes(surface)
-
-        if hidden:
-            return
-
-        ct = pygame.time.get_ticks()
-
-        dialog_open = sim.dialog_mgr.any_active()
-        if sim.md == sim.MODE_NORMAL:
-            ty = sim.current_typhoon()
-            if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
-                sim.draw_typhoon_info(surface, ty)
-        elif sim.md == sim.MODE_SEASON:
-            for ty in sim.tys:
-                if ty.act and ty.ss and not ty.sf and not dialog_open:
+        def _typhoon_info(surface) -> None:
+            dialog_open = sim.dialog_mgr.any_active()
+            if md == sim.MODE_NORMAL:
+                ty = sim.current_typhoon()
+                if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
                     sim.draw_typhoon_info(surface, ty)
-        elif sim.md == sim.MODE_EDIT:
-            ty = sim.edit_typhoon
-            if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
-                sim.draw_typhoon_info(surface, ty)
+            elif md == sim.MODE_SEASON:
+                for ty in sim.tys:
+                    if ty.act and ty.ss and not ty.sf and not dialog_open:
+                        sim.draw_typhoon_info(surface, ty)
+            elif md == sim.MODE_EDIT:
+                ty = sim.edit_typhoon
+                if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
+                    sim.draw_typhoon_info(surface, ty)
 
-        for eff in sim.effects:
-            if hasattr(eff, '_map_height'):
-                eff._map_height = sim.map_height
-                eff._dark_mode = getattr(sim, 'dark_mode', True)
-            eff.draw(surface, ct)
+        def _effects(surface) -> None:
+            ct = pygame.time.get_ticks()
+            for eff in sim.effects:
+                if hasattr(eff, '_map_height'):
+                    eff._map_height = sim.map_height
+                    eff._dark_mode = getattr(sim, 'dark_mode', True)
+                eff.draw(surface, ct)
+
+        return (
+            ('map', lambda: True, lambda s: sim._draw_map(s)),
+            # 模拟模式: 地图底图之上只叠 SimCore 图层(F1 隐藏时不画)
+            ('sim_field', lambda: is_sim and not hidden,
+             lambda s: sim._sim_render(s)),
+            ('graticule',
+             lambda: not is_sim and getattr(sim.cfg, 'show_graticule', False),
+             self._draw_graticule),
+            ('ocean_areas',
+             lambda: not is_sim and (getattr(sim.cfg, 'show_ocean_areas', False)
+                                     or bool(oe is not None and oe.active)),
+             self._draw_ocean_areas),
+            ('ocean_edit', lambda: not is_sim and bool(oe is not None and oe.active),
+             lambda s: oe.draw(s)),
+            ('clock', lambda: not is_sim and not hidden, _clock),
+            ('ace_bar',
+             lambda: not is_sim and not hidden and getattr(sim, 'show_ace_bar', True),
+             lambda s: sim.draw_ace_display(s)),
+            ('typhoons', lambda: not is_sim, lambda s: sim._draw_typhoons(s)),
+            ('track_label',
+             lambda: not is_sim and not hidden
+             and getattr(sim.cfg, 'show_track_label', True),
+             _track_label),
+            # 季节信息框画在路径之后, 保证文字不被路径线遮挡
+            ('season_info_boxes',
+             lambda: (not is_sim and not hidden and md == sim.MODE_SEASON
+                      and getattr(sim, 'show_info_box_season', True)),
+             lambda s: sim.draw_season_info_boxes(s)),
+            ('typhoon_info', lambda: not is_sim and not hidden, _typhoon_info),
+            ('effects', lambda: not is_sim and not hidden, _effects),
+        )
+
+    def _layer_drawn(self, name: str, elapsed_ms: float = 0.0) -> None:
+        """图层绘制完成钩子: 性能面板/测试可覆写(名字 + 单层耗时)。
+
+        默认空实现; _draw_scene 每帧对每个可见层调用一次。"""
+        return None
+
+    def _draw_scene(self, surface: pygame.Surface, hidden: bool = False) -> None:
+        surface.fill(BG)
+        perf = time.perf_counter
+        for name, visible, draw in self.scene_layers(hidden):
+            if visible():
+                t0 = perf()
+                draw(surface)
+                self._layer_drawn(name, (perf() - t0) * 1000.0)
 
     def _draw_error(self, surface: pygame.Surface) -> None:
         sim = self.sim

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .ty_sim import TySim
 
 from .typhoon_data import TyphoonDataMixin
+from .cache_store import SurfaceCache
 from .typhoon_sim import TyphoonSimMixin
 from .typhoon_render import TyphoonRenderMixin
 
@@ -93,7 +94,8 @@ class TyphoonView:
         self.bbox: Optional[pygame.Rect] = None
         self._sp_ver: int = -1
         self._sp_anchor = None
-        self._img_cache: Dict[Tuple, pygame.Surface] = {}
+        # 旋转/镜像/着色结果缓存: 按字节封顶(旧的条数上限在图标放大后可达数百 MB)
+        self._img_cache = SurfaceCache("rot", 12 * 1024 * 1024, 720)
         self._path_cache_full: Optional[pygame.Surface] = None
         self._path_cache_traversed: Optional[pygame.Surface] = None
         self._last_rendered_ci: int = -1

@@ -18,6 +18,7 @@ from ..constants.fonts import _load_font, SmartFont, FONT_FILE
 from ..utils import get_tropical_points, max_wind_from_points, display_category
 from ..utils import fmt_short_time, peak_point, movement_speed_kt
 from ..ace_engine import _ace_eligible
+from ..cache_store import SurfaceCache
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,6 @@ class TySimDrawIconMixin:
         cls._center_scale_cache.clear()
         cls._l3_scale_cache.clear()
         cls._purple_frame_cache.clear()
-        cls._purple_frame_cache_bytes = 0
         cls._ts_grad_cache.clear()
 
     @classmethod
@@ -640,26 +640,13 @@ class TySimDrawIconMixin:
                     pass
 
     # ── 紫滤镜结果缓存：避免每帧对 C5 图标做 numpy 全图运算 ──
-    _purple_frame_cache: dict = {}
-    _purple_frame_cache_bytes: int = 0
-    _PURPLE_FRAME_CACHE_MAX = 120
-    # 只按条数封顶时, 放大图标尺寸后单帧可达数 MB, 120 条能吃到数百 MB
-    _PURPLE_FRAME_CACHE_BYTES = 96 * 1024 * 1024
+    # 字节预算 + LRU(见 cache_store): 只按条数封顶时, 图标放大后 120 条能吃到数百 MB
+    _purple_frame_cache = SurfaceCache("purple_frame", 96 * 1024 * 1024, 240)
 
     @classmethod
     def _cache_purple_frame(cls, key, frame) -> None:
-        """按条数 + 总字节双上限缓存紫滤镜/TS 渐变结果。"""
-        cache = cls._purple_frame_cache
-        old = cache.pop(key, None)
-        if old is not None:
-            cls._purple_frame_cache_bytes -= old.get_width() * old.get_height() * 4
-        cache[key] = frame
-        cls._purple_frame_cache_bytes += frame.get_width() * frame.get_height() * 4
-        while cache and (len(cache) > cls._PURPLE_FRAME_CACHE_MAX
-                         or cls._purple_frame_cache_bytes > cls._PURPLE_FRAME_CACHE_BYTES):
-            k = next(iter(cache))
-            v = cache.pop(k)
-            cls._purple_frame_cache_bytes -= v.get_width() * v.get_height() * 4
+        """缓存紫滤镜/TS 渐变结果(按字节预算 + LRU 驱逐)。"""
+        cls._purple_frame_cache.put(key, frame)
 
     def _draw_smcy_frame(self, surface, ty, cat, frame_idx, x, y, icon_factor, icon_alpha,
                          wind: int = 0):

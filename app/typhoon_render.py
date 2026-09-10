@@ -115,8 +115,9 @@ class TyphoonRenderMixin:
         # 只量化 key,不改 v.sa/v.sa3 累加与旋转推进公式,动画平滑度不变
         key = (key_prefix, id(img), (int(angle) // 6) * 6 % 360, mirror, tint)
         cache = self.v._img_cache
-        if key in cache:
-            return cache[key]
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
         rotated = pygame.transform.rotate(img, angle)
         if mirror:
             rotated = pygame.transform.flip(rotated, True, False)
@@ -125,9 +126,7 @@ class TyphoonRenderMixin:
             tinted.fill((*tint, 0))
             tinted.blit(rotated, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
             rotated = tinted
-        if len(cache) > 720:
-            cache.pop(next(iter(cache)))
-        cache[key] = rotated
+        cache.put(key, rotated)
         return rotated
 
     def get_rotated_ring(self, cat: str, base_ring: pygame.Surface, angle: float,

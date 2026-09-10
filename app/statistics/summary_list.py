@@ -6,6 +6,7 @@ import pygame
 from datetime import datetime
 from typing import List, Optional
 
+from ..cache_store import SurfaceCache
 from ..constants import rt
 from ..constants.fonts import _load_font, SmartFont, FONT_FILE
 from ..dialog_base import Dialog
@@ -30,8 +31,8 @@ _NON_TROPICAL = ('MD', 'SS', 'SD', 'EX', 'LO')
 _outlined_cache: dict = {}
 
 # 紫色滤镜结果缓存: (cat, hemi, 帧号, size, 滤镜强度) → 已滤镜帧,避免每帧 numpy 全图运算
-_purple_frame_cache: dict = {}
-_PURPLE_CACHE_MAX = 96
+# 字节预算 + LRU(见 cache_store), 大尺寸摘要帧不会把内存吃满
+_purple_frame_cache = SurfaceCache("summary_purple", 48 * 1024 * 1024, 96)
 
 # 视频动画节流: 每行每 ~66ms 才请求新帧(~15fps),避免 3 行 × 60fps
 # 的解码压力造成界面卡顿
@@ -429,9 +430,7 @@ class SummaryListDialog(Dialog):
                 filtered = _purple_frame_cache.get(pkey)
                 if filtered is None:
                     filtered = _apply_purple_filter(frame, tier[1])
-                    if len(_purple_frame_cache) >= _PURPLE_CACHE_MAX:
-                        _purple_frame_cache.pop(next(iter(_purple_frame_cache)))
-                    _purple_frame_cache[pkey] = filtered
+                    _purple_frame_cache.put(pkey, filtered)
                 frame = filtered
             surface.blit(frame, rect.topleft)
         cat_color = _CAT_COLOR.get(row['cat'], (200, 200, 220))

@@ -1447,16 +1447,6 @@ class Settings(DraggableDialog):
 
     # ── 快捷键分类数据 ─────────────────────────────────────────────
     SHORTCUT_SECTIONS = [
-        ("📖  基本使用", (90, 110, 150), [
-            ("运行",       "pip install -r requirements.txt  然后  python main.py"),
-            ("鼠标",       "右键拖拽=平移地图, 滚轮=缩放, 左键(编辑模式)=选点/拖点"),
-            ("四种模式",   "H 循环 正常/风季/编辑; 模拟模式从功能栏进入"),
-            ("正常模式",   "逐条回放单个台风, [ ] 切换, 播完自动连播下一个"),
-            ("风季模式",   "整年所有台风同时推进, 含季节时钟/ACE/月度总结"),
-            ("编辑模式",   "增删改报点, 保存自动完成(不弹提示), Ctrl+Z 撤销"),
-            ("模拟模式",   "架空台风模拟: 生成台风 + 气压/风场/云图/SST 等图层"),
-            ("完整说明",   "仓库根目录 使用说明.md (含统计图表/脚本/常见问题)"),
-        ]),
         ("▶  播放控制", (70, 130, 180), [
             ("Space",     "播放 / 暂停"),
             ("+ / =",     "增加播放速度 (+1)"),
@@ -1724,7 +1714,7 @@ class Settings(DraggableDialog):
         panel.fill((248, 251, 255, 248))
         pygame.draw.rect(panel, BUTTON_BORDER, (0, 0, hw, hh), 2, 10)
         self.draw_title_bar(panel, pygame.Rect(0, 0, hw, TITLE_H),
-                            "使用说明 · 快捷键  (Manual & Shortcuts)")
+                            "键盘快捷键 · Keyboard Shortcuts")
         footer_y = hh - FOOTER_H
         pygame.draw.line(panel, (200, 210, 225), (20, footer_y), (hw - 20, footer_y), 1)
 

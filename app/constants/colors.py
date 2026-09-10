@@ -62,14 +62,13 @@ COLOR_SCALE_SCHEMES = {
 }
 # 绘画图例 7 档(与 Ty4 英文图例顺序一致)
 WIKI_LEGEND_ENTRIES = [
-    # 中文名 + 国际通用强度代号(顺序与参考图例一致)
-    ("热带低压 TD", "TD"),
-    ("热带风暴 TS", "TS"),
-    ("一级台风 C1", "C1"),
-    ("二级台风 C2", "C2"),
-    ("三级台风 C3", "C3"),
-    ("四级台风 C4", "C4"),
-    ("五级台风 C5", "C5"),
+    ("Depression", "TD"),
+    ("Storm", "TS"),
+    ("Category 1", "C1"),
+    ("Category 2", "C2"),
+    ("Category 3", "C3"),
+    ("Category 4", "C4"),
+    ("Category 5", "C5"),
 ]
 # 图例位置
 LEGEND_POS_NONE = "none"

@@ -6,6 +6,9 @@ import pygame
 from app.constants import f_s, f_m, f_l, rt
 from app.constants.fonts import _load_font, SmartFont, FONT_FILE
 
+_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), 'font')
+
 BG = (18, 22, 32)
 PANEL = (26, 31, 44)
 PANEL_2 = (33, 39, 54)

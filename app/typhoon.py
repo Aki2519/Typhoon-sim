@@ -59,6 +59,7 @@ _VIEW_FIELDS = frozenset({
     "ipos", "rot_dir", "mirror", "last_on_land",
     "icon_alpha", "path_alpha",
     "screen_points", "bbox", "_sp_ver",
+    "map_points", "smooth_map_points",   # 地图空间(视图无关)的报点/平滑点
     "_sp_anchor",          # 屏幕点视图锚点(vx_int, vy_int, scale, bottom_align, sw, mh): 纯平移时按锚点整页位移
     "_img_cache",
     "_path_cache_full", "_path_cache_traversed", "_last_rendered_ci",
@@ -91,6 +92,8 @@ class TyphoonView:
         self.icon_alpha: int = 255
         self.path_alpha: int = 255
         self.screen_points: List[Tuple[int, int]] = []
+        self.map_points: List[Tuple[int, int]] = []
+        self.smooth_map_points: List[Tuple[int, int]] = []
         self.bbox: Optional[pygame.Rect] = None
         self._sp_ver: int = -1
         self._sp_anchor = None

@@ -48,6 +48,20 @@ class MapView:
     def _src_y(self, view_h):
         return max(0.0, min(self.view_y, self.img_h - view_h))
 
+    def geo_to_map(self, lon, lat):
+        """视图无关的"地图空间"坐标(缩放后像素): screen = map - view_offset()。
+
+        与 geo_to_screen 同一套两段式取整, 因此视图平移只改变 view_offset,
+        地图空间内容不变 —— 路径缓存据此跨平移复用, 不必重建。"""
+        px = (lon - self.lon_min) * self._scale_x
+        py = (self.lat_max - lat) * self._scale_y
+        return int(px * self.scale), int(py * self.scale)
+
+    def view_offset(self):
+        """当前视图在地图空间中的原点(screen = map - view_offset)。"""
+        ox, oy = self._draw_offset()
+        return int(self.view_x * self.scale) - ox, int(self.view_y * self.scale) - oy
+
     def wrap_px(self) -> int:
         """地图横向环绕周期(屏幕像素)。
 

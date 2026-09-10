@@ -274,6 +274,32 @@ class TySimDrawPathMixin:
                 mv.scale, getattr(mv, '_bottom_align', False),
                 self.screen_width, self.map_height)
 
+    def _view_offset(self):
+        """当前视图在地图空间中的原点; 无地图视图时 (0,0)。"""
+        mv = self.map_mgr.map_view if self.map_mgr is not None else None
+        if mv is None:
+            return (0, 0)
+        try:
+            return mv.view_offset()
+        except Exception:
+            return (0, 0)
+
+    def _map_space_points(self, ty, screen_points, voff):
+        """地图空间报点: 优先用 update_screen_points 时算好的 v.map_points。"""
+        mp = getattr(ty.v, 'map_points', None)
+        if mp and len(mp) == len(screen_points):
+            return [(int(x), int(y)) for x, y in mp]
+        return [(x + voff[0], y + voff[1]) for x, y in screen_points]
+
+    def _map_space_smooth(self, ty, voff):
+        """地图空间平滑点(与报点同一坐标系)。"""
+        if not self.smooth_path:
+            return None
+        mp = getattr(ty.v, 'smooth_map_points', None)
+        if mp:
+            return [(int(x), int(y)) for x, y in mp]
+        return [(x + voff[0], y + voff[1]) for x, y in ty.v.smooth_screen_points]
+
     def _try_pan_reuse_path_cache(self, ty, screen_points, key) -> bool:
         """纯平移复用路径缓存面: 仅当(除首尾坐标外)缓存指纹一致且首尾点位移相同
         且累计位移在留白窗口内时, 直接把面按位移整体 blit, 免每帧重建。
@@ -481,37 +507,43 @@ class TySimDrawPathMixin:
                 ty, screen_points, highlight, radius, point_radius_factor,
                 max_seg, cur_idx, n_pts)
 
+        # ── 切到"地图空间"(视图无关): 平移只改 blit 位置, 缓存面不重建 ──
+        voff = self._view_offset()
+        screen_points = self._map_space_points(ty, screen_points, voff)
+        smooth_map = self._map_space_smooth(ty, voff)
         key = self._make_path_cache_key(ty, screen_points, highlight)
 
+        # ── bbox/裁窗判定(每帧都要, 与是否重建无关) ──
+        # 路径包围盒完整建面(不裁窗): 平移永无「屏幕外入境条带」; 只有面积超大
+        # (超出留白屏幕面积 1.25 倍)才裁到"视口 + pad"的窗口, 此时窗口依赖视图,
+        # 键里并入量化后的视图偏移: 视图静止仍命中, 移动超过一个量化步才重建
+        pad = self._PAN_REUSE_PAD
+        margin = radius + 4
+        xs = [p[0] for p in screen_points]
+        ys = [p[1] for p in screen_points]
+        if self.smooth_path and len(smooth_map) >= 2:
+            xs = xs + [p[0] for p in smooth_map]
+            ys = ys + [p[1] for p in smooth_map]
+        path_w = (max(xs) - min(xs)) + margin * 2
+        path_h = (max(ys) - min(ys)) + margin * 2
+        fit_area = (self.screen_width + 2 * pad) * (self.map_height + 2 * pad) * 1.25
+        huge = not (path_w > 2 and path_h > 2 and path_w * path_h <= fit_area)
+        if huge:
+            key = key + ((voff[0] // 32, voff[1] // 32),)
+
         # ── 缓存失效：重建 full + traversed ──
-        # 纯平移复用: 仅视图平移导致 key 过期(首尾点同位移) → 整面平移, 不重建。
-        # 复用成功时头部条件为 False, 落到下方 elif 增量分支: ci 前进/回退的新段在同一帧
-        # 追加到旧坐标系缓存面(blit 同步平移旧锚点带, rel 坐标即缓存系坐标, 结果正确)。
-        if ty._path_cache_key != key and not self._try_pan_reuse_path_cache(ty, screen_points, key):
-            # 计算 bbox（仅重建时；命中/追加分支直接取缓存的偏移，法1）
-            pad = self._PAN_REUSE_PAD
-            margin = radius + 4
-            xs = [p[0] for p in screen_points]
-            ys = [p[1] for p in screen_points]
-            if self.smooth_path and len(ty.v.smooth_screen_points) >= 2:
-                xs = xs + [p[0] for p in ty.v.smooth_screen_points]
-                ys = ys + [p[1] for p in ty.v.smooth_screen_points]
-            # 路径包围盒完整建面(不裁窗): 平移复用永无「屏幕外入境条带」;
-            # 仅面积超大(超出留白屏幕面积 1.25 倍)才裁窗, 并禁用复用(回到每帧重建=旧行为)
-            path_w = (max(xs) - min(xs)) + margin * 2
-            path_h = (max(ys) - min(ys)) + margin * 2
-            fit_area = (self.screen_width + 2 * pad) * (self.map_height + 2 * pad) * 1.25
-            if path_w > 2 and path_h > 2 and path_w * path_h <= fit_area:
+        if ty._path_cache_key != key:
+            if not huge:
                 bbox_x = min(xs) - margin
                 bbox_y = min(ys) - margin
                 bbox_w = path_w
                 bbox_h = path_h
                 ty._path_cache_partial = False
             else:
-                bbox_x = max(-pad, min(xs) - margin)
-                bbox_y = max(-pad, min(ys) - margin)
-                bbox_w = min(self.screen_width + pad - bbox_x, path_w)
-                bbox_h = min(self.map_height + pad - bbox_y, path_h)
+                bbox_x = max(voff[0] - pad, min(xs) - margin)
+                bbox_y = max(voff[1] - pad, min(ys) - margin)
+                bbox_w = min(voff[0] + self.screen_width + pad - bbox_x, path_w)
+                bbox_h = min(voff[1] + self.map_height + pad - bbox_y, path_h)
                 ty._path_cache_partial = True
             if bbox_w <= 0 or bbox_h <= 0:
                 # K29: 记录空缓存键,避免屏幕外台风每帧重建 bbox。
@@ -521,8 +553,6 @@ class TySimDrawPathMixin:
                 ty._last_rendered_ci = cur_idx
                 ty._path_cache_blit = (0, 0)
                 ty._path_cache_origin = (0, 0)
-                ty._path_cache_sp0 = None
-                ty._path_cache_spL = None
                 ty._path_cache_full = pygame.Surface((1, 1), pygame.SRCALPHA)
                 ty._path_cache_traversed = pygame.Surface((1, 1), pygame.SRCALPHA)
                 return ty._path_cache_full, ty._path_cache_traversed, (0, 0)
@@ -535,8 +565,7 @@ class TySimDrawPathMixin:
             ty._path_cache_full = pygame.Surface((bbox_w, bbox_h), pygame.SRCALPHA)
             full = ty._path_cache_full
 
-            smooth_pts = (ty.v.smooth_screen_points
-                          if self.smooth_path else None)
+            smooth_pts = (smooth_map if self.smooth_path else None)
             draw_points = smooth_pts if smooth_pts else screen_points
             rel_points = [(px - bbox_x, py - bbox_y) for px, py in draw_points]
 
@@ -563,8 +592,7 @@ class TySimDrawPathMixin:
             ty._path_cache_traversed = pygame.Surface((bbox_w, bbox_h), pygame.SRCALPHA)
             traversed = ty._path_cache_traversed
 
-            smooth_sp = (ty.v.smooth_screen_points
-                         if self.smooth_path else None)
+            smooth_sp = (smooth_map if self.smooth_path else None)
             if cur_idx > 0:
                 if smooth_sp:
                     end_idx = min(cur_idx * segs, len(smooth_sp) - 1)
@@ -593,8 +621,7 @@ class TySimDrawPathMixin:
             ty._path_cache_key = key
             ty._path_cache_blit = (bbox_x, bbox_y)
             ty._path_cache_origin = (bbox_x, bbox_y)
-            ty._path_cache_sp0 = screen_points[0] if screen_points else None
-            ty._path_cache_spL = screen_points[-1] if screen_points else None
+
 
 
         # ── 增量追加：ci 前进时在 traversed 上追加新线段 ──
@@ -604,8 +631,7 @@ class TySimDrawPathMixin:
             line_width = 4 if line_mode else 2
             segs = max(1, self.smooth_path_segments)
             traversed = ty._path_cache_traversed
-            smooth_sp = (ty.v.smooth_screen_points
-                          if self.smooth_path else None)
+            smooth_sp = (smooth_map if self.smooth_path else None)
             if ty._last_rendered_ci >= 0:
                 if smooth_sp:
                     i0 = ty._last_rendered_ci * segs
@@ -656,8 +682,7 @@ class TySimDrawPathMixin:
             segs = max(1, self.smooth_path_segments)
             traversed = ty._path_cache_traversed
             traversed.fill((0, 0, 0, 0))
-            smooth_sp = (ty.v.smooth_screen_points
-                          if self.smooth_path else None)
+            smooth_sp = (smooth_map if self.smooth_path else None)
             if cur_idx > 0:
                 if smooth_sp:
                     end_idx = min(cur_idx * segs, len(smooth_sp) - 1)
@@ -682,8 +707,9 @@ class TySimDrawPathMixin:
                     traversed.blit(marker, (x - bbox_x - offset_x, y - bbox_y - offset_y))
             ty._last_rendered_ci = cur_idx
 
-        blit_pos = getattr(ty, '_path_cache_blit', (0, 0))
-        return ty._path_cache_full, ty._path_cache_traversed, blit_pos
+        bx, by = getattr(ty, '_path_cache_blit', (0, 0))
+        return (ty._path_cache_full, ty._path_cache_traversed,
+                (bx - voff[0], by - voff[1]))
 
     _DRAG_SURF_MAX = 8192   # 拖拽 bbox Surface 单边上限，超出则裁剪到可视区附近
 

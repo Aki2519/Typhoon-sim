@@ -58,6 +58,8 @@ class TyphoonRenderMixin:
         v = self.v
         v.screen_points.clear()
         v.smooth_screen_points.clear()
+        v.map_points.clear()
+        v.smooth_map_points.clear()
         v._smooth_arc_lengths.clear()
         # None = 无锚点: 必须清掉旧锚点, 否则后续纯平移会按旧视图位移 → 路径错位
         v._sp_anchor = anchor
@@ -78,6 +80,13 @@ class TyphoonRenderMixin:
             v.screen_points[:] = normalize_chain(v.screen_points, wrap)
             xs = [p[0] for p in v.screen_points]
             ys = [p[1] for p in v.screen_points]
+        # 地图空间点(视图无关): 路径缓存用它, 平移时只需改 blit 位置
+        mv = self._map_view()
+        geo_to_map = getattr(mv, 'geo_to_map', None) if mv is not None else None
+        if geo_to_map is not None:
+            v.map_points[:] = [geo_to_map(p['lo'], p['la']) for p in self.pts]
+        else:
+            v.map_points[:] = list(v.screen_points)   # 无地图变换: 退化为屏幕空间
         x0, y0 = min(xs), min(ys)
         x1, y1 = max(xs), max(ys)
         v.bbox = pygame.Rect(x0, y0, x1 - x0, y1 - y0)
@@ -95,7 +104,18 @@ class TyphoonRenderMixin:
                 smooth_sc = normalize_chain(smooth_sc, wrap,
                                             anchor=v.screen_points[0][0])
             v.smooth_screen_points = smooth_sc
+            if geo_to_map is not None:
+                v.smooth_map_points[:] = [geo_to_map(lon, lat)
+                                          for lon, lat in smooth_geo]
+            else:
+                v.smooth_map_points[:] = list(smooth_sc)
             v._smooth_arc_lengths = compute_arc_lengths(smooth_sc)
+
+    def _map_view(self):
+        """当前地图视图(MapView); 无地图时返回 None。"""
+        mgr = getattr(self, 'sim', None)
+        mgr = getattr(mgr, 'map_mgr', None) if mgr is not None else None
+        return getattr(mgr, 'map_view', None) if mgr is not None else None
 
     def _map_wrap_px(self) -> float:
         """地图横向环绕周期(屏幕像素); 无地图视图时返回 0 = 跳过归一化。"""

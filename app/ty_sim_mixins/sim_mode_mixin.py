@@ -340,7 +340,8 @@ class SimModeMixin:
             if self._sim_cld_acc >= 0.08:
                 V.cloud_step(self.sim_v4, min(self._sim_cld_acc, 3.5))
                 self._sim_cld_acc = 0.0
-            if self.sim_particles is not None:
+            # 只有风场图层可见时才推进粒子: 原实现无条件 step(实测 63ms/帧)
+            if self.sim_particles is not None and 'wind' in self.sim_layers:
                 self.sim_particles.step(self.sim_v4, min(hpf, 0.5))
             # 图标自旋动画与 SMCY 帧推进(照其它模式 update_rotation)
             mf = getattr(self, 'main_rotation_speed', 1.0)

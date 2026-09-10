@@ -406,6 +406,71 @@ def land_at(sim, lon: float, lat: float) -> float:
     return env_bilinear(sim['land'], lon, lat)
 
 
+def env_bilinear_arr(arr: np.ndarray, lon, lat) -> np.ndarray:
+    """env_bilinear 的数组版(粒子/风羽批量采样), 逐点与标量版等价。"""
+    lon = np.asarray(lon, dtype=np.float64)
+    lat = np.asarray(lat, dtype=np.float64)
+    fx = (lon - C['LON0']) / C['ENVD'] - 0.5
+    fy = (lat - C['LAT0']) / C['ENVD'] - 0.5
+    x0 = np.floor(fx)
+    y0 = np.floor(fy)
+    x1 = np.clip(x0, 0, ENVNX - 2).astype(np.intp)
+    y1 = np.clip(y0, 0, ENVNY - 2).astype(np.intp)
+    tx = np.clip(fx - x0, 0.0, 1.0)
+    ty = np.clip(fy - y0, 0.0, 1.0)
+    a = arr[y1, x1]
+    b = arr[y1, x1 + 1]
+    c = arr[y1 + 1, x1]
+    d = arr[y1 + 1, x1 + 1]
+    return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty
+
+
+def land_at_arr(sim, lon, lat) -> np.ndarray:
+    """land_at 的数组版。"""
+    return env_bilinear_arr(sim['land'], lon, lat)
+
+
+def tangent_v_arr(tc, r: np.ndarray) -> np.ndarray:
+    """tangent_v 的数组版(内核刚体旋转, 外区幂律衰减)。"""
+    R = max(1e-6, float(tc['rmw']))
+    rr = np.maximum(np.asarray(r, dtype=np.float64), 1e-6)
+    out = tc['vmax'] * np.power(rr / R, 0.75)
+    outer = rr > R
+    if outer.any():
+        out = np.where(outer,
+                       tc['vmax'] * np.power(rr / R, -alpha_outer(tc['vmax'])),
+                       out)
+    return out
+
+
+def vortex_wind_arr(tc, lon, lat, level: float):
+    """vortex_wind 的数组版(含入流角与移动不对称), 返回 (u, v)。"""
+    lon = np.asarray(lon, dtype=np.float64)
+    lat = np.asarray(lat, dtype=np.float64)
+    d_lon = (lon - tc['lon']) * 111.32 * np.cos(lat * C['DEG'])
+    d_lat = (lat - tc['lat']) * 110.57
+    r = np.hypot(d_lon, d_lat)
+    V = tangent_v_arr(tc, r)
+    phi = np.arctan2(d_lat, d_lon)
+    inflow = -0.08 if level > 0.5 else 0.32
+    c = math.cos(inflow)
+    s = math.sin(inflow) * (-1.0 if level > 0.5 else 1.0)
+    u_tan = -V * np.sin(phi)
+    v_tan = V * np.cos(phi)
+    u = u_tan * c - v_tan * s
+    v = u_tan * s + v_tan * c
+    sp = math.hypot(tc['mu'], tc['mv'])
+    if sp > 1:
+        f = 0.12 * sp * np.exp(-r / 400.0)
+        u = u + (tc['mu'] / sp) * f
+        v = v + (tc['mv'] / sp) * f
+    near = r < 1.0
+    if near.any():
+        u = np.where(near, 0.0, u)
+        v = np.where(near, 0.0, v)
+    return u, v
+
+
 # ── 模拟状态 ──
 
 def init(opts: Optional[dict] = None) -> dict:
@@ -1221,6 +1286,34 @@ def wind_at(sim, lon: float, lat: float, level: float):
         ux, vy = vortex_wind(tc, lon, lat, level)
         u += ux
         v += vy
+    return u, v
+
+
+def wind_at_arr(sim, lon, lat, level: float):
+    """wind_at 的数组版: 一次采样全部点, 返回 (u, v) 数组。
+
+    粒子(3000 个)原先逐点调用 wind_at 共约 63ms/帧; 这里把环境场做成
+    批量双线性采样, TC 涡旋也按云场同一套向量公式叠加, 逐点与标量版等价。"""
+    env = sim['env']
+    lon = np.asarray(lon, dtype=np.float64)
+    lat = np.asarray(lat, dtype=np.float64)
+    if level > 0.5:
+        u = env_bilinear_arr(env['uMid'], lon, lat)
+        v = env_bilinear_arr(env['vMid'], lon, lat)
+    else:
+        u = env_bilinear_arr(env['u850'], lon, lat)
+        v = env_bilinear_arr(env['v850'], lon, lat)
+    for tc in sim['tcs']:
+        if tc['dead']:
+            continue
+        dx = (tc['lon'] - lon) * 111.32 * np.cos(lat * C['DEG'])
+        dy = (tc['lat'] - lat) * 110.57
+        mask = dx * dx + dy * dy <= 900.0 * 900.0
+        if not mask.any():
+            continue
+        ux, vy = vortex_wind_arr(tc, lon, lat, level)
+        u = u + np.where(mask, ux, 0.0)
+        v = v + np.where(mask, vy, 0.0)
     return u, v
 
 

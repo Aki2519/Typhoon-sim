@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import logging
 import math
 from typing import Callable, Dict, List, Optional
 
@@ -14,6 +15,8 @@ import numpy as np
 import pygame
 
 from . import core as V
+
+logger = logging.getLogger(__name__)
 
 # ── 色标(256 级 RGBA) ──
 
@@ -220,6 +223,24 @@ def render_env_layer(sim, name: str, alpha: int = 210) -> np.ndarray:
     return out
 
 
+def _pressure_extremes(p: np.ndarray, ny: int, nx: int):
+    """高/低压中心索引(向量化)。
+
+    语义与原来 120×360 双重循环一致: 只统计内圈 (1..ny-2, 1..nx-2),
+    格点值比四邻域最小值小 0.4 以上 = 低压中心; 比四邻域最大值大 0.4 以上
+    = 高压中心。返回全局下标 (j_low, i_low, j_high, i_high)。"""
+    inner = p[1:ny - 1, 1:nx - 1]
+    up = p[0:ny - 2, 1:nx - 1]
+    down = p[2:ny, 1:nx - 1]
+    left = p[1:ny - 1, 0:nx - 2]
+    right = p[1:ny - 1, 2:nx]
+    nb_min = np.minimum(np.minimum(left, right), np.minimum(up, down))
+    nb_max = np.maximum(np.maximum(left, right), np.maximum(up, down))
+    lj, li = np.nonzero(inner < nb_min - 0.4)
+    hj, hi = np.nonzero(inner > nb_max + 0.4)
+    return lj + 1, li + 1, hj + 1, hi + 1
+
+
 def draw_contours(surface, sim, fx: Callable, fy: Callable,
                   levels: Optional[List[float]] = None) -> None:
     """气压等值线(marching squares) + 高/低标记。"""
@@ -227,6 +248,12 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
         levels = [976, 980, 984, 988, 992, 996, 1000, 1004, 1008, 1012, 1016, 1020, 1024, 1028]
     p = sim['env']['pTot']
     ny, nx = V.ENVNY, V.ENVNX
+    # 逐格屏幕坐标只算一次: fx 只依赖经度 / fy 只依赖纬度, 原实现每层每格调
+    # 4 次(fx,fy)(14 层 × 数千格 ≈ 数万次 Python 调用, 实测 ~37ms/帧)
+    xs0 = [fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD']) for i in range(nx)]
+    xs1 = [fx(V.C['LON0'] + (i + 1.5) * V.C['ENVD']) for i in range(nx)]
+    ys0 = [fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD']) for j in range(ny)]
+    ys1 = [fy(V.C['LAT0'] + (j + 1.5) * V.C['ENVD']) for j in range(ny)]
     segs = []
     for level in levels:
         v00 = p[:-1, :-1]
@@ -239,12 +266,8 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
         jj, ii = np.where(mask)
         for j, i in zip(jj, ii):
             a00, a10, a01, a11 = v00[j, i], v10[j, i], v01[j, i], v11[j, i]
-            lon0 = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
-            lon1 = V.C['LON0'] + (i + 1.5) * V.C['ENVD']
-            lat0 = V.C['LAT0'] + (j + 0.5) * V.C['ENVD']
-            lat1 = V.C['LAT0'] + (j + 1.5) * V.C['ENVD']
-            x0, y0 = fx(lon0), fy(lat0)
-            x1, y1 = fx(lon1), fy(lat1)
+            x0, y0 = xs0[i], ys0[j]
+            x1, y1 = xs1[i], ys1[j]
             pts = []
             if (a00 <= level) != (a10 <= level):
                 t = (level - a00) / (a10 - a00 + 1e-9)
@@ -262,18 +285,21 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
                 segs.append(pts)
     if segs:
         for p0, p1 in segs:
-            pygame.draw.line(surface, (200, 205, 215), p0, p1, 1)
-    # 高/低标记
-    for j in range(1, ny - 1):
-        for i in range(1, nx - 1):
-            v = p[j, i]
-            nb = [p[j, i - 1], p[j, i + 1], p[j - 1, i], p[j + 1, i]]
-            if v < min(nb) - 0.4:
-                x, y = fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD']), fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'])
-                surface.blit(_label('低', (120, 200, 255)), (int(x), int(y)))
-            elif v > max(nb) + 0.4:
-                x, y = fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD']), fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'])
-                surface.blit(_label('高', (255, 150, 80)), (int(x), int(y)))
+            # 坐标必须转成 Python float: pygame.draw.line 拒绝 np.float32
+            # (实测 TypeError), 而本函数被上层宽 except 包着 → 整个气压层静默消失
+            pygame.draw.line(surface, (200, 205, 215),
+                             (float(p0[0]), float(p0[1])),
+                             (float(p1[0]), float(p1[1])), 1)
+    # 高/低标记(向量化: 原 120×360 双层 Python 循环实测 0.13s/帧)
+    lj, li, hj, hi = _pressure_extremes(p, ny, nx)
+    for j, i in zip(lj, li):
+        x = fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD'])
+        y = fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'])
+        surface.blit(_label('低', (120, 200, 255)), (int(x), int(y)))
+    for j, i in zip(hj, hi):
+        x = fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD'])
+        y = fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'])
+        surface.blit(_label('高', (255, 150, 80)), (int(x), int(y)))
 
 
 _label_cache: dict = {}
@@ -357,23 +383,28 @@ class Particles:
         self.v = np.zeros(n)
 
     def step(self, sim, dt_h: float) -> None:
-        for k in range(self.n):
-            u, v = V.wind_at(sim, self.lon[k], self.lat[k], 0)
-            self.ol[k] = self.lon[k]
-            self.oa[k] = self.lat[k]
-            self.u[k] = u
-            self.v[k] = v
-            self.lon[k] += u * 3.6 * dt_h / (111.32 * math.cos(self.lat[k] * V.C['DEG']))
-            self.lat[k] += v * 3.6 * dt_h / 110.57
-            if (self.lon[k] < V.C['LON0'] + 0.5 or self.lon[k] > V.C['LON1'] - 0.5
-                    or self.lat[k] < V.C['LAT0'] + 0.5 or self.lat[k] > V.C['LAT1'] - 0.5
-                    or V.land_at(sim, self.lon[k], self.lat[k]) > 0.4):
-                self.lon[k] = V.C['LON0'] + np.random.random() * (V.C['LON1'] - V.C['LON0'])
-                self.lat[k] = V.C['LAT0'] + np.random.random() * (V.C['LAT1'] - V.C['LAT0'])
-                self.ol[k] = self.lon[k]
-                self.oa[k] = self.lat[k]
-                self.u[k] = 0.0
-                self.v[k] = 0.0
+        """向量化推进: 整批采样风场(原实现 3000 次 Python 调用 ≈63ms/帧)。"""
+        u, v = V.wind_at_arr(sim, self.lon, self.lat, 0.0)
+        self.ol[:] = self.lon
+        self.oa[:] = self.lat
+        self.u[:] = u
+        self.v[:] = v
+        coslat = np.maximum(np.cos(self.lat * V.C['DEG']), 1e-6)
+        self.lon += u * 3.6 * dt_h / (111.32 * coslat)
+        self.lat += v * 3.6 * dt_h / 110.57
+        bad = ((self.lon < V.C['LON0'] + 0.5) | (self.lon > V.C['LON1'] - 0.5)
+               | (self.lat < V.C['LAT0'] + 0.5) | (self.lat > V.C['LAT1'] - 0.5)
+               | (V.land_at_arr(sim, self.lon, self.lat) > 0.4))
+        n_bad = int(np.count_nonzero(bad))
+        if n_bad:
+            self.lon[bad] = (V.C['LON0'] + np.random.random(n_bad)
+                             * (V.C['LON1'] - V.C['LON0']))
+            self.lat[bad] = (V.C['LAT0'] + np.random.random(n_bad)
+                             * (V.C['LAT1'] - V.C['LAT0']))
+            self.ol[bad] = self.lon[bad]
+            self.oa[bad] = self.lat[bad]
+            self.u[bad] = 0.0
+            self.v[bad] = 0.0
 
     def draw(self, surface, fx: Callable, fy: Callable) -> None:
         for k in range(self.n):
@@ -574,7 +605,7 @@ def draw_ridge(surface, sim, fx: Callable, fy: Callable) -> None:
         surface.blit(_label('副高 588', (255, 170, 80)),
                      (int(fx(120)), int(fy(33))))
     except Exception:
-        pass
+        logger.debug('simcore 图层绘制失败', exc_info=True)
 
 
 def draw_grid(surface, fx: Callable, fy: Callable) -> None:
@@ -619,13 +650,13 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
         try:
             draw_contours(surface, sim, fx, fy)
         except Exception:
-            pass
+            logger.debug('simcore 图层绘制失败', exc_info=True)
     # 副高 5880 线(近似: pEnv 等值线 + 内部橙色填充)
     if 'ridge' in layers:
         try:
             draw_ridge(surface, sim, fx, fy)
         except Exception:
-            pass
+            logger.debug('simcore 图层绘制失败', exc_info=True)
     # 风场
     if 'wind' in layers:
         if particles is not None:
@@ -634,7 +665,7 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
             if sim.get('_show_barbs', True):
                 draw_barbs(surface, sim, fx, fy)
         except Exception:
-            pass
+            logger.debug('simcore 图层绘制失败', exc_info=True)
     # 路径 + 预报(误差圈模式, 样式可选 JMA/JTWC)
     # 注意: 台风路径本体由模拟模式 mixin 用其它模式的点阵/渐变线管线绘制,
     # 此处仅画预报误差圈
@@ -644,7 +675,7 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
                 draw_forecast(surface, sim, sel_tc, fx, fy,
                               style=sim.get('_fcst_style', 'JTWC'))
         except Exception:
-            pass
+            logger.debug('simcore 图层绘制失败', exc_info=True)
     try:
         draw_tc_hud(surface, sim, sel_tc['id'] if sel_tc else None, fx, fy,
                     icon_fn,
@@ -652,7 +683,7 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
                     show_rings=bool(sim.get('_show_rings', True)),
                     show_labels=bool(sim.get('_show_labels', True)))
     except Exception:
-        pass
+        logger.debug('simcore 图层绘制失败', exc_info=True)
 
 
 def _blit_layer(surface, rgba: np.ndarray, fx: Callable, fy: Callable,

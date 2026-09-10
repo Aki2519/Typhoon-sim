@@ -15,6 +15,9 @@ _TRACK_SMOOTH_K = 0.08
 # 单台风跟随: 目标始终为台风当前位置; 全部跟随: 所有活跃台风位置 bbox 中心
 # 视差死区(px): 目标与视中心偏差小于该值时不再平移(避免台风静止/镜头到位后每帧无谓重投影)
 _TRACK_PAN_DEADZONE = 0.25
+# 单帧实际位移小于该值(px)视为"没动": 目标在被地图边界钳制的那条轴上时,
+# dx*k 会无限趋近 0, 若仍标记视图脏就会永远每帧重投影
+_TRACK_PAN_MIN_STEP = 0.01
 
 
 def _circular_lon_center(lons: list) -> float:
@@ -183,7 +186,7 @@ class TySimTrackMixin:
         # 正常接近目标仍走上面的死区判定, 不会提前停住
         adx = (mv.view_x - old_vx + mv.img_w / 2.0) % mv.img_w - mv.img_w / 2.0
         ady = mv.view_y - old_vy
-        if abs(adx) < 1e-9 and abs(ady) < 1e-9:
+        if abs(adx) < _TRACK_PAN_MIN_STEP and abs(ady) < _TRACK_PAN_MIN_STEP:
             mv.view_x, mv.view_y = old_vx, old_vy
             return
         self._view_dirty = True

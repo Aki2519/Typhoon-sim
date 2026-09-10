@@ -48,6 +48,13 @@ class MapView:
     def _src_y(self, view_h):
         return max(0.0, min(self.view_y, self.img_h - view_h))
 
+    def wrap_px(self) -> int:
+        """地图横向环绕周期(屏幕像素)。
+
+        环绕阈值、屏幕点归一化、洋区/路径跨缝处理都必须用这一个来源,
+        否则各处取整相位不一致会表现为路径与底图错位或伪长线。"""
+        return max(1, int(self.img_w * self.scale))
+
     def geo_to_screen(self, lon, lat):
         px = (lon - self.lon_min) * self._scale_x
         py = (self.lat_max - lat) * self._scale_y
@@ -61,7 +68,7 @@ class MapView:
         y = int(py * self.scale) - vy + oy
         # 环绕: 距屏幕中心超过半个图宽则按图宽像素翻面(取离屏幕中心最近的副本)。
         # 阈值必须是半宽: 用整宽时跨 0°/360° 缝的点会停在翻面错误的一侧, 表现为路径点消失。
-        wrap = max(1, int(self.img_w * self.scale))
+        wrap = self.wrap_px()
         half = wrap / 2.0
         if x > self.screen_width / 2.0 + half:
             x -= wrap

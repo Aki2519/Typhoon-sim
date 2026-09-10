@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pygame
 from typing import TYPE_CHECKING
+from .render_geom import normalize_chain
 from .spline import build_spline, compute_arc_lengths
 
 if TYPE_CHECKING:
@@ -30,7 +31,16 @@ def _get_geo_spline(ty, segs: int, mode: str) -> list:
             _geo_spline_cache.pop(next(iter(_geo_spline_cache)))
     spl = c.get((segs, mode))
     if spl is None:
-        geo_pts = [(p['lo'], p['la']) for p in ty.pts]
+        # 经度先解包到连续轴: 否则跨 0°/360° 的报点会让样条沿"长的那一边"
+        # 绕地球一圈——平滑路径画反, 台风也会沿错误曲线跨全图瞬移
+        geo_pts = []
+        prev_lo = None
+        for p in ty.pts:
+            lo, la = float(p['lo']), float(p['la'])
+            if prev_lo is not None:
+                lo = prev_lo + ((lo - prev_lo + 180.0) % 360.0) - 180.0
+            geo_pts.append((lo, la))
+            prev_lo = lo
         spl = build_spline(geo_pts, segs, mode)
         c[(segs, mode)] = spl
     return spl
@@ -60,6 +70,14 @@ class TyphoonRenderMixin:
             v.screen_points.append((x, y))
             xs.append(x)
             ys.append(y)
+        # 环绕归一化(唯一真相): 相邻报点统一到同一地图副本。不做这一步时,
+        # 跨 0°/360° 缝的相邻点会落在两个副本上, 路径面会画出横跨全屏的伪线,
+        # 平滑样条弧长也会被算成整整一个周期(台风"瞬移")。
+        wrap = self._map_wrap_px()
+        if wrap > 0 and len(v.screen_points) >= 2:
+            v.screen_points[:] = normalize_chain(v.screen_points, wrap)
+            xs = [p[0] for p in v.screen_points]
+            ys = [p[1] for p in v.screen_points]
         x0, y0 = min(xs), min(ys)
         x1, y1 = max(xs), max(ys)
         v.bbox = pygame.Rect(x0, y0, x1 - x0, y1 - y0)
@@ -72,8 +90,24 @@ class TyphoonRenderMixin:
             smooth_geo = _get_geo_spline(self, segs, mode)
             f = latlon_to_screen_func
             smooth_sc = [f(lat, lon) for lon, lat in smooth_geo]
+            if wrap > 0 and len(smooth_sc) >= 2:
+                # 与报点链对齐(同一副本), 否则平滑线与报点线会差一个周期
+                smooth_sc = normalize_chain(smooth_sc, wrap,
+                                            anchor=v.screen_points[0][0])
             v.smooth_screen_points = smooth_sc
             v._smooth_arc_lengths = compute_arc_lengths(smooth_sc)
+
+    def _map_wrap_px(self) -> float:
+        """地图横向环绕周期(屏幕像素); 无地图视图时返回 0 = 跳过归一化。"""
+        mgr = getattr(self, 'sim', None)
+        mgr = getattr(mgr, 'map_mgr', None) if mgr is not None else None
+        mv = getattr(mgr, 'map_view', None) if mgr is not None else None
+        if mv is None:
+            return 0.0
+        try:
+            return float(mv.wrap_px())
+        except Exception:
+            return 0.0
 
     def _get_rotated(self, key_prefix: str, img: pygame.Surface, angle: float,
                      mirror: bool, tint=None) -> pygame.Surface:

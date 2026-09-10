@@ -329,7 +329,7 @@ class TySimDrawPathMixin:
             return False
         # 环绕重归一化: 防止跨 0°/360° 缝时点停在翻面错误的一侧
         # (阈值取半宽: 用整宽时跨缝点会停在翻面错误的一侧)
-        wrap = max(1, int(mv.img_w * mv.scale))
+        wrap = mv.wrap_px()
         sw2 = self.screen_width / 2.0
         half = wrap / 2.0
         wrapped = False

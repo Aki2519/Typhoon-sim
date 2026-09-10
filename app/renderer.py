@@ -10,6 +10,7 @@ from .constants import (
     FPS_GREEN, FPS_YELLOW, FPS_RED, ERROR_TIMEOUT_MS,
     TD, TS, STS, C1, C2, C3, C4, C5_L,
 )
+from .render_geom import clip_segment, normalize_chain
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
@@ -93,40 +94,32 @@ class Renderer:
                 verts = getattr(area, 'vertices', None) or []
                 if len(verts) < 3:
                     continue
-                # 生成“解包后”的边界顶点（环面最短展开，跨缝连续）
-                unwrapped = []
-                prev_lo = None
-                ok = True
-                for v in verts:
-                    la, lo = v[0], v[1]
-                    if prev_lo is None:
-                        unwrapped.append((la, lo))
-                    else:
-                        dlon = ((lo - prev_lo + 180.0) % 360.0) - 180.0
-                        if abs(la - unwrapped[-1][0]) > 90.0:
-                            ok = False
-                            break
-                        unwrapped.append((la, prev_lo + dlon))
-                    prev_lo = unwrapped[-1][1]
-                if not ok or not unwrapped:
+                # 归一化顶点(单一代数): 相邻顶点统一到同一地图副本, 跨 0°/360°
+                # 缝不再横穿屏幕; 绘制走 render_geom 的裁剪, 屏幕外部分自动截断
+                try:
+                    pts = [(int(x), int(y))
+                           for x, y in (sim.latlon_to_screen(v[0], v[1])
+                                        for v in verts)]
+                except Exception:
                     continue
-                # 投影所有解包顶点（经度可能超出 0..360，直映可正常取模）
-                pts = []
-                for la, lo in unwrapped:
+                wrap = 0.0
+                mv = getattr(getattr(sim, 'map_mgr', None), 'map_view', None)
+                if mv is not None:
                     try:
-                        x, y = sim.latlon_to_screen(la, lo)
-                        pts.append((int(x), int(y)))
+                        wrap = float(mv.wrap_px())
                     except Exception:
-                        pts.append(None)
+                        wrap = 0.0
+                if wrap > 0 and len(pts) >= 2:
+                    pts = [(int(x), int(y)) for x, y in normalize_chain(pts, wrap)]
                 n = len(pts)
-                # 边界: 逐段画线, 跳过解包后仍跨屏跳动的片段(正常不应出现)
                 for i in range(n):
                     p0, p1 = pts[i], pts[(i + 1) % n]
-                    if p0 is None or p1 is None:
+                    seg = clip_segment(p0, p1, sw, sh)
+                    if seg is None:
                         continue
-                    if abs(p1[0] - p0[0]) > sw * 0.7 or abs(p1[1] - p0[1]) > sh:
-                        continue
-                    pygame.draw.line(surface, blue, p0, p1, 2)
+                    pygame.draw.line(surface, blue,
+                                     (int(seg[0][0]), int(seg[0][1])),
+                                     (int(seg[1][0]), int(seg[1][1])), 2)
                 # 薄区域填充: 非相邻边界距离 ≤ √2·0.1°(≈0.1414°) → 蓝色实心
                 try:
                     import math as _math

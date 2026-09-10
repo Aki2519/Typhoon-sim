@@ -26,6 +26,7 @@ import pygame
 
 from .constants import (SUCAI_DIR, AREA_OCEAN_FILE, f_s, f_m, rt, TXT,
                         SETTINGS_TEXT_LIGHT)
+from .render_geom import clip_segment, normalize_chain
 
 logger = logging.getLogger(__name__)
 
@@ -211,10 +212,25 @@ class OceanEditMode:
 
     # ── 顶点/面积操作 ──
 
+    def _map_wrap_px(self) -> float:
+        """地图横向环绕周期(屏幕像素); 取不到时返回 0(跳过归一化)。"""
+        mv = getattr(getattr(self.sim, 'map_mgr', None), 'map_view', None)
+        if mv is None:
+            return 0.0
+        try:
+            return float(mv.wrap_px())
+        except Exception:
+            return 0.0
+
     def _area_vertex_screen_pts(self, area) -> List[Optional[Tuple[int, int]]]:
-        pts = []
-        for la, lo in area.vertices:
-            pts.append(self._geo_to_screen(la, lo))
+        """顶点屏幕坐标(已环绕归一化)。
+
+        绘制与命中测试共用这一份坐标: 否则跨 0° 的洋区会出现"顶点画在一侧、
+        点击判定在另一侧"的错位。"""
+        pts = [self._geo_to_screen(la, lo) for la, lo in area.vertices]
+        wrap = self._map_wrap_px()
+        if wrap > 0 and len(pts) >= 2:
+            pts = [(int(x), int(y)) for x, y in normalize_chain(pts, wrap)]
         return pts
 
     def _hit_vertex(self, area, mx: int, my: int) -> int:
@@ -513,37 +529,19 @@ class OceanEditMode:
                 continue
             selected = (area is self.selected_area)
             color = (90, 160, 90) if selected else (80, 140, 220)
-            # 环面最短展开边界点(跨 0°/180° 连续), 再投影避免横穿屏幕
-            unwrapped = []
-            prev_lo = None
-            ok = True
-            for v in area.vertices:
-                la, lo = float(v[0]), float(v[1])
-                if prev_lo is None:
-                    unwrapped.append((la, lo))
-                else:
-                    dlon = ((lo - prev_lo + 180.0) % 360.0) - 180.0
-                    # 原来误用纬度差做跳变阈值(纬度跨度 >90° 的洋区会被整条跳过);
-                    # 跨屏边的过滤已由下方屏幕坐标守卫(> sw*0.7)处理
-                    unwrapped.append((la, prev_lo + dlon))
-                prev_lo = unwrapped[-1][1]
-            if not ok or not unwrapped:
-                continue
-            pts = []
-            for la, lo in unwrapped:
-                try:
-                    x, y = sim.latlon_to_screen(la, lo)
-                    pts.append((int(x), int(y)))
-                except Exception:
-                    pts.append(None)
+            # 顶点已环绕归一化(与命中测试同源); 逐段裁剪到视口:
+            # 跨缝边不再整段丢弃(旧行为会漏画), 也不会横穿屏幕
+            pts = self._area_vertex_screen_pts(area)
             n = len(pts)
             for i in range(n):
                 p0, p1 = pts[i], pts[(i + 1) % n]
-                if p0 is None or p1 is None:
+                seg = clip_segment(p0, p1, sw, sh)
+                if seg is None:
                     continue
-                if abs(p1[0] - p0[0]) > sw * 0.7 or abs(p1[1] - p0[1]) > sh:
-                    continue
-                pygame.draw.line(surface, color, p0, p1, 3 if selected else 2)
+                pygame.draw.line(surface, color,
+                                 (int(seg[0][0]), int(seg[0][1])),
+                                 (int(seg[1][0]), int(seg[1][1])),
+                                 3 if selected else 2)
             # 顶点圆点
             for i, p in enumerate(pts):
                 if p is None:

@@ -2,6 +2,7 @@
 """统一渲染器：组合所有绘制逻辑。"""
 from __future__ import annotations
 
+import math
 import time
 from typing import Tuple, TYPE_CHECKING
 
@@ -13,6 +14,7 @@ from .constants import (
     TD, TS, STS, C1, C2, C3, C4, C5_L,
 )
 from .render_geom import clip_segment, normalize_chain
+from .track_quality import (CURVE_DEV_LIMIT_KM, deviation_report, track_quality)
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
@@ -58,6 +60,7 @@ class Renderer:
     def __init__(self, sim: TySim) -> None:
         self.sim = sim
         self._fps_cache: dict = {}
+        self._stats_cache: dict = {}
 
     def draw(self, surface: pygame.Surface) -> None:
         sim = self.sim
@@ -70,6 +73,8 @@ class Renderer:
 
             if getattr(sim.cfg, 'show_fps', False):
                 self._draw_fps(surface)
+            if getattr(sim.cfg, 'show_track_stats', False):
+                self._draw_track_stats(surface)
 
             self._draw_toasts(surface)
             if getattr(sim.cfg, 'show_coord_hud', True):
@@ -401,3 +406,70 @@ class Renderer:
             self._fps_cache[key] = fps_surf
         x = self.sim.screen_width - fps_surf.get_width() - 8
         surface.blit(fps_surf, (x, 8))
+
+    def _draw_track_stats(self, surface: pygame.Surface) -> None:
+        """路径质量面板: 段移速/跳变、平滑曲线偏离、当前移向与移速。"""
+        sim = self.sim
+        try:
+            ty = sim.current_typhoon()
+        except Exception:
+            ty = None
+        q = track_quality(ty)
+        dev = deviation_report(ty)
+        mv = None
+        if ty is not None:
+            try:
+                mv = ty.motion_vector()
+            except Exception:
+                mv = None
+        key = (
+            None if q is None else (q['status'], int(q['max_kmh']), q['worst_index'],
+                                    q['over_limit']),
+            None if dev is None else (int(dev['last_km']), int(dev['max_km']),
+                                      dev['clamped']),
+            None if mv is None else (int(math.hypot(*mv)),
+                                     int((math.degrees(math.atan2(mv[0], mv[1]))
+                                          + 360.0) % 360.0) // 5),
+        )
+        surf = self._stats_cache.get(key)
+        if surf is None:
+            rows = []
+            if q is None:
+                rows.append(("路径质量: 无活动台风", FPS_YELLOW))
+            else:
+                rows.append((f"路径 {q['status']}  段移速 峰 {q['max_kmh']:.1f}"
+                             f" / 均 {q['mean_kmh']:.1f} km/h",
+                             FPS_RED if q['status'] == 'review' else FPS_GREEN))
+                rows.append((f"  超 {q['limit_kmh']:.0f} km/h: {q['over_limit']} 段"
+                             f"   最差 #{q['worst_index']} / {q['segments']} 段",
+                             FPS_RED if q['over_limit'] else FPS_GREEN))
+            if dev is not None:
+                rows.append((f"曲线偏离 现 {dev['last_km']:.1f} / 峰 {dev['max_km']:.1f} km"
+                             f"  限 {CURVE_DEV_LIMIT_KM:.0f}",
+                             FPS_RED if dev['max_km'] > CURVE_DEV_LIMIT_KM else FPS_GREEN))
+                if dev['clamped']:
+                    rows.append((f"  超限拉回 {dev['clamped']} 帧", FPS_RED))
+            if mv is not None:
+                spd = math.hypot(*mv)
+                brg = (math.degrees(math.atan2(mv[0], mv[1])) + 360.0) % 360.0
+                rows.append((f"移速 {spd:.1f} km/h  移向 {brg:.0f}°", FPS_GREEN))
+            surf = self._render_stats_panel(rows)
+            if len(self._stats_cache) > 24:
+                self._stats_cache.clear()
+            self._stats_cache[key] = surf
+        surface.blit(surf, (8, 8))
+
+    @staticmethod
+    def _render_stats_panel(rows) -> pygame.Surface:
+        surfs = [rt(f_s, text, color) for text, color in rows]
+        w = max(s.get_width() for s in surfs) + 16
+        h = sum(s.get_height() for s in surfs) + 12
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 150))
+        pygame.draw.rect(panel, (150, 170, 200, 120), panel.get_rect(), 1,
+                         border_radius=4)
+        y = 6
+        for s in surfs:
+            panel.blit(s, (8, y))
+            y += s.get_height()
+        return panel

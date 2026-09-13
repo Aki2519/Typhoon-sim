@@ -16,6 +16,7 @@ from ..constants import (
 )
 from ..landfall_effect import landfall_marker_name
 from ..spline import compute_arc_lengths
+from ..track_quality import km_per_deg_lon
 
 # ── 登陆点标记 png（按尺寸缓存） ──
 
@@ -1017,6 +1018,10 @@ class TySimDrawPathMixin:
                     highlight_r = radius + int(2 * point_radius_factor)
                     self._blit_highlight(surface, x, y, radius, highlight_r, point_color, self._drag_offset_x, self._drag_offset_y)
 
+        # ── 当前点运动矢量箭头（只画高亮台风，用于判断移向/移速）──
+        if highlight and not ty.sf and live_xy and live_pos:
+            self._draw_motion_vector(surface, ty, live_xy, live_pos, path_alpha)
+
         # ── 编辑模式拖动指示：红色圆环 + 实时坐标 ──
         if (highlight and self.md == self.MODE_EDIT and self.dragging_point
                 and ty is self.drag_typhoon
@@ -1025,6 +1030,50 @@ class TySimDrawPathMixin:
         elif (highlight and self.md == self.MODE_EDIT and not self.right_button_dragging):
             # A1/B7: 选中点高亮 + 悬停提示 + 点标签
             self._draw_edit_selection(surface, ty, screen_points)
+
+    def _draw_motion_vector(self, surface, ty, cur_xy, cur_lalo, path_alpha: int) -> None:
+        """当前点运动矢量箭头。
+
+        方向: 把"沿当前移向 1 小时后的地理位置"用真实投影投到屏幕再取屏幕差 ——
+              缩放/平移/经度缠绕都不必单独处理。
+        长度: 随移速增长但饱和(参考模型 min(13, 2.5+spd*.38) 的做法),
+              快速台风不会画出一根长箭。
+        """
+        if not getattr(self.cfg, 'show_motion_vector', True) or path_alpha < 128:
+            return
+        try:
+            mv = ty.motion_vector()
+        except Exception:
+            mv = None
+        if not mv:
+            return
+        u, v = mv
+        spd = math.hypot(u, v)
+        if spd < 4.0:
+            return
+        la, lo = cur_lalo['la'], cur_lalo['lo']
+        la2 = max(-89.0, min(89.0, la + v / 110.57))
+        lo2 = lo + u / km_per_deg_lon(la)
+        x2, y2 = self.latlon_to_screen(la2, lo2)
+        dx, dy = x2 - cur_xy[0], y2 - cur_xy[1]
+        norm = math.hypot(dx, dy)
+        if norm < 1e-6:
+            return
+        if abs(dx) > self.screen_width * 0.5:
+            return          # 跨 0 度经线: 投影会把箭头指到屏幕另一端, 本帧不画
+        length = min(58.0, 16.0 + spd * 0.45)
+        ex = cur_xy[0] + dx / norm * length
+        ey = cur_xy[1] + dy / norm * length
+        # 深色描边 + 本色填充: 亮底图/暗底图都能看清
+        for color, width in (((0, 0, 0), 4), (CUR_POS, 2)):
+            pygame.draw.line(surface, color, cur_xy, (ex, ey), width)
+        ang = math.atan2(dy, dx)
+        head = 7.0
+        tip = (ex, ey)
+        left = (ex - head * math.cos(ang - 0.5), ey - head * math.sin(ang - 0.5))
+        right = (ex - head * math.cos(ang + 0.5), ey - head * math.sin(ang + 0.5))
+        pygame.draw.polygon(surface, (0, 0, 0), [tip, left, right], 3)
+        pygame.draw.polygon(surface, CUR_POS, [tip, left, right])
 
     def _draw_live_segment(self, surface, ty, screen_points, path_alpha, live_xy):
         """已走路径的实时延伸段：从 pts[ci]（或样条中间点）画到台风当前插值位置。"""

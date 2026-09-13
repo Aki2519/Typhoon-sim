@@ -4,14 +4,25 @@ from __future__ import annotations
 
 import datetime
 import bisect
+import math
 from typing import List, Optional, Dict, TYPE_CHECKING
 
 import pygame
 
 from .spline import position_at_arc
+from .track_quality import (CURVE_DEV_LIMIT_KM, km_between, km_per_deg_lon,
+                            wrap_dlon)
 
 # 单帧时间跳变上限(ms): 卡顿/失焦期间不瞬移, 逐帧小步追进以保留逐点/登陆检测
 _MAX_FRAME_ADVANCE_MS = 66
+
+# 平滑曲线回放相对"报点直线插值"的最大允许偏离(km), 见 track_quality
+_MAX_CURVE_DEV_KM = CURVE_DEV_LIMIT_KM
+# 运动矢量采样: 至少间隔 0.5 模拟小时, 最多 12 个, 取跨度 >= 2h 的一段
+_MOTION_SAMPLE_STEP_H = 0.5
+_MOTION_SAMPLE_MAX = 12
+_MOTION_MIN_SPAN_H = 2.0
+_MOTION_MAX_KMH = 150.0
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
@@ -87,10 +98,12 @@ class TyphoonSimMixin:
             if use_smooth:
                 progress = self._smooth_progress(t)
                 self._move_on_curve(ipos, progress)
+                self._limit_curve_deviation(ipos, t)
             else:
                 cp, np = self.pts[self.ci], self.pts[self.ci + 1]
                 ipos['la'] = cp['la'] + (np['la'] - cp['la']) * t
                 ipos['lo'] = cp['lo'] + (np['lo'] - cp['lo']) * t
+            self._record_motion_sample()
             return False
 
         self.ci += 1
@@ -156,6 +169,66 @@ class TyphoonSimMixin:
         i0 = ci * segs
         i1 = min((ci + 1) * segs, len(arcs) - 1)
         return arcs[i1] - arcs[i0] if i1 > i0 else 1.0
+
+    def _limit_curve_deviation(self, ipos: Dict[str, float], t: float) -> None:
+        """平滑曲线位置相对报点直线插值的偏离做上限约束并记账。
+
+        样条是为了视觉平滑, 但它不该把台风带离官方报点连线 —— 登陆判定、
+        坐标读数、统计都跟随 ipos。超过 _MAX_CURVE_DEV_KM 时按比例拉回,
+        并记录当前/峰值偏离与拉回次数, 供路径质量面板查看。
+        """
+        cp, np = self.pts[self.ci], self.pts[self.ci + 1]
+        lin_la = cp['la'] + (np['la'] - cp['la']) * t
+        # 参考量必须是"跨缝走短路"的线性插值: 否则 350° -> 0° 这种跨 0 度经线的
+        # 报点对会被当成 350 度的长路, 偏离约束反过来把台风拖到地图另一边。
+        lin_lo = cp['lo'] + wrap_dlon(cp['lo'], np['lo']) * t
+        v = self.v
+        dev = km_between(ipos['la'], ipos['lo'], lin_la, lin_lo)
+        v._dev_last_km = dev
+        if dev > v._dev_max_km:
+            v._dev_max_km = dev
+        if dev > _MAX_CURVE_DEV_KM:
+            k = _MAX_CURVE_DEV_KM / dev
+            ipos['la'] = lin_la + (ipos['la'] - lin_la) * k
+            ipos['lo'] = lin_lo + (ipos['lo'] - lin_lo) * k
+            v._dev_clamped += 1
+
+    def _record_motion_sample(self) -> None:
+        """按模拟时间稀疏记录位置, 供 motion_vector() 估计当前移向/移速。"""
+        ipos = self.v.ipos
+        if not ipos:
+            return
+        s = self.v._motion_samples
+        if s and (self.at - s[-1][0]) < _MOTION_SAMPLE_STEP_H:
+            return
+        s.append((self.at, ipos['la'], ipos['lo']))
+        if len(s) > _MOTION_SAMPLE_MAX:
+            del s[0:len(s) - _MOTION_SAMPLE_MAX]
+
+    def motion_vector(self) -> Optional[tuple]:
+        """当前移向/移速 (u 向东 km/h, v 向北 km/h); 历史不足时返回 None。
+
+        取跨度 >= _MOTION_MIN_SPAN_H 小时的一段做平均, 所以换向是渐变的,
+        不会像"最后两点"那样在拐点处突跳。
+        """
+        s = self.v._motion_samples
+        if len(s) < 2:
+            return None
+        t1, la1, lo1 = s[-1]
+        t0, la0, lo0 = s[0]
+        if t1 - t0 < _MOTION_MIN_SPAN_H:
+            return None
+        dt_h = t1 - t0
+        dlat_km = (la1 - la0) * 110.57
+        dlon_deg = (lo1 - lo0 + 180.0) % 360.0 - 180.0
+        dlon_km = dlon_deg * km_per_deg_lon((la0 + la1) * 0.5)
+        u = dlon_km / dt_h
+        v = dlat_km / dt_h
+        spd = math.hypot(u, v)
+        if spd > _MOTION_MAX_KMH:      # 重定位/跳变时不上报离谱移速
+            k = _MOTION_MAX_KMH / spd
+            u, v = u * k, v * k
+        return u, v
 
     def current_position(self) -> Optional[Dict[str, float]]:
         if self.v.ipos:

@@ -250,6 +250,22 @@ def mpi(sst: float, ohc_d26: float, outflow: float, lat: float) -> float:
 # env_update 直接调用它做矢量建场, 点采样/测试同走此函数(避免双份拷贝漂移)。
 # 切变/湿度等仅存在于 env_update 分支, 未在此保留并行副本。
 
+_sst_clim_cache: dict = {}
+
+
+def sst_clim_cached(lat, lon, month):
+    """sst_clim 的月缓存: 只依赖 (网格, month), 而 month 每 30.4 模拟天才变一次,
+    但 env_update 每 2 模拟小时就调一次(实测 11ms/次)。"""
+    key = (id(lat), id(lon), int(month))
+    v = _sst_clim_cache.get(key)
+    if v is None:
+        v = sst_clim(lat, lon, month)
+        if len(_sst_clim_cache) > 4:
+            _sst_clim_cache.clear()
+        _sst_clim_cache[key] = v
+    return v
+
+
 def sst_clim(lat, lon, month):
     """全球海温气候(°C): 纬度基础 + 东太冷舌/暖池/寒流调制 + 半球季节。
     lat/lon 可为标量或 numpy 数组(逐元素); month: 1-12。"""
@@ -585,6 +601,8 @@ def _env_grids():
 
 
 def env_update(sim) -> None:
+    # 环境场版本号: SST/OHC/湿度/气压等一次性重建, 渲染图层据此复用已缩放表面
+    sim['_envVer'] = sim.get('_envVer', 0) + 1
     env = sim['env']
     P = sim['params']
     LAT, LON = _env_grids()
@@ -613,7 +631,7 @@ def env_update(sim) -> None:
                       - sim['wake'].reshape(NY, NX)).astype(np.float32)
     else:
         # 海温(全球, 解析)—— 唯一公式源 sst_clim, 此处矢量应用到网格(避免双份漂移)
-        sst = sst_clim(LAT, LON, month)
+        sst = sst_clim_cached(LAT, LON, month)
         env['sst'] = (sst + P['sstAnom']
                       # 0.25: 解析平滑场所需的天气尺度纹理扰动(数据模式用 0.06)
                       + 0.25 * np.sin(t / 8 + LON * 0.35) * np.exp(-a / 12)
@@ -816,42 +834,87 @@ def sample_env(sim, lon: float, lat: float) -> dict:
             'land': clamp(lf, 0, 1), 'lat': lat}
 
 
-def steering_at(sim, lon: float, lat: float):
-    """距中心 300-600km 环带上的深层平均环境风(850/200 加权, kt)。"""
-    su = sv = w = 0.0
+#: 引导采样环带(km)与权重: 近环主导, 外环只做平滑
+_STEER_RINGS = ((200.0, 1.00), (400.0, 0.80), (600.0, 0.58))
+#: 每个环带的方位采样数(8 = 45 度间隔)
+_STEER_AZIMUTHS = 8
+#: 24 个采样点相对台风中心的偏移(经度偏移需再除以 cos(lat)), 预计算避免每步三角函数
+_STEER_OFF_LON = np.array([r * math.cos(k * (2.0 * math.pi / _STEER_AZIMUTHS) + 0.4) / 111.32
+                           for r, _rw in _STEER_RINGS for k in range(_STEER_AZIMUTHS)])
+_STEER_OFF_LAT = np.array([r * math.sin(k * (2.0 * math.pi / _STEER_AZIMUTHS) + 0.4) / 110.57
+                           for r, _rw in _STEER_RINGS for k in range(_STEER_AZIMUTHS)])
+_STEER_RING_W = np.array([rw for _r, rw in _STEER_RINGS
+                          for _k in range(_STEER_AZIMUTHS)])
+
+
+def steering_weights(vmax: float, lat: float):
+    """三层引导权重 (浅层850, 中层, 深层200), 归一化前。
+
+    强度越高越受深层气流引导(环境场深厚), 纬度越高越受低层引导
+    (副热带高压/西风带下低层气流主导) -- 与有限区域台风模式的
+    深/中/浅层引导权重同构。
+    """
+    vb = clamp((vmax - 20.0) / 60.0, 0.0, 1.0)      # 20 -> 80 kt
+    lb = clamp((abs(lat) - 22.0) / 16.0, 0.0, 1.0)  # 22 -> 38 度
+    w_deep = clamp(0.18 + 0.42 * vb - 0.10 * lb, 0.08, 0.70)
+    w_shallow = clamp(0.22 - 0.10 * vb + 0.20 * lb, 0.05, 0.45)
+    w_mid = clamp(1.0 - w_shallow - w_deep, 0.10, 0.85)
+    return w_shallow, w_mid, w_deep
+
+
+def steering_at(sim, lon: float, lat: float, vmax: float = 40.0):
+    """三层(850/中层/200 hPa)引导气流, 三个环带面积加权平均(kt)。
+
+    环带平均是为了让路径不被单个小涡旋带偏: 台风正好压在一个中尺度涡上时,
+    单点采样会让移向突变, 而 3 环 x 8 方位(共 24 点)加权后只剩大尺度信号。
+    """
     env = sim['env']
-    for k in range(6):
-        a = k * math.pi / 3 + 0.5
-        r = 340.0 + (k % 2) * 180.0
-        lo = lon + r / 111.32 / max(1e-6, math.cos(lat * C['DEG'])) * math.cos(a)
-        la = lat + r / 110.57 * math.sin(a)
-        if lo < C['LON0'] + 1 or lo > C['LON1'] - 1 or la < C['LAT0'] + 1 or la > C['LAT1'] - 1:
-            continue
-        wl = 1 - land_at(sim, lo, la)
-        if wl < 0.3:
-            continue
-        u8 = env_bilinear(env['u850'], lo, la)
-        v8 = env_bilinear(env['v850'], lo, la)
-        u2 = env_bilinear(env['u200'], lo, la)
-        v2 = env_bilinear(env['v200'], lo, la)
-        su += (0.75 * u8 + 0.25 * u2) * wl
-        sv += (0.75 * v8 + 0.25 * v2) * wl
-        w += wl
-    if w < 0.5:
-        su = env_bilinear(env['u850'], lon, lat)
-        sv = env_bilinear(env['v850'], lon, lat)
+    coslat = max(1e-6, math.cos(lat * C['DEG']))
+    # 24 个采样点一次性批量采样: 逐点标量调用时每个台风每一步要 242 次
+    # env_bilinear/land_at(实测 motion_step 的最大头), 批量化后是 5 次数组调用
+    lo = lon + _STEER_OFF_LON / coslat
+    la = lat + _STEER_OFF_LAT
+    inside = ((lo >= C['LON0'] + 1) & (lo <= C['LON1'] - 1)
+              & (la >= C['LAT0'] + 1) & (la <= C['LAT1'] - 1))
+    wl = np.zeros(lo.shape, dtype=np.float64)
+    if inside.any():
+        wl[inside] = 1.0 - land_at_arr(sim, lo[inside], la[inside])
+    keep = inside & (wl >= 0.3)
+    wsum = float((_STEER_RING_W[keep] * wl[keep]).sum()) if keep.any() else 0.0
+    if wsum < 0.5:
+        # 环带几乎全落在陆地/域外: 退回中心点取样(不引入额外权重偏差)
+        s_sh = [env_bilinear(env['u850'], lon, lat),
+                env_bilinear(env['v850'], lon, lat)]
+        s_dp = [env_bilinear(env['u200'], lon, lat),
+                env_bilinear(env['v200'], lon, lat)]
     else:
-        su /= w
-        sv /= w
+        w = _STEER_RING_W[keep] * wl[keep]
+        lo_k, la_k = lo[keep], la[keep]
+        s_sh = [float((env_bilinear_arr(env['u850'], lo_k, la_k) * w).sum() / wsum),
+                float((env_bilinear_arr(env['v850'], lo_k, la_k) * w).sum() / wsum)]
+        s_dp = [float((env_bilinear_arr(env['u200'], lo_k, la_k) * w).sum() / wsum),
+                float((env_bilinear_arr(env['v200'], lo_k, la_k) * w).sum() / wsum)]
+    ws, wm, wd = steering_weights(vmax, lat)
+    mid = [0.6 * s_sh[i] + 0.4 * s_dp[i] for i in (0, 1)]
+    tot = ws + wm + wd
+    su = (ws * s_sh[0] + wm * mid[0] + wd * s_dp[0]) / tot
+    sv = (ws * s_sh[1] + wm * mid[1] + wd * s_dp[1]) / tot
     su += sim['params']['steerU'] * KT
     sv += sim['params']['steerV'] * KT
     return su, sv
 
 
 def beta_drift(lat: float):
-    """β漂移(kt): 向赤道侧偏西 + 向极。"""
-    f = clamp(math.sin(lat * C['DEG']) / math.sin(15 * C['DEG']), 0.25, 1.4)
-    return -3.4 * f, 2.24 * f
+    """β漂移(kt): 向西 + 向极(两半球镜像), 高纬(>32 度)随大尺度气流增强而衰减。
+
+    南半球必须镜像: 直接用 sin(lat) 会得到负值再被 clamp 抬到下限, 既丢符号
+    又把 |β| 压小 —— 域覆盖 -60~60 度, 南半球台风会朝赤道漂。
+    """
+    al = abs(lat)
+    f = clamp(math.sin(al * C['DEG']) / math.sin(15 * C['DEG']), 0.25, 1.4)
+    decay = 1.0 / (1.0 + ((al - 32.0) / 12.0) ** 2) if al > 32.0 else 1.0
+    hemi = 1.0 if lat >= 0 else -1.0
+    return -3.4 * f * decay, 2.24 * f * decay * hemi
 
 
 def local_hour(sim, lon: float) -> float:
@@ -1025,32 +1088,45 @@ def intensity_step(sim, tc, dt: float) -> None:
 
 def deposit_gauss(arr: np.ndarray, lon: float, lat: float, Rkm: float,
                   amp: float, km_per_lon: float, km_per_lat: float) -> None:
-    i0 = int(math.floor((lon - C['LON0']) / C['ENVD']))
-    j0 = int(math.floor((lat - C['LAT0']) / C['ENVD']))
+    """冷尾流 / OHC 消耗的高斯沉积(向量化)。
+
+    原实现是 (2n+1)^2 的双重 Python 循环(每次 ~250 格), 实测 0.28ms/次 ×
+    每步 24 次 = 6.6ms/步; 改成整窗一次算完。arr 是一维展开场, reshape 得到
+    的是视图, 原地写回即可(与调用方 sim['wake'] / sim['ohcWake'] 共享内存)。
+    """
     n = int(math.ceil((Rkm * 2.2) / (C['ENVD'] * 111.32))) + 1
-    inv_r2 = 1.0 / (Rkm * Rkm)
-    for dj in range(-n, n + 1):
-        j = j0 + dj
-        if j < 0 or j >= ENVNY:
-            continue
-        for di in range(-n, n + 1):
-            i = i0 + di
-            if i < 0 or i >= ENVNX:
-                continue
-            d_lon_km = (env_lon(i) - lon) * km_per_lon
-            d_lat_km = (env_lat(j) - lat) * km_per_lat
-            g = math.exp(-(d_lon_km * d_lon_km + d_lat_km * d_lat_km) * inv_r2)
-            arr[j * ENVNX + i] = min(6.0, arr[j * ENVNX + i] + amp * g)
+    jc = int(math.floor((lat - C['LAT0']) / C['ENVD']))
+    ic = int(math.floor((lon - C['LON0']) / C['ENVD']))
+    j0, j1 = max(0, jc - n), min(ENVNY - 1, jc + n)
+    i0, i1 = max(0, ic - n), min(ENVNX - 1, ic + n)
+    if i1 < i0 or j1 < j0:
+        return
+    d_lon_km = (C['LON0'] + (np.arange(i0, i1 + 1) + 0.5) * C['ENVD'] - lon) * km_per_lon
+    d_lat_km = (C['LAT0'] + (np.arange(j0, j1 + 1) + 0.5) * C['ENVD'] - lat) * km_per_lat
+    g = np.exp(-(d_lat_km[:, None] ** 2 + d_lon_km[None, :] ** 2) / (Rkm * Rkm))
+    win = arr.reshape(ENVNY, ENVNX)[j0:j1 + 1, i0:i1 + 1]
+    np.minimum(win + amp * g, 6.0, out=win)
+
+
+#: 移速对引导气流的响应时间常数(模拟小时)。一阶滞后保证台风不会瞬间拐弯,
+#: 也让路径在引导场突变(副高断裂/槽逼近)时仍是圆滑的转向。
+_MOTION_TAU_H = 3.0
+
+
+def motion_lag_alpha(dt: float) -> float:
+    """一阶滞后系数 1-exp(-dt/tau), 恒在 [0,1] 内(不过冲, 与步长弱相关)。"""
+    return 1.0 - math.exp(-max(0.0, dt) / _MOTION_TAU_H)
 
 
 def motion_step(sim, tc, dt: float) -> None:
-    steer = steering_at(sim, tc['lon'], tc['lat'])
+    steer = steering_at(sim, tc['lon'], tc['lat'], tc['vmax'])
     beta = beta_drift(tc['lat'])
     r = sim['params']['random']
     tc['noiseU'] += (sim['gauss']() * 2.1 * (0.4 + r) - tc['noiseU']) * 0.10
     tc['noiseV'] += (sim['gauss']() * 2.1 * (0.4 + r) - tc['noiseV']) * 0.10
-    u = steer[0] + beta[0] + tc['noiseU'] * r * 1.6
-    v = steer[1] + beta[1] + tc['noiseV'] * r * 1.6
+    # 目标移速 = 引导 + β漂移 + 随机扰动, 再统一做一阶滞后
+    tu = steer[0] + beta[0] + tc['noiseU'] * r * 1.6
+    tv = steer[1] + beta[1] + tc['noiseV'] * r * 1.6
     # Fujiwhara 双台风互旋(弱台风影响按强度加权)
     for o in sim['tcs']:
         if o is tc or o['dead']:
@@ -1062,14 +1138,20 @@ def motion_step(sim, tc, dt: float) -> None:
             continue
         ux, vy = vortex_wind(o, tc['lon'], tc['lat'], 0)
         wgt = 0.5 * min(1.0, o['vmax'] / max(1.0, tc['vmax']))
-        u += ux * wgt
-        v += vy * wgt
+        tu += ux * wgt
+        tv += vy * wgt
     lf = land_at(sim, tc['lon'], tc['lat'])
     if lf > 0.1:
-        u *= 1 - 0.25 * min(1.0, lf)
-        v *= 1 - 0.25 * min(1.0, lf)
-    tc['mu'] = u
-    tc['mv'] = v
+        tu *= 1 - 0.25 * min(1.0, lf)
+        tv *= 1 - 0.25 * min(1.0, lf)
+    if tc['mu'] == 0.0 and tc['mv'] == 0.0:
+        # 生成首步: 直接用引导初值, 避免台风"原地起步"等滞后爬升
+        tc['mu'], tc['mv'] = tu, tv
+    else:
+        a = motion_lag_alpha(dt)
+        tc['mu'] += (tu - tc['mu']) * a
+        tc['mv'] += (tv - tc['mv']) * a
+    u, v = tc['mu'], tc['mv']
     # 位移: u/v 为 kt(海里/小时), 60 海里/度
     tc['lon'] += u * dt / (60.0 * math.cos(tc['lat'] * C['DEG']))
     tc['lat'] += v * dt / 60.0
@@ -1205,6 +1287,8 @@ def _cld_grids():
 
 
 def cloud_step(sim, dt_h: float) -> None:
+    # 云场版本号: 渲染侧据此判断云图能否复用(云场不变则整幅云图逐像素相同)
+    sim['_cldVer'] = sim.get('_cldVer', 0) + 1
     cld = sim['cld']
     nx, ny = CLDNX, CLDNY
     d = C['CLDD']
@@ -1232,13 +1316,28 @@ def cloud_step(sim, dt_h: float) -> None:
         u = _sample_grid(sim['env']['uMid'], ENVNX, ENVNY, fx_env, fy_env)
         v = _sample_grid(sim['env']['vMid'], ENVNX, ENVNY, fx_env, fy_env)
         # TC 涡旋贡献(中层近似 0.5 加权已在 uMid; 这里补解析涡旋以出现眼墙/雨带结构)
+        # 局部窗口: 900km 之外贡献恒为 0, 原实现逐台风在全幅 360x120 网格上做
+        # ~15 次数组运算(实测 ~100ms/次), 改成只取包围盒切片后是小数组
+        _dlat_w = 900.0 / 110.57
+        grid2d = (CLDNY, CLDNX)
         for tc in sim['tcs']:
             if tc['dead']:
                 continue
-            dx = (tc['lon'] - LONc) * 111.32 * np.cos(LATc * C['DEG'])
-            dy = (tc['lat'] - LATc) * 110.57
+            _clon, _clat = tc['lon'], tc['lat']
+            _dlon_w = 900.0 / max(1.0, 111.32 * math.cos(_clat * C['DEG']))
+            _i0 = max(0, int((_clon - _dlon_w - C['LON0']) / C['CLDD']))
+            _i1 = min(CLDNX, int((_clon + _dlon_w - C['LON0']) / C['CLDD']) + 2)
+            _j0 = max(0, int((_clat - _dlat_w - C['LAT0']) / C['CLDD']))
+            _j1 = min(CLDNY, int((_clat + _dlat_w - C['LAT0']) / C['CLDD']) + 2)
+            if _i1 <= _i0 or _j1 <= _j0:
+                continue
+            # broadcast_to 是视图: 1D / (ny,1) / 2D 三种网格形状都能切
+            lonw = np.broadcast_to(LONc, grid2d)[_j0:_j1, _i0:_i1]
+            latw = np.broadcast_to(LATc, grid2d)[_j0:_j1, _i0:_i1]
+            dx = (_clon - lonw) * 111.32 * np.cos(latw * C['DEG'])
+            dy = (_clat - latw) * 110.57
             r2 = dx * dx + dy * dy
-            mask = r2 <= 900 * 900
+            mask = r2 <= 900.0 * 900.0
             r = np.sqrt(np.maximum(r2, 1.0))
             Vv = np.zeros_like(r)
             R = tc['rmw']
@@ -1247,10 +1346,8 @@ def cloud_step(sim, dt_h: float) -> None:
             outside = ~inside
             Vv[outside] = tc['vmax'] * (r[outside] / R) ** (-alpha_outer(tc['vmax']))
             phi = np.arctan2(dy, dx)
-            ux = -Vv * np.sin(phi)
-            vy = Vv * np.cos(phi)
-            u = u + np.where(mask, ux, 0.0)
-            v = v + np.where(mask, vy, 0.0)
+            u[_j0:_j1, _i0:_i1] += np.where(mask, -Vv * np.sin(phi), 0.0)
+            v[_j0:_j1, _i0:_i1] += np.where(mask, Vv * np.cos(phi), 0.0)
         # kt → km/h (×1.852) 半拉格朗日位移
         lo = lo - u * 1.852 * dt_s / km_l
         la = la - v * 1.852 * dt_s / km_t

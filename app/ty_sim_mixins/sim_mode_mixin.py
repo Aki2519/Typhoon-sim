@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import json
+import time
 from datetime import datetime
 from typing import List, Optional
 
@@ -337,7 +338,9 @@ class SimModeMixin:
                 V.sim_step(self.sim_v4, V.C['DT'])
             hpf = self.sp * dt
             self._sim_cld_acc += hpf
-            if self._sim_cld_acc >= 0.08:
+            # 云场步进 0.25 模拟小时(云寿命 5.5h, 0.25h 步进不走样): cloud_step
+            # 单次 ~114ms, 原 0.08h 触发在高倍速下会挤占整帧预算
+            if self._sim_cld_acc >= 0.25:
                 V.cloud_step(self.sim_v4, min(self._sim_cld_acc, 3.5))
                 self._sim_cld_acc = 0.0
             # 只有风场图层可见时才推进粒子: 原实现无条件 step(实测 63ms/帧)
@@ -419,6 +422,19 @@ class SimModeMixin:
             pass
 
     # ── 渲染(叠加到地图) ──
+    def _sim_degrade_level(self) -> int:
+        """帧预算自适应降级等级(0=全画)。用渲染耗时的指数滑动平均判定。
+
+        16.7ms 是 60FPS 的一帧预算: 持续超过 ~1.15 倍砍副高, 超过 ~1.6 倍再砍
+        风羽; 耗时回落自动逐级恢复(EMA 本身带滞后, 不会来回抖)。
+        """
+        ms = getattr(self, '_sim_render_ms', 0.0)
+        if ms > 16.7 * 1.6:
+            return 2
+        if ms > 16.7 * 1.15:
+            return 1
+        return 0
+
     def _sim_render(self, surface) -> None:
         """在地图 surface 上叠加 SimCore 图层(renderer 已先绘制地图底图)。"""
         if self.sim_v4 is None:
@@ -444,13 +460,33 @@ class SimModeMixin:
                 if tc['id'] == self.sim_sel_tc_id:
                     sel = tc
                     break
+        # 帧预算自适应: 渲染耗时超预算时逐级砍掉信息量最低的注释层(副高 -> 风羽),
+        # 只降注释层, 云图/海温/气压这些主图层不降 —— 降了会被误读成数据变了
+        layers = self.sim_layers
+        degrade = self._sim_degrade_level()
+        if degrade >= 1:
+            layers = layers - {'ridge'}
+        prev_barbs = self.sim_v4.get('_show_barbs', True)
+        if degrade >= 2:
+            self.sim_v4['_show_barbs'] = False
+        t0 = time.perf_counter()
         try:
-            R.render_map(surface, self.sim_v4, fx, fy, self.sim_layers,
+            R.render_map(surface, self.sim_v4, fx, fy, layers,
                          sel_tc=sel, mode=self.sim_cloud_mode,
                          particles=self.sim_particles,
                          icon_fn=self._sim_draw_tc_icon)
         except Exception:
             logger.debug("模拟模式图层渲染失败", exc_info=True)
+        finally:
+            self.sim_v4['_show_barbs'] = prev_barbs
+            dt_ms = (time.perf_counter() - t0) * 1000.0
+            prev = getattr(self, '_sim_render_ms', dt_ms)
+            self._sim_render_ms = prev * 0.85 + dt_ms * 0.15
+            self._sim_degrade = degrade
+        if degrade:
+            _txt = rt(f_s, '图层降级: ' + ('风羽/副高' if degrade >= 2 else '副高'),
+                      (255, 210, 120))
+            surface.blit(_txt, (10, 26))
         # 台风路径: 完全复用其它模式的点阵/渐变线渲染(不自行绘制)
         if 'track' in self.sim_layers:
             for tc in self.sim_v4['tcs']:

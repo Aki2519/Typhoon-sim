@@ -73,6 +73,8 @@ _VIEW_FIELDS = frozenset({
     "_smcy_frame", "_smcy_last_cat", "_smcy_last_ticks",
     "_last_ri_at", "_ri_armed",
     "_spawn_time",
+    "_motion_samples",                                  # 近期 (模拟小时, lat, lon) 采样
+    "_dev_last_km", "_dev_max_km", "_dev_clamped",      # 回放曲线偏离记账
 })
 
 
@@ -121,6 +123,10 @@ class TyphoonView:
         self._last_ri_at: float = -999.0
         self._ri_armed: bool = True
         self._spawn_time: int = 0
+        self._motion_samples: List[tuple] = []
+        self._dev_last_km: float = 0.0
+        self._dev_max_km: float = 0.0
+        self._dev_clamped: int = 0
 
 
 class Typhoon(TyphoonDataMixin, TyphoonSimMixin, TyphoonRenderMixin):

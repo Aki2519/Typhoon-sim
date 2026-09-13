@@ -124,6 +124,56 @@ def cat_zh_kt(v_kt: float) -> str:
     return 'TD'
 
 
+# ── 云图表面缓存 ────────────────────────────────────────────────
+# render_sat 是整幅云场的逐格变换(含 exp/power/log10), 实测 ~95ms/次, 再加
+# smoothscale 到屏幕尺寸 ~23ms。云场只在 cloud_step 时变化, 台风参数每帧只动
+# 千分之几度 —— 量化后缓存整块"已缩放"表面; 另按墙钟限流, 避免 8x 加速时
+# 仍每帧重建(那时模拟时间推进快于墙钟, 版本号每帧都变)。
+_cloud_surf_cache: dict = {}
+_CLOUD_SURF_CACHE_MAX = 6
+_CLOUD_MIN_INTERVAL_MS = 300
+_cloud_last: list = [None, 0, 0, 0]        # [surf, made_ms, w, h]
+
+_layer_surf_cache: dict = {}
+_LAYER_SURF_CACHE_MAX = 12
+
+
+def _tc_signature(sim):
+    """台风参数签名(量化): 位置 0.1 度(≈11km, 1280px 全图约 0.35px)、强度 1kt。"""
+    sig = []
+    for tc in sim['tcs']:
+        if tc['dead']:
+            continue
+        erc = tc.get('erc')
+        sig.append((round(float(tc['lon']), 1), round(float(tc['lat']), 1),
+                    round(float(tc['vmax']), 1), round(float(tc['rmw']), 1),
+                    round(float(erc['t']) / max(1e-6, float(erc['T'])), 2)
+                    if erc else -1.0))
+    return tuple(sig)
+
+
+def _cloud_surface(sim, mode: str, w: int, h: int) -> pygame.Surface:
+    """已缩放的云图表面(命中缓存时 ~0ms)。"""
+    key = (mode, int(sim.get('_cldVer', -1)), round(float(sim['t']) * 4.0),
+           _tc_signature(sim), w, h)
+    surf = _cloud_surf_cache.get(key)
+    if surf is not None:
+        return surf
+    now = pygame.time.get_ticks()
+    last, made, lw, lh = _cloud_last
+    if last is not None and lw == w and lh == h and now - made < _CLOUD_MIN_INTERVAL_MS:
+        return last                       # 限流: 沿用上一幅(观感无差)
+    sat = render_sat(sim, mode)
+    surf = pygame.surfarray.make_surface(np.transpose(sat[..., :3], (1, 0, 2)))
+    surf = pygame.transform.smoothscale(surf, (max(1, w), max(1, h)))
+    surf.set_alpha(235)
+    if len(_cloud_surf_cache) >= _CLOUD_SURF_CACHE_MAX:
+        _cloud_surf_cache.clear()
+    _cloud_surf_cache[key] = surf
+    _cloud_last[:] = [surf, now, w, h]
+    return surf
+
+
 def render_sat(sim, mode: str = 'IR') -> np.ndarray:
     """卫星云图 RGBA (CLDNY, CLDNX, 4)。mode: 'IR' | 'VIS'。"""
     cld = sim['cld'].reshape(V.CLDNY, V.CLDNX)
@@ -241,6 +291,70 @@ def _pressure_extremes(p: np.ndarray, ny: int, nx: int):
     return lj + 1, li + 1, hj + 1, hi + 1
 
 
+_contour_cache: dict = {}
+_CONTOUR_CACHE_MAX = 4
+
+
+def _contour_segments(p: np.ndarray, levels, key=None):
+    """marching squares 线段(与视图无关的格坐标)。
+
+    返回 (j0, i0, u0, v0, j1, i1, u1, v1): 两个端点的格下标 + 格内归一化位置
+    (u 沿经度, v 沿纬度)。每个格子的两条穿越边配对成一段; 与旧实现一致,
+    只有恰好 2 个交点的格子才画(鞍点 4 交点的格子保持不画)。
+    """
+    if key is not None:
+        hit = _contour_cache.get(key)
+        if hit is not None:
+            return hit
+    v00 = p[:-1, :-1]
+    v10 = p[:-1, 1:]
+    v01 = p[1:, :-1]
+    v11 = p[1:, 1:]
+    # 每条边 (起点场, 终点场): 边号 0=上 1=左 2=右 3=下
+    edges = ((v00, v10), (v00, v01), (v10, v11), (v01, v11))
+    acc = []
+    for level in levels:
+        for ei, (a, b) in enumerate(edges):
+            cross = (a <= level) != (b <= level)
+            if not cross.any():
+                continue
+            jj, ii = np.nonzero(cross)
+            t = (level - a[jj, ii]) / (b[jj, ii] - a[jj, ii] + 1e-9)
+            acc.append((jj, ii, t, ei))
+    if not acc:
+        out = None
+    else:
+        jj = np.concatenate([a[0] for a in acc])
+        ii = np.concatenate([a[1] for a in acc])
+        tt = np.concatenate([a[2] for a in acc])
+        ei = np.concatenate([np.full(a[2].shape, a[3], dtype=np.int8) for a in acc])
+        # 交点按 (格, 边序) 排序后, 同一格子内恰好两个的按顺序配成一段
+        order = np.lexsort((ei, ii, jj))
+        jj, ii, tt, ei = jj[order], ii[order], tt[order], ei[order]
+        cell = jj.astype(np.int64) * (p.shape[1] + 1) + ii
+        uniq, inv, counts = np.unique(cell, return_inverse=True, return_counts=True)
+        ok = counts[inv] == 2
+        if not ok.any():
+            out = None
+        else:
+            jj, ii, tt, ei = jj[ok], ii[ok], tt[ok], ei[ok]
+            cell = cell[ok]
+            # 同一格子的两条: 偶数位为第一点, 奇数位为第二点
+            first = np.zeros(jj.shape[0], dtype=bool)
+            first[::2] = True
+            # 重新按格子分组保证 (0,1) 成对(排序后同格相邻)
+            # 边号 -> 格内归一化位置: 0 上(t,0) 1 左(0,t) 2 右(1,t) 3 下(t,1)
+            uu = np.where((ei == 0) | (ei == 3), tt, np.where(ei == 2, 1.0, 0.0))
+            vv = np.where((ei == 1) | (ei == 2), tt, np.where(ei == 3, 1.0, 0.0))
+            out = (jj[first], ii[first], uu[first], vv[first],
+                   jj[~first], ii[~first], uu[~first], vv[~first])
+    if key is not None:
+        if len(_contour_cache) >= _CONTOUR_CACHE_MAX:
+            _contour_cache.clear()
+        _contour_cache[key] = out
+    return out
+
+
 def draw_contours(surface, sim, fx: Callable, fy: Callable,
                   levels: Optional[List[float]] = None) -> None:
     """气压等值线(marching squares) + 高/低标记。"""
@@ -254,42 +368,27 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
     xs1 = [fx(V.C['LON0'] + (i + 1.5) * V.C['ENVD']) for i in range(nx)]
     ys0 = [fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD']) for j in range(ny)]
     ys1 = [fy(V.C['LAT0'] + (j + 1.5) * V.C['ENVD']) for j in range(ny)]
-    segs = []
-    for level in levels:
-        v00 = p[:-1, :-1]
-        v10 = p[:-1, 1:]
-        v01 = p[1:, :-1]
-        v11 = p[1:, 1:]
-        mn = np.minimum(np.minimum(v00, v10), np.minimum(v01, v11))
-        mx = np.maximum(np.maximum(v00, v10), np.maximum(v01, v11))
-        mask = (level >= mn) & (level <= mx)
-        jj, ii = np.where(mask)
-        for j, i in zip(jj, ii):
-            a00, a10, a01, a11 = v00[j, i], v10[j, i], v01[j, i], v11[j, i]
-            x0, y0 = xs0[i], ys0[j]
-            x1, y1 = xs1[i], ys1[j]
-            pts = []
-            if (a00 <= level) != (a10 <= level):
-                t = (level - a00) / (a10 - a00 + 1e-9)
-                pts.append((x0 + t * (x1 - x0), y0))
-            if (a00 <= level) != (a01 <= level):
-                t = (level - a00) / (a01 - a00 + 1e-9)
-                pts.append((x0, y0 + t * (y1 - y0)))
-            if (a10 <= level) != (a11 <= level):
-                t = (level - a10) / (a11 - a10 + 1e-9)
-                pts.append((x1, y0 + t * (y1 - y0)))
-            if (a01 <= level) != (a11 <= level):
-                t = (level - a01) / (a11 - a01 + 1e-9)
-                pts.append((x0 + t * (x1 - x0), y1))
-            if len(pts) == 2:
-                segs.append(pts)
-    if segs:
-        for p0, p1 in segs:
-            # 坐标必须转成 Python float: pygame.draw.line 拒绝 np.float32
-            # (实测 TypeError), 而本函数被上层宽 except 包着 → 整个气压层静默消失
-            pygame.draw.line(surface, (200, 205, 215),
-                             (float(p0[0]), float(p0[1])),
-                             (float(p1[0]), float(p1[1])), 1)
+    # 几何在"格坐标"里算并与视图解耦(缓存键只含气压场版本), 每帧只做一次
+    # fancy indexing 映射到屏幕; 原实现每格每层走 Python 循环, 实测 35.7ms/帧
+    # 缓存键含 id(p): pTot 每次 env_update 都是新数组, 既保证失效, 也避免多个
+    # sim 实例之间串味(只看 _envVer 时两个实例都可能停在 1)
+    seg = _contour_segments(p, levels,
+                            key=(id(p), sim.get('_envVer', -1), tuple(levels),
+                                 p.shape))
+    if seg is not None:
+        xs0a = np.asarray(xs0, dtype=np.float64)
+        xs1a = np.asarray(xs1, dtype=np.float64)
+        ys0a = np.asarray(ys0, dtype=np.float64)
+        ys1a = np.asarray(ys1, dtype=np.float64)
+        j0, i0, u0, v0, j1, i1, u1, v1 = seg
+        x0 = xs0a[i0] + u0 * (xs1a[i0] - xs0a[i0])
+        y0 = ys0a[j0] + v0 * (ys1a[j0] - ys0a[j0])
+        x1 = xs0a[i1] + u1 * (xs1a[i1] - xs0a[i1])
+        y1 = ys0a[j1] + v1 * (ys1a[j1] - ys0a[j1])
+        col = (200, 205, 215)
+        # 一次性 tolist: 逐元素 float() 转换 4x2800 次反而更慢
+        for ax, ay, bx, by in zip(x0.tolist(), y0.tolist(), x1.tolist(), y1.tolist()):
+            pygame.draw.line(surface, col, (ax, ay), (bx, by), 1)
     # 高/低标记(向量化: 原 120×360 双层 Python 循环实测 0.13s/帧)
     lj, li, hj, hi = _pressure_extremes(p, ny, nx)
     for j, i in zip(lj, li):
@@ -335,39 +434,56 @@ def _label(text: str, color) -> pygame.Surface:
     return s
 
 
+_BARB_COLOR = (220, 225, 235)
+
+
 def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 5.0) -> None:
-    """风羽(每 step 度一个, kt: 整羽 50kt/半羽 10kt/小羽 5kt)。"""
-    for lat in np.arange(-55, 55, step):
-        for lon in np.arange(0, 360, step):
-            u, v = V.wind_at(sim, lon, lat, 0)
-            sp = math.hypot(u, v)
-            if sp < 2.5:
-                continue
-            x, y = fx(lon), fy(lat)
-            ang = math.atan2(-v, -u)
-            ex, ey = math.cos(ang), math.sin(ang)
-            px_ = -math.sin(ang)
-            py_ = math.cos(ang)
-            L = 13
-            pygame.draw.line(surface, (220, 225, 235), (x, y), (x + ex * L, y + ey * L), 1)
-            rem = sp
-            d = 0
-            while rem >= 47.5 and d < 3:
-                p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-                p1 = (x + ex * (L - d * 5 - 6) + px_ * 6, y + ey * (L - d * 5 - 6) + py_ * 6)
-                pygame.draw.polygon(surface, (220, 225, 235), [p0, p1, (x + ex * L, y + ey * L)], 1)
-                d += 1
-                rem -= 50
-            while rem >= 7.5 and d < 8:
-                p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-                p1 = (x + ex * (L - d * 5 - 6) + px_ * 5, y + ey * (L - d * 5 - 6) + py_ * 5)
-                pygame.draw.line(surface, (220, 225, 235), p0, p1, 1)
-                d += 1
-                rem -= 10
-            if rem >= 2.5 and d < 8:
-                p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-                p1 = (x + ex * (L - d * 5 - 4) + px_ * 3, y + ey * (L - d * 5 - 4) + py_ * 3)
-                pygame.draw.line(surface, (220, 225, 235), p0, p1, 1)
+    """风羽(每 step 度一个, kt: 整羽 50kt/半羽 10kt/小羽 5kt)。
+
+    采样一次性批量(wind_at_arr): 原先逐点 wind_at, 1584 个风羽实测 32ms/帧,
+    其中采样占 ~24ms; 绘制仍逐点(风羽形状按速度分档, 无法批量画)。
+    """
+    lats = np.arange(-55, 55, step)
+    lons = np.arange(0, 360, step)
+    if lats.size == 0 or lons.size == 0:
+        return
+    LO, LA = np.meshgrid(lons, lats)
+    LO = LO.ravel()
+    LA = LA.ravel()
+    u, v = V.wind_at_arr(sim, LO, LA, 0.0)
+    sp = np.hypot(u, v)
+    keep = sp >= 2.5
+    if not keep.any():
+        return
+    LO, LA, u, v, sp = LO[keep], LA[keep], u[keep], v[keep], sp[keep]
+    color = _BARB_COLOR
+    for i in range(LO.size):
+        spi = float(sp[i])
+        x, y = fx(float(LO[i])), fy(float(LA[i]))
+        ang = math.atan2(-float(v[i]), -float(u[i]))
+        ex, ey = math.cos(ang), math.sin(ang)
+        px_ = -math.sin(ang)
+        py_ = math.cos(ang)
+        L = 13
+        pygame.draw.line(surface, color, (x, y), (x + ex * L, y + ey * L), 1)
+        rem = spi
+        d = 0
+        while rem >= 47.5 and d < 3:
+            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
+            p1 = (x + ex * (L - d * 5 - 6) + px_ * 6, y + ey * (L - d * 5 - 6) + py_ * 6)
+            pygame.draw.polygon(surface, color, [p0, p1, (x + ex * L, y + ey * L)], 1)
+            d += 1
+            rem -= 50
+        while rem >= 7.5 and d < 8:
+            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
+            p1 = (x + ex * (L - d * 5 - 6) + px_ * 5, y + ey * (L - d * 5 - 6) + py_ * 5)
+            pygame.draw.line(surface, color, p0, p1, 1)
+            d += 1
+            rem -= 10
+        if rem >= 2.5 and d < 8:
+            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
+            p1 = (x + ex * (L - d * 5 - 4) + px_ * 3, y + ey * (L - d * 5 - 4) + py_ * 3)
+            pygame.draw.line(surface, color, p0, p1, 1)
 
 
 class Particles:
@@ -570,7 +686,6 @@ def draw_ridge(surface, sim, fx: Callable, fy: Callable) -> None:
         if not mask.any():
             return
         # 内部填充(半透明橙色); 经度 0/360 同列, 宽度用 2×(fx(180)-fx(0)) 估算
-        fill_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         col0 = fx(V.C['LON0'])
         col1 = col0 + 2.0 * (fx(180.0) - fx(V.C['LON0']))
         row0 = fy(V.C['LAT1'])
@@ -588,15 +703,16 @@ def draw_ridge(surface, sim, fx: Callable, fy: Callable) -> None:
             pygame.surfarray.blit_array(small, np.transpose(px[..., :3], (1, 0, 2)))
         except Exception:
             small.set_alpha(90)
-        fill_surf.blit(pygame.transform.smoothscale(
-            small, (max(2, int(col1 - col0)), max(2, int(row1 - row0)))),
-            (col0, row0))
+        # 直接贴缩放后的小图: 原实现先 blit 到一张整屏 SRCALPHA 中转面,
+        # 再整屏贴回 —— 多付一次全屏 alpha blit + 一次整屏分配(实测 13.6ms/帧)
         # 描边: 掩码边界像素画橙色线(粗 2px)
         edge = np.zeros_like(mask)
         edge[1:-1, 1:-1] = mask[1:-1, 1:-1] & ~(mask[:-2, 1:-1] & mask[2:, 1:-1]
                                                 & mask[1:-1, :-2] & mask[1:-1, 2:])
         # 先贴半透明填充再画描边, 否则描边会被填充压暗
-        surface.blit(fill_surf, (0, 0))
+        surface.blit(pygame.transform.smoothscale(
+            small, (max(2, int(col1 - col0)), max(2, int(row1 - row0)))),
+            (int(col0), int(row0)))
         ys, xs = np.nonzero(edge)
         for j, i in zip(ys[::2], xs[::2]):
             lon = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
@@ -627,24 +743,24 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
     icon_fn: 可选, callable(surface, tc, x, y, sel) — 台风图标渲染(复用 app 图标集)。"""
     # 云图(作为底图背景覆盖计算域, 半透明与地图融合; 仅图层开启时绘制)
     if 'cloud' in layers:
-        sat = render_sat(sim, mode)
-        surf = pygame.surfarray.make_surface(np.transpose(sat[..., :3], (1, 0, 2)))
         w = int(fx(V.C['LON1']) - fx(V.C['LON0']))
         h = int(fy(V.C['LAT0']) - fy(V.C['LAT1']))
         if w > 0 and h > 0:
-            surf = pygame.transform.smoothscale(surf, (w, h))
-            surf.set_alpha(235)
+            # 云场/台风参数未明显变化时直接复用已缩放表面(实测 118ms -> ~0ms)
+            surf = _cloud_surface(sim, mode, w, h)
             surface.blit(surf, (fx(V.C['LON0']), fy(V.C['LAT1'])))
     # 海温 / 热含量 / 湿度
+    # 环境场只在 env_update 时变化: 缓存键带 _envVer, 图层表面整块复用
+    _env_ver = int(sim.get('_envVer', -1))
     if 'sst' in layers:
         arr = render_env_layer(sim, 'sst')
-        _blit_layer(surface, arr, fx, fy, alpha=210)
+        _blit_layer(surface, arr, fx, fy, alpha=210, cache_key=('sst', _env_ver))
     if 'ohc' in layers:
         arr = render_env_layer(sim, 'ohc')
-        _blit_layer(surface, arr, fx, fy, alpha=190)
+        _blit_layer(surface, arr, fx, fy, alpha=190, cache_key=('ohc', _env_ver))
     if 'rh' in layers:
         arr = render_env_layer(sim, 'rh')
-        _blit_layer(surface, arr, fx, fy)
+        _blit_layer(surface, arr, fx, fy, cache_key=('rh', _env_ver))
     # 气压
     if 'pressure' in layers:
         try:
@@ -687,19 +803,31 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
 
 
 def _blit_layer(surface, rgba: np.ndarray, fx: Callable, fy: Callable,
-                alpha: int = 255) -> None:
+                alpha: int = 255, cache_key=None) -> None:
     """把 (H, W, 4) RGBA 环境层贴到地图。
 
     必须保留逐格 alpha: 原来只取 RGB 再统一 set_alpha, 陆地/缺测格(alpha=0)
-    会被整体不透明地画上去, 湿度层也退化成整屏纯色块。"""
-    rgb = np.transpose(rgba[..., :3], (1, 0, 2))
-    a = np.transpose(rgba[..., 3], (1, 0)).astype(np.uint16)
-    if alpha < 255:
-        a = (a * int(alpha)) // 255
-    buf = np.ascontiguousarray(np.dstack([rgb, a.astype(np.uint8)]))
-    surf = pygame.image.frombuffer(buf.tobytes(),
-                                   (buf.shape[0], buf.shape[1]), 'RGBA')
-    surf = pygame.transform.smoothscale(
-        surf, (max(1, int(fx(V.C['LON1']) - fx(V.C['LON0']))),
-               max(1, int(fy(V.C['LAT0']) - fy(V.C['LAT1'])))))
+    会被整体不透明地画上去, 湿度层也退化成整屏纯色块。
+
+    cache_key: (层名, 版本号) —— 命中时跳过 numpy 拼包 + smoothscale(实测 23ms/层)。
+    """
+    w = max(1, int(fx(V.C['LON1']) - fx(V.C['LON0'])))
+    h = max(1, int(fy(V.C['LAT0']) - fy(V.C['LAT1'])))
+    surf = None
+    key = (cache_key, w, h, int(alpha)) if cache_key is not None else None
+    if key is not None:
+        surf = _layer_surf_cache.get(key)
+    if surf is None:
+        rgb = np.transpose(rgba[..., :3], (1, 0, 2))
+        a = np.transpose(rgba[..., 3], (1, 0)).astype(np.uint16)
+        if alpha < 255:
+            a = (a * int(alpha)) // 255
+        buf = np.ascontiguousarray(np.dstack([rgb, a.astype(np.uint8)]))
+        surf = pygame.image.frombuffer(buf.tobytes(),
+                                       (buf.shape[0], buf.shape[1]), 'RGBA')
+        surf = pygame.transform.smoothscale(surf, (w, h))
+        if key is not None:
+            if len(_layer_surf_cache) >= _LAYER_SURF_CACHE_MAX:
+                _layer_surf_cache.clear()
+            _layer_surf_cache[key] = surf
     surface.blit(surf, (fx(V.C['LON0']), fy(V.C['LAT1'])))

@@ -97,6 +97,8 @@ class AppConfig:
     show_future_path: bool = True
     ace_interpolated: bool = False
     show_fps: bool = False
+    show_motion_vector: bool = True    # 当前点运动矢量箭头(只画高亮台风)
+    show_track_stats: bool = False     # 路径质量面板: 段移速/跳变/曲线偏离
     fps_cap: int = 60   # CPU 软件渲染下 120 帧预算仅 8.3ms; 60 保帧时间稳定
     monthly_summary: bool = True
 

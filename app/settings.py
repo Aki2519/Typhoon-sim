@@ -64,6 +64,7 @@ class Settings(DraggableDialog):
         'show_info_box_normal': 'normal_info_text', 'show_info_box_season': 'season_info_text',
         'fade_typhoon': 'fade_typhoon_text', 'smooth_path': 'smooth_path_text',
         'ace_interpolated': 'ace_interp_text', 'show_fps': 'fps_text',
+        'show_motion_vector': 'motion_vec_text', 'show_track_stats': 'track_stats_text',
         'monthly_summary': 'monthly_summary_text', 'fade_path': 'fade_path_text',
         'show_ri_effect': 'show_ri_text', 'show_future_path': 'future_path_text',
         'fix_icon_point_size': 'fix_icon_point_text',
@@ -211,6 +212,8 @@ class Settings(DraggableDialog):
                 ('toggle', 'path_mode', [(s, v) for s, v in zip(self.path_mode_modes, ("markers", "line"))],
                  90, None, 'path_mode_text'),
                 ('checkbox', 'show_future_path'),
+                ('checkbox', 'show_motion_vector'),
+                ('checkbox', 'show_track_stats'),
                 ('section', '效果'),
                 ('checkbox', 'show_ri_effect'),
                 ('section', '帧率'),
@@ -513,6 +516,8 @@ class Settings(DraggableDialog):
         self.path_mode_modes = [rt(f_m, "点阵", (255, 255, 255)), rt(f_m, "渐变线", (255, 255, 255))]
         self.ace_interp_text = rt(f_m, "连续 ACE:", TX)
         self.fps_text = rt(f_m, "显示 FPS:", TX)
+        self.motion_vec_text = rt(f_m, "运动矢量箭头:", TX)
+        self.track_stats_text = rt(f_m, "路径质量面板:", TX)
         self.fps_cap_text = rt(f_m, "帧率上限:", TX)
         self.fps_cap_modes = [rt(f_m, "60", (255, 255, 255)),
                               rt(f_m, "120", (255, 255, 255)),
@@ -2208,6 +2213,7 @@ class Settings(DraggableDialog):
                      'peak_label_size', 'info_box_scale', 'fix_icon_point_size', 'disable_dpi_scaling',
                      'fade_typhoon', 'fade_path', 'fade_path_mode', 'smooth_path',
                      'smooth_path_mode', 'smooth_path_segments', 'path_mode', 'ace_interpolated', 'show_fps',
+                     'show_motion_vector', 'show_track_stats',
                      'edit_snap_step', 'show_edit_point_labels',
                      'fps_cap', 'show_ri_effect', 'show_future_path', 'monthly_summary',
                      'icon_set', 'color_scheme', 'show_ace_bar', 'show_ace_total',

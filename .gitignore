@@ -44,3 +44,10 @@ wget-log
 # Ghidra 反汇编产物(大文件不入库, 保留 .txt 分析输出)
 ty4_extract/proj/
 ty4_extract/_bin/
+
+# 地形底图: 原底图备份与生成脚本的中间产物(大数据, 本地保留不入库)
+map/map_legacy.png
+.frames/
+
+# 视频逐帧分析/临时脚本目录
+tools/__pycache__/

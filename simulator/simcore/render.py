@@ -246,6 +246,15 @@ def _cld_grids(sim):
     return g
 
 
+LUT_SHEAR = _build_lut([
+    (0.00, (24, 44, 120)),      # 弱切变: 深蓝
+    (0.28, (40, 150, 210)),     # 青
+    (0.52, (90, 210, 140)),     # 绿
+    (0.74, (240, 210, 90)),     # 黄
+    (1.00, (225, 70, 60)),      # 强切变: 红
+])
+
+
 def render_env_layer(sim, name: str, alpha: int = 210) -> np.ndarray:
     """海温/热含量/湿度叠加层 RGBA (ENVNY, ENVNX, 4), 半透明; 陆地以外显示。"""
     arr = sim['env'][name]
@@ -259,6 +268,11 @@ def render_env_layer(sim, name: str, alpha: int = 210) -> np.ndarray:
         t = np.clip((arr - 20.0) / 120.0, 0, 1) * 255.0
         idx = t.astype(int)
         out[..., :3] = LUT_OHC[idx][..., :3]
+        out[..., 3] = alpha
+    elif name == 'shear':
+        # 垂直风切变(kt): 4kt 以下深蓝, 22kt 以上红(intensity_step 用的同一量纲)
+        t = np.clip((arr - 4.0) / 18.0, 0, 1) * 255.0
+        out[..., :3] = LUT_SHEAR[t.astype(int)][..., :3]
         out[..., 3] = alpha
     else:  # rh
         a = np.clip((arr - 45.0) / 45.0, 0, 1)
@@ -312,32 +326,37 @@ def _contour_segments(p: np.ndarray, levels, key=None):
     v11 = p[1:, 1:]
     # 每条边 (起点场, 终点场): 边号 0=上 1=左 2=右 3=下
     edges = ((v00, v10), (v00, v01), (v10, v11), (v01, v11))
+    levels = tuple(levels)
     acc = []
-    for level in levels:
+    for li, level in enumerate(levels):
         for ei, (a, b) in enumerate(edges):
             cross = (a <= level) != (b <= level)
             if not cross.any():
                 continue
             jj, ii = np.nonzero(cross)
             t = (level - a[jj, ii]) / (b[jj, ii] - a[jj, ii] + 1e-9)
-            acc.append((jj, ii, t, ei))
+            acc.append((jj, ii, t, np.full(jj.shape, ei, dtype=np.int8),
+                        np.full(jj.shape, li, dtype=np.int32)))
     if not acc:
         out = None
     else:
         jj = np.concatenate([a[0] for a in acc])
         ii = np.concatenate([a[1] for a in acc])
         tt = np.concatenate([a[2] for a in acc])
-        ei = np.concatenate([np.full(a[2].shape, a[3], dtype=np.int8) for a in acc])
-        # 交点按 (格, 边序) 排序后, 同一格子内恰好两个的按顺序配成一段
-        order = np.lexsort((ei, ii, jj))
-        jj, ii, tt, ei = jj[order], ii[order], tt[order], ei[order]
-        cell = jj.astype(np.int64) * (p.shape[1] + 1) + ii
+        ei = np.concatenate([a[3] for a in acc])
+        ll = np.concatenate([a[4] for a in acc])
+        # 交点按 (格, 层, 边序) 排序后, 同一格**同一层**内恰好两个的按顺序配成一段。
+        # 必须带层号: 一个格子可能同时被多条等值线穿过(陡坡/台风中心附近),
+        # 只按格子分组会把这些格子判成 4 个交点而整片丢掉。
+        order = np.lexsort((ei, ll, ii, jj))
+        jj, ii, tt, ei, ll = jj[order], ii[order], tt[order], ei[order], ll[order]
+        cell = (jj.astype(np.int64) * (p.shape[1] + 1) + ii) * max(1, len(levels)) + ll
         uniq, inv, counts = np.unique(cell, return_inverse=True, return_counts=True)
         ok = counts[inv] == 2
         if not ok.any():
             out = None
         else:
-            jj, ii, tt, ei = jj[ok], ii[ok], tt[ok], ei[ok]
+            jj, ii, tt, ei, ll = jj[ok], ii[ok], tt[ok], ei[ok], ll[ok]
             cell = cell[ok]
             # 同一格子的两条: 偶数位为第一点, 奇数位为第二点
             first = np.zeros(jj.shape[0], dtype=bool)
@@ -370,11 +389,12 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
     ys1 = [fy(V.C['LAT0'] + (j + 1.5) * V.C['ENVD']) for j in range(ny)]
     # 几何在"格坐标"里算并与视图解耦(缓存键只含气压场版本), 每帧只做一次
     # fancy indexing 映射到屏幕; 原实现每格每层走 Python 循环, 实测 35.7ms/帧
-    # 缓存键含 id(p): pTot 每次 env_update 都是新数组, 既保证失效, 也避免多个
-    # sim 实例之间串味(只看 _envVer 时两个实例都可能停在 1)
+    # 缓存键 = id(p) + env 版本 + 级别 + 形状 + 内容校验和:
+    #   id(_envVer) 保证 env_update 后失效, sum 兜住"原地改场"(测试/外部代码
+    #   直接对 pTot 赋值)的情况, 否则会画出上一帧的等值线。
     seg = _contour_segments(p, levels,
                             key=(id(p), sim.get('_envVer', -1), tuple(levels),
-                                 p.shape))
+                                 p.shape, float(p.sum())))
     if seg is not None:
         xs0a = np.asarray(xs0, dtype=np.float64)
         xs1a = np.asarray(xs1, dtype=np.float64)
@@ -435,6 +455,90 @@ def _label(text: str, color) -> pygame.Surface:
 
 
 _BARB_COLOR = (220, 225, 235)
+
+
+_STREAM_SEEDS: dict = {}
+
+
+def _stream_seeds(n: int):
+    """固定种子点(经纬度): 每帧一致, 否则流线会闪。"""
+    g = _STREAM_SEEDS.get(n)
+    if g is None:
+        rng = np.random.default_rng(20260915)
+        lon = rng.uniform(V.C['LON0'], V.C['LON1'], n)
+        lat = rng.uniform(V.C['LAT0'] + 8.0, V.C['LAT1'] - 8.0, n)
+        g = (lon, lat)
+        _STREAM_SEEDS.clear()
+        _STREAM_SEEDS[n] = g
+    return g
+
+
+_FLOW_KEY = (9, 8, 7)          # colorkey 魔法色(风羽色/地图色都命不中)
+_flow_cache: dict = {}
+_FLOW_CACHE_MAX = 4
+_flow_last: list = [None, 0]   # [surf, made_ms]
+
+
+def _build_streamlines(sim, fx: Callable, fy: Callable, w: int, h: int,
+                       seeds: int, steps: int, step_h: float) -> pygame.Surface:
+    """把流线画到一张 colorkey 背景的整屏 surface 上(blit 走 SDL 快速路径)。"""
+    surf = pygame.Surface((w, h))
+    surf.fill(_FLOW_KEY)
+    lon, lat = _stream_seeds(seeds)
+    lon = lon.copy()
+    lat = lat.copy()
+    draw = pygame.draw.line
+    for s in range(steps):
+        u, v = V.wind_at_arr(sim, lon, lat, 0.0)
+        sp = np.hypot(u, v)
+        km_lon = np.maximum(111.32 * np.cos(np.radians(lat)), 1.0)
+        mlon = lon + u * 1.852 * step_h * 0.5 / km_lon       # RK2 中点
+        mlat = np.clip(lat + v * 1.852 * step_h * 0.5 / 110.57, -89.0, 89.0)
+        mu, mv = V.wind_at_arr(sim, mlon, mlat, 0.0)
+        nlon = lon + mu * 1.852 * step_h / km_lon
+        nlat = np.clip(lat + mv * 1.852 * step_h / 110.57, -89.0, 89.0)
+        fade = 1.0 - 0.62 * (s / max(1, steps - 1))
+        xs0 = [fx(float(t)) for t in lon]
+        ys0 = [fy(float(t)) for t in lat]
+        xs1 = [fx(float(t)) for t in nlon]
+        ys1 = [fy(float(t)) for t in nlat]
+        for i in np.nonzero(sp > 1.5)[0]:
+            x0, y0, x1, y1 = xs0[i], ys0[i], xs1[i], ys1[i]
+            if abs(x1 - x0) > w * 0.5:
+                continue                      # 跨 0 度经线: 本段不画
+            base = _wind_color(float(sp[i]))
+            draw(surf, (int(base[0] * fade), int(base[1] * fade), int(base[2] * fade)),
+                 (x0, y0), (x1, y1), 1)
+        lon, lat = nlon, nlat
+    surf.set_colorkey(_FLOW_KEY)
+    return surf
+
+
+def draw_streamlines(surface: pygame.Surface, sim, fx: Callable, fy: Callable,
+                     seeds: int = 260, steps: int = 5, step_h: float = 8.0) -> None:
+    """低层环流细流线(参考视频里海面上那种淡流线, 不用云也不用粒子)。
+
+    - 积分用 8 小时/步 x 5 步: 10kt 的风约走 900km(地图上 ~25px), 才看得见;
+      之前按 10 分钟步长积分只有 0.1 像素, 等于没画。
+    - 整层缓存: 键 = (env 版本, 视口, 尺寸)。env 每 2 模拟小时才变一次, 视图不变
+      时每帧只付一次 colorkey blit(约 1ms)。拖动/缩放时键会变, 用 150ms 墙钟限流
+      复用上一张, 避免拖动期间每帧重算。
+    """
+    w, h = surface.get_size()
+    key = (int(sim.get('_envVer', -1)), w, h,
+           int(fx(0.0)), int(fy(0.0)), int(fx(180.0)))
+    s = _flow_cache.get(key)
+    if s is None:
+        now = pygame.time.get_ticks()
+        if _flow_last[0] is not None and now - _flow_last[1] < 150:
+            s = _flow_last[0]
+        else:
+            s = _build_streamlines(sim, fx, fy, w, h, seeds, steps, step_h)
+            if len(_flow_cache) >= _FLOW_CACHE_MAX:
+                _flow_cache.clear()
+            _flow_cache[key] = s
+            _flow_last[:] = [s, now]
+    surface.blit(s, (0, 0))
 
 
 def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 5.0) -> None:
@@ -761,10 +865,19 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
     if 'rh' in layers:
         arr = render_env_layer(sim, 'rh')
         _blit_layer(surface, arr, fx, fy, cache_key=('rh', _env_ver))
+    if 'shear' in layers:
+        arr = render_env_layer(sim, 'shear')
+        _blit_layer(surface, arr, fx, fy, alpha=170, cache_key=('shear', _env_ver))
     # 气压
     if 'pressure' in layers:
         try:
             draw_contours(surface, sim, fx, fy)
+        except Exception:
+            logger.debug('simcore 图层绘制失败', exc_info=True)
+    # 环流流线(细线, 参考视频那种"淡流线"表达; 不含云)
+    if 'flow' in layers:
+        try:
+            draw_streamlines(surface, sim, fx, fy)
         except Exception:
             logger.debug('simcore 图层绘制失败', exc_info=True)
     # 副高 5880 线(近似: pEnv 等值线 + 内部橙色填充)

@@ -30,6 +30,8 @@ SIM_LAYERS = [
     ('ohc',      '热含量',    '4'),
     ('track',    '路径',      '5'),
     ('ridge',    '副高',      '6'),
+    ('shear',    '风切',      '7'),
+    ('flow',     '环流',      '8'),
 ]
 SIM_LAYER_IDS = [lid for lid, _, _ in SIM_LAYERS]
 
@@ -337,12 +339,8 @@ class SimModeMixin:
             for _ in range(steps):
                 V.sim_step(self.sim_v4, V.C['DT'])
             hpf = self.sp * dt
-            self._sim_cld_acc += hpf
-            # 云场步进 0.25 模拟小时(云寿命 5.5h, 0.25h 步进不走样): cloud_step
-            # 单次 ~114ms, 原 0.08h 触发在高倍速下会挤占整帧预算
-            if self._sim_cld_acc >= 0.25:
-                V.cloud_step(self.sim_v4, min(self._sim_cld_acc, 3.5))
-                self._sim_cld_acc = 0.0
+            # 云场已停算(模拟模式不要云图): 原 cloud_step 单次 34ms, 每 0.25 模拟
+            # 小时触发一次纯属白烧; 冷尾流衰减/平流已移入 core.ocean_step
             # 只有风场图层可见时才推进粒子: 原实现无条件 step(实测 63ms/帧)
             if self.sim_particles is not None and 'wind' in self.sim_layers:
                 self.sim_particles.step(self.sim_v4, min(hpf, 0.5))

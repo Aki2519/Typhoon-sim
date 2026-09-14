@@ -94,9 +94,11 @@ class TestContourEquivalence(unittest.TestCase):
                              (float(p1[0]), float(p1[1])), 1)
         return s
 
-    def _new_segments_screen(self):
-        seg = R._contour_segments(self.p, LEVELS,
-                                  key=("test", tuple(LEVELS), self.p.shape))
+    def _new_segments_screen(self, p=None):
+        p = self.p if p is None else p
+        seg = R._contour_segments(p, LEVELS,
+                                  key=("test", tuple(LEVELS), self.p.shape)
+                                  if p is self.p else None)
         self.assertIsNotNone(seg)
         j0, i0, u0, v0, j1, i1, u1, v1 = seg
         xs0 = np.asarray(self.xs0)
@@ -124,6 +126,26 @@ class TestContourEquivalence(unittest.TestCase):
         self.assertLess(diff, W * H * 0.0005, f"等值线位图差异 {diff} 像素")
         self.assertEqual(int((a.sum(axis=2) > 0).sum()),
                          int((b.sum(axis=2) > 0).sum()))
+
+    def test_steep_field_multiple_levels_per_cell(self):
+        """一个格子同时被多条等值线穿过时不能整片丢掉。
+
+        回归: 初版向量化把"层号"漏在配对键外, 陡坡格子(8 条线都穿同一列)被当成
+        4 交点的鞍点全部丢弃 —— 真实场里台风中心附近最陡, 等值线会整片消失。
+        """
+        p = np.full_like(self.p, 1000.0)
+        p[:, :p.shape[1] // 2] = 1040.0
+        ref = reference_segments(p, self.xs0, self.xs1, self.ys0, self.ys1)
+        seg = R._contour_segments(p, LEVELS, key=None)
+        self.assertIsNotNone(seg)
+        self.assertEqual(len(ref), len(seg[0]))
+        old = self._rasterize(ref)
+        new = self._rasterize(self._new_segments_screen(p))
+        a = pygame.surfarray.array3d(old)
+        b = pygame.surfarray.array3d(new)
+        diff = int((a != b).any(axis=2).sum())
+        self.assertLess(diff, W * H * 0.0005, f"阶跃场位图差异 {diff} 像素")
+        self.assertGreater(int((b.sum(axis=2) > 0).sum()), 0)
 
     def test_cache_reuses_result(self):
         key = ("cachetest", tuple(LEVELS), self.p.shape)

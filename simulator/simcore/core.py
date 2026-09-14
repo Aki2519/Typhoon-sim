@@ -1354,9 +1354,49 @@ def cloud_step(sim, dt_h: float) -> None:
     c = _sample_grid(cld.reshape(ny, nx), nx, ny, fx_cld, fy_cld)
     c = c * decay + prod * dt_h * (1.0 - c * 0.85)
     sim['cld'] = np.clip(c, 0, 1.15).astype(np.float32).reshape(-1)
-    # 冷尾流衰减(SST 15 天) + OHC 消耗恢复(45 天)
-    sim['wake'] *= math.exp(-dt_h / (15 * 24))
-    sim['ohcWake'] *= math.exp(-dt_h / (45 * 24))
+    # 注意: 冷尾流衰减/平流不在这里 —— 见 ocean_step()。
+    # 原先搭在本函数末尾, 一旦关掉云图(模拟模式已不要云图)尾流就永不恢复。
+
+
+def _advect_env(field: np.ndarray, u_kt: np.ndarray, v_kt: np.ndarray,
+                dt_h: float, scale: float = 1.0) -> np.ndarray:
+    """0.5° env 网格上的半拉格朗日上游平流(经度方向环绕)。
+
+    field/u/v 都是 (ENVNY, ENVNX)。u/v 单位 kt(海里/小时), scale 是把
+    大气低层风换算成表层漂流的速度比例。
+    """
+    ny, nx = ENVNY, ENVNX
+    lat2 = _env_grids()[0]          # (ENVNY, ENVNX) 的纬度网格
+    km_l = 111.32 * np.cos(lat2 * C['DEG'])
+    dx = -u_kt * 1.852 * dt_h * scale / np.maximum(km_l, 1.0) / C['ENVD']
+    dy = -v_kt * 1.852 * dt_h * scale / 110.57 / C['ENVD']
+    fx = np.mod(np.arange(nx, dtype=np.float64)[None, :] + dx, nx)   # 环绕
+    fy = np.clip(np.arange(ny, dtype=np.float64)[:, None] + dy, 0.0, ny - 1.0)
+    return _sample_grid(field, nx, ny, fx, fy)
+
+
+def ocean_step(sim, dt_h: float) -> None:
+    """海洋状态步: 冷尾流/OHC 消耗的**平流** + 衰减。
+
+    之前尾流只会在原地指数衰减(15 天 / 45 天), 台风走后海温异常钉在原地。
+    这里让它们随表层漂流(近似取低层风, 乘 0.03 的 Ekman 漂流系数并偏转 30 度)
+    向下游移动 —— 这样才看得出"冷尾流被环流带向下游"。
+    """
+    env = sim['env']
+    u = env['u850']
+    v = env['v850']
+    # 表层漂流: 3% 风速 + 偏转 30 度(北半球右偏, 南半球左偏 = Ekman 漂流方向)
+    hemi = np.where(_env_grids()[0] >= 0.0, 1.0, -1.0)
+    ang = -math.radians(30.0) * hemi
+    ca, sa = np.cos(ang), np.sin(ang)
+    us = (u * ca - v * sa) * 0.03
+    vs = (u * sa + v * ca) * 0.03
+    wake = sim['wake'].reshape(ENVNY, ENVNX)
+    ohcw = sim['ohcWake'].reshape(ENVNY, ENVNX)
+    np.copyto(wake, _advect_env(wake, us, vs, dt_h))
+    np.copyto(ohcw, _advect_env(ohcw, us, vs, dt_h * 0.4))
+    wake *= math.exp(-dt_h / (15 * 24))       # SST 冷尾流: 15 天
+    ohcw *= math.exp(-dt_h / (45 * 24))       # OHC 消耗: 45 天恢复
 
 
 def _smoothstep_arr(a, b, x):
@@ -1550,6 +1590,10 @@ def sim_step(sim, dt: float) -> None:
     # 全球网格下环境场重建成本高: 每 2 模拟小时刷新(10min 步下足够平滑)
     if sim['t'] - sim['lastEnvH'] >= 2:
         env_update(sim)
+    # 海洋状态(尾流平流+衰减): 每小时一步即可, 每 10min 步做纯属浪费
+    if sim['t'] - sim.get('lastOceanH', -1e9) >= 1.0:
+        sim['lastOceanH'] = sim['t']
+        ocean_step(sim, 1.0)
     if sim['t'] - sim['lastEnsH'] >= 6:
         run_ensemble(sim)
         sim['lastEnsH'] = sim['t']

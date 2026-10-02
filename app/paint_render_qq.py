@@ -307,11 +307,39 @@ class QQTrackRenderer:
             pts = st.get("pts") or st.get("points")
         return list(pts or [])
 
+    @staticmethod
+    def _lo_la(p) -> Tuple[float, float]:
+        """取 (经度, 纬度)。**兼容三种输入**（2026-10-02 修）。
+
+        修的是什么: 原先两处写死 `p["lon"]` / `p["lat"]`, 那只对**本模块探针用的 dict**
+        有效; app 真实的 `TrackPoint`(app/typhoon.py:23) 用的是 `lo`/`la` 字段名
+        (`paint_render.py:103` 就是 `p.get('lo')`)。于是**在 app 里选 QQ 样式会直接抛**
+        `AttributeError: 'TrackPoint' object has no attribute 'lon'` ——
+        也就是说 QQ 样式**此前只在离线探针里跑过, 从未接过 app 的真实数据**。
+
+        支持:
+          · app 的 `TrackPoint`: `.get('lo')` / `.get('la')`, 或属性 `.lo` / `.la`
+          · 本模块探针/离线 dict: `{'lon': .., 'lat': ..}`
+          · b-deck 行 dict: `{'lo': .., 'la': ..}`
+        """
+        if isinstance(p, dict):
+            if "lon" in p or "lat" in p:
+                return (float(p.get("lon", 0.0) or 0.0),
+                        float(p.get("lat", 0.0) or 0.0))
+            return (float(p.get("lo", 0.0) or 0.0),
+                    float(p.get("la", 0.0) or 0.0))
+        try:                                   # TrackPoint 有 __getitem__/get
+            return (float(p.get("lo", 0.0) or 0.0),
+                    float(p.get("la", 0.0) or 0.0))
+        except Exception:
+            return (float(getattr(p, "lo", 0.0) or 0.0),
+                    float(getattr(p, "la", 0.0) or 0.0))
+
     def _all_bounds(self, storms) -> Tuple[float, float, float, float]:
         lo0, lo1, la0, la1 = 1e9, -1e9, 1e9, -1e9
         for st in storms:
             for p in self._storm_pts(st):
-                lo = float(p["lon"]); la = float(p["lat"])
+                lo, la = self._lo_la(p)
                 lo0 = min(lo0, lo); lo1 = max(lo1, lo)
                 la0 = min(la0, la); la1 = max(la1, la)
         if lo0 > lo1:
@@ -511,7 +539,7 @@ class QQTrackRenderer:
             pts = self._storm_pts(st)
             if not pts:
                 continue
-            xy = [PP.project(self.projection, float(p["lon"]), float(p["lat"]), ctx)
+            xy = [PP.project(self.projection, *self._lo_la(p), ctx)
                   for p in pts]
             # 细白连线
             for i in range(len(xy) - 1):

@@ -288,6 +288,21 @@ class QQTrackRenderer:
         self.watermark = bool(o.get("watermark", True))
         self.margin_w = float(o.get("margin_w", 0.0))
         self.margin_h = float(o.get("margin_h", 0.0))
+        # ── 画布下限：照 Typhoon4 的 Width / Height ─────────────────────────
+        # Ty4 的公式(规格书 §2.2, 语言包键 57-60 原文确证 "最小宽度"/"最小高度"):
+        #     W = max(Width,  track_w + 2*WidthSpace)
+        #     H = max(Height, track_h + 2*HeightSpace)
+        # 默认取 Settings.ini 的 Width=1920 / Height=1080。
+        # 原先这里下限只有 320x240 ⇒ 小台风会渲出 320x259 这种"缩略图"。
+        # ⚠ 关键差别: Ty4 的 px/° **恒定**, 所以画布变大是"**看到更多地图**",
+        #   不是"把轨迹放大"。本渲染器照此办理(见 render 里"同一比例重新居中")。
+        self.min_w = int(o.get("min_w", 1920))
+        self.min_h = int(o.get("min_h", 1080))
+        #: 内存护栏(我们加的, Ty4 没有): 超大包围盒不无限涨
+        self.max_w = int(o.get("max_w", 4096))
+        self.max_h = int(o.get("max_h", 3072))
+        #: 内容 px/°(Ty4 是 30; 本样式按基准图观感取 ~22.6)
+        self.px_per_deg = float(o.get("px_per_deg", 22.6))
         self.aa = bool(o.get("aa", True))
         self.marker_r = float(o.get("marker_r", 9.0))
         self.line_w = int(o.get("line_w", 1))
@@ -399,14 +414,20 @@ class QQTrackRenderer:
         pad_deg = 4.0
         bounds = (lo0 - pad_deg, lo1 + pad_deg, max(-80.0, la0 - pad_deg),
                   min(84.0, la1 + pad_deg))
-        # 画布尺寸：按基准图的长宽比与像素密度(~23 px/度)自动
+        # 画布尺寸：照 Ty4 的 `W = max(最小宽度, 内容 + 2*留空)`
         if self.output_size:
             W, H = int(self.output_size[0]), int(self.output_size[1])
         else:
             dlon = max(1e-6, bounds[1] - bounds[0])
             dlat = max(1e-6, bounds[3] - bounds[2])
-            W = int(max(320, min(2400, dlon * 22.6 + 2 * self.margin_w)))
-            H = int(max(240, min(1800, dlat * 22.6 * 1.15 + 2 * self.margin_h)))
+            #: 内容尺寸(未设下限)
+            _wc = dlon * self.px_per_deg + 2 * self.margin_w
+            _hc = dlat * self.px_per_deg * 1.15 + 2 * self.margin_h
+            Wc = int(min(self.max_w, max(160, _wc)))
+            Hc = int(min(self.max_h, max(120, _hc)))
+            #: 套下限(照 Ty4 的 Width/Height)。取整到 2 的倍数无害, 便于等比缩放。
+            W = int(min(self.max_w, max(self.min_w, Wc)))
+            H = int(min(self.max_h, max(self.min_h, Hc)))
         if self.ctx_override:
             ctx = dict(self.ctx_override)
             # 显式 ctx 可能只给了投影参数(如 PP.CONIC_REFERENCE) ⇒ 补齐渲染需要的字段
@@ -414,6 +435,15 @@ class QQTrackRenderer:
             ctx.setdefault('size', (W, H))
             ctx.setdefault('bounds', bounds)
             W, H = int(ctx['size'][0]), int(ctx['size'][1])
+        elif not self.output_size and (W, H) != (Wc, Hc):
+            # 命中下限 ⇒ **保持内容比例不变, 只把内容居中到更大的画布**
+            # (= 往四周多露地图, 而不是把轨迹放大; 这正是 Ty4 px/° 恒定的效果)
+            # 做法: 先用内容尺寸装箱拿到 ctx, 再把偏移各加半个尺寸差。
+            ctx = PP.make_ctx(self.projection, bounds, (Wc, Hc), pad=6.0)
+            ctx = dict(ctx)
+            ctx['size'] = (W, H)
+            ctx['ox'] = float(ctx.get('ox', 0.0)) + (W - Wc) / 2.0
+            ctx['oy'] = float(ctx.get('oy', 0.0)) + (H - Hc) / 2.0
         else:
             ctx = PP.make_ctx(self.projection, bounds, (W, H), pad=6.0)
         self._ctx = ctx

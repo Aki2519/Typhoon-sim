@@ -300,7 +300,15 @@ class DataRepository:
 
     @staticmethod
     def _parse_latlon(lat_str_raw: str, lon_str_raw: str):
-        """解析 NSEW 经纬度列(空列/缺方向后缀抛 ValueError 由调用方跳过整行)。"""
+        """解析 NSEW 经纬度列(空列/缺方向后缀抛 ValueError 由调用方跳过整行)。
+
+        ⚠⚠ 2026-10-01 用户规则: **带小数点的坐标值本身按解析错误处理, 不报出、直接跳过。**
+        原因: ATCF/b-deck 的经纬度是"整十分之一度"(`1597E` = 159.7°E, `73N` = 7.3°N),
+        下面统一 `/10.0`。而正则 `\\d+(?:\\.\\d+)?` **允许小数点**, 于是 `99.98E` 也
+        能匹配 -> `99.98/10 = 9.998` —— **一个完全错误的坐标**, 却不会报错。
+        这类值(如经度 99.98、纬度 0.02)说明数据源用了别的格式或已损坏, 与其猜,
+        不如按用户要求当作坏点**静默跳过**(抛 ValueError, 由调用方丢整行)。
+        """
         lat_str = lat_str_raw.strip()
         lon_str = lon_str_raw.strip()
         mlat = _LATLON_LAT_RE.match(lat_str)
@@ -309,6 +317,9 @@ class DataRepository:
             # 缺方向后缀/非法格式: 按 docstring 抛错, 由调用方跳过整行,
             # 而不是静默砍掉末位造成 "25"→2.5 这类错位解析
             raise ValueError("经纬度列缺少方向后缀或格式非法")
+        if '.' in mlat.group(1) or '.' in mlon.group(1):
+            # 带小数点 => 不是"整十分之一度"格式, /10 会得出垃圾值 => 坏点跳过
+            raise ValueError("经纬度为整十分之一度格式, 不应含小数点")
         lat_val = float(mlat.group(1)) / 10.0
         if mlat.group(2).upper() == 'S':
             lat_val = -lat_val

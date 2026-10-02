@@ -26,10 +26,22 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 
 # SimCore 内核坐标常量(与 core.C 对齐)
+# F2: 不要在这里重新写死 360/120 —— 内核网格已改成 0.5°(720×240),
+# 两份常量一旦漂移, resample_lat 会把场插到错误的纬度上(静默错位)。
 LON0, LON1 = 0.0, 360.0
-LAT0, LAT1 = -60.0, 60.0
-ENVNX, ENVNY = 360, 120
+# **必须与 core.C 一致**(这里曾是 ±60 的第二份真源, 扩域时最容易漏掉的一处)
+LAT0, LAT1 = -90.0, 90.0
 DEG = math.pi / 180.0
+
+
+def _env_dims():
+    """(ENVNX, ENVNY, ENVD) —— 唯一真源在 core.C, 懒导入避免循环依赖。"""
+    from . import core as _C
+    return _C.ENVNX, _C.ENVNY, float(_C.C['ENVD'])
+
+
+ENVNX, ENVNY = _env_dims()[:2]
+ENVD = _env_dims()[2]
 
 # 库网格(与 env/field_io 一致)
 NLAT, NLON = 121, 360
@@ -179,52 +191,138 @@ def load_months(var: str, year: Optional[int] = None,
 
 
 def resample_lat(months: np.ndarray, axis_lat: int = -2) -> np.ndarray:
-    """库 121 格点(-60..60) → 内核 120 格心(-59.5..59.5) 线性重采样。
-    处理 3D(360,121)与 4D(360,121,2)两种: 纬度轴固定为倒数第 2 维。"""
+    """库 121 格点(-60..60) → 内核格心 线性重采样。
+
+    F2: 改成全向量化。原实现对每一行纬度做一次 Python 循环 + 花式索引,
+    内核升到 0.5°(240 行)后单次就要几十毫秒, 而 env_update 每步要重采样
+    8 个变量, 直接成帧率杀手(实测 dataMode 稳态 616ms/次)。向量化后 <5ms。
+    """
     n_lat = months.shape[axis_lat]
     if n_lat == ENVNY:
         return months
-    # 目标格心纬度
-    dst_lat = np.array([LAT0 + (j + 0.5) for j in range(ENVNY)], dtype=np.float64)
-    # 源格点坐标 -> 插值位置(把格心值视为格点值, 线性插值到新位置)
-    src = LATS.astype(np.float64)
-    moved = np.moveaxis(months, axis_lat, 0)          # (lat, rest...)
-    out = np.empty((ENVNY,) + moved.shape[1:], dtype=np.float32)
-    for j in range(ENVNY):
-        y = dst_lat[j]
-        # 源格点下标(线性)
-        i = (y - src[0]) / (src[1] - src[0])
-        i0 = int(math.floor(i))
-        i1 = min(i0 + 1, n_lat - 1)
-        i0 = max(i0, 0)
-        f = i - i0
-        out[j] = moved[i0] * (1 - f) + moved[i1] * f
+    # 目标格心纬度(用内核自己的 ENVD, 不写死 1°)
+    dst = LAT0 + (np.arange(ENVNY, dtype=np.float64) + 0.5) * ENVD
+    step = float(LATS[1] - LATS[0])
+    i = (dst - float(LATS[0])) / step
+    i0 = np.clip(np.floor(i).astype(np.int64), 0, n_lat - 1)
+    i1 = np.clip(i0 + 1, 0, n_lat - 1)
+    # **夹取**: 库只有 ±60, 而内核域已扩到 ±90 —— 不夹的话目标纬度落在源范围外会
+    # 线性外推(实测把 shear 外推成负值)。夹到 [0,1] 后极区=取边界行(临时口径)。
+    f = np.clip(i - i0, 0.0, 1.0).astype(np.float32)
+    moved = np.moveaxis(months, axis_lat, 0)                 # (lat, ...)
+    shape = (ENVNY,) + (1,) * (moved.ndim - 1)
+    out = (moved[i0] * (1.0 - f).reshape(shape)
+           + moved[i1] * f.reshape(shape))
     return np.moveaxis(out, 0, axis_lat)
 
 
+def _days_in_month(y: int, m: int) -> int:
+    import calendar
+    return calendar.monthrange(y, m)[1]
+
+
+def month_float_of(dt, month0: int = 1, t_h: float = 0.0) -> float:
+    """绝对时刻 → 连续月序(0=1月)。
+
+    F1 修正: 库里的值是**月平均**,应视为"月中"有效。旧实现把它当月**初**,
+    于是 9 月 14 日插出 45% 的 10 月(季节相位提前半个月, 约 0.5°C 系统冷偏差)。
+    正确做法: 月平均锚在月中, `f = (day - 15)/该月天数`。
+    例: 9/14 → 8.03(97% 九月 + 3% 十月); 9/1 → 7.53(47% 八月 + 53% 九月)。
+    """
+    if dt is not None:
+        y, m, d = dt.year, dt.month, dt.day
+        dim = _days_in_month(y, m)
+        return ((m - 1) + (d - 15.0) / dim) % 12.0
+    # 旧接口回落(t_h 小时 + month0 起算, 30 天近似)
+    day = t_h / 24.0
+    return ((month0 - 1) + day / 30.0) % 12.0
+
+
+def resample_lon(months: np.ndarray, axis_lon: int = -1) -> np.ndarray:
+    """库 360 格点(整数度) → 内核 ENVNX 格心, 经度周期插值。
+
+    F2: 内核网格从 1° 改到 0.5° 后, 经度也必须从 360 升到 720 —— 只重采样纬度
+    会让场停在 (240,360), 与 wake/land 的 (240,720) 广播不上, 直接抛异常
+    (比静默错位好, 但功能是坏的)。
+    """
+    n = months.shape[axis_lon]
+    if n == ENVNX:
+        return months
+    dst = (np.arange(ENVNX) + 0.5) * ENVD          # 目标格心经度(源坐标 = 经度)
+    i0 = np.floor(dst).astype(np.int64) % n
+    i1 = (i0 + 1) % n
+    f = (dst - np.floor(dst)).astype(np.float32)
+    moved = np.moveaxis(months, axis_lon, -1)
+    out = moved[..., i0] * (1.0 - f) + moved[..., i1] * f
+    return np.moveaxis(out, -1, axis_lon)
+
+
+def resample_env(months: np.ndarray) -> np.ndarray:
+    """库网格(…,121,360) → 内核网格(…,ENVNY,ENVNX), 纬度+经度都重采样。"""
+    return resample_lon(resample_lat(months))
+
+
+#: 已重采样到内核网格的月场缓存。env_update 每步都要这套场, 而重采样是纯几何
+#: 变换、与时间无关 —— 不缓存的话每次都要把 8 个变量重插一遍(实测 0.5° 下
+#: dataMode 稳态 616ms/次, 缓存后 ~10ms)。
+_ENV_CACHE_MAX = 64
+_env_cache: 'OrderedDict' = OrderedDict()
+
+
+def clear_caches() -> None:
+    """清空两级缓存(原始月场 / 已重采样月场)。
+
+    测试里要 monkeypatch load_months 来模拟"某变量缺失"时, 必须先清缓存 ——
+    否则命中缓存就绕过了 patch, 断言的降级路径根本没被走到。
+    """
+    _cache.clear()
+    _env_cache.clear()
+
+
+def load_months_env(var: str, year: Optional[int] = None,
+                    clim: bool = False) -> Optional[np.ndarray]:
+    """load_months + 重采样到内核网格, 结果按 (var, year) 缓存。"""
+    key = (var, year if not clim else None)
+    v = _env_cache.get(key)
+    if v is not None:
+        _env_cache.move_to_end(key)
+        return v
+    m = load_months(var, year, clim)
+    if m is None:
+        return None
+    v = np.ascontiguousarray(resample_env(m), dtype=np.float32)
+    _env_cache[key] = v
+    _env_cache.move_to_end(key)
+    while len(_env_cache) > _ENV_CACHE_MAX:
+        _env_cache.popitem(last=False)
+    return v
+
+
 def interp_month(months: np.ndarray, t_h: float, month0: int,
-                 day_cycle: float = 1.0, daily_amp: float = 0.0) -> np.ndarray:
-    """按模拟时间 t_h(小时)对 12 月数据做闭式月间插值 + 日内谐波。
-    - 月间: 线性插值(跨年循环, 每月按 30 天近似); 月份基准 = month0(模拟起始月),
-      t_h 只负责推进(起始 t=0 即 month0, 而非 1 月)。
+                 day_cycle: float = 1.0, daily_amp: float = 0.0,
+                 clock=None) -> np.ndarray:
+    """按模拟时刻对 12 月数据做闭式月间插值 + 日内谐波。
+
+    - 月间: 线性插值(月平均锚在月中, 见 month_float_of); 跨年循环。
     - 日内: 当地太阳时驱动的日变化 —— 每一格点的"当地时间"由
       模拟绝对小时 + 经度时角决定, 峰值在当地正午(太阳加热)。
       daily_amp 为**加性**幅度(绝对单位, 如 sst=0.6°C / mslp=1.5hPa),
       避免乘法调制把海温/气压整体放大(物理错误)。
-      (借鉴 KWP 的逐时气候态思想: 日内环境随当地太阳时演变。)
-    返回与 months 同形(经度最后一维, 纬度已对齐)的场。"""
+    返回与 months 同形(经度最后一维, 纬度已对齐)的场。
+    """
     n_m = months.shape[0]
-    day = t_h / 24.0
-    m_float = ((month0 - 1) + day / 30.0) % 12.0
+    m_float = month_float_of(clock, month0, t_h)
     m0 = int(math.floor(m_float)) % 12
     m1 = (m0 + 1) % 12
     f = m_float - math.floor(m_float)
     base = months[m0] * (1 - f) + months[m1] * f
     if day_cycle <= 0 or daily_amp <= 0:
         return base
-    # 当地太阳时(0-24): 模型 t 的绝对小时(UTC 近似) + 经度时角
+    # 当地太阳时(0-24): 用模拟时刻的绝对 UTC 小时(有 clock 时用它,
+    # 否则回落到 t_h 取模 —— 起始时次非 00z 时旧写法会偏移)
+    utc_hour = ((clock.hour + clock.minute / 60.0) if clock is not None
+                else (t_h % 24.0 + 24.0) % 24.0)
     lon = (np.arange(base.shape[-1]) + 0.5)          # 0..359 经度格心
-    utc_hour = (t_h % 24.0 + 24.0) % 24.0
     local_h = (utc_hour + lon / 15.0) % 24.0          # 每经度当地小时
     # 日变化: 峰值在 14 时(下午最暖), 低谷在 02 时; 幅度随季节(夏大冬小)
     daily = np.cos(2 * math.pi * (local_h - 14.0) / 24.0)
@@ -232,31 +330,67 @@ def interp_month(months: np.ndarray, t_h: float, month0: int,
     return base + daily * day_cycle * seas * daily_amp
 
 
-def build_env_fields(sim_params: dict, t_h: float, month0: int) -> Optional[dict]:
+def day_cycle_term(shape, t_h: float, month0: int, day_cycle: float,
+                   daily_amp: float, clock=None):
+    """只要**日内谐波**那一项(供模型路径复用)。
+
+    为什么需要它: 日内变化原来只在 (旧库路径)里加, 而环境场模型
+    可用时字段会被  整块覆盖 ⇒ 用户面板里的"日变化"设置对模型路径**完全无效**
+    (静默 no-op)。这里把同一套公式抽出来, 让模型路径也能按设置加日变化;
+    瞬时场不加(实测数据本身已含日内信号, 加了就是重复计入)。
+    """
+    if day_cycle <= 0 or daily_amp <= 0:
+        return None
+    m_float = month_float_of(clock, month0, t_h)
+    utc_hour = ((clock.hour + clock.minute / 60.0) if clock is not None
+                else (t_h % 24.0 + 24.0) % 24.0)
+    lon = (np.arange(shape[-1]) + 0.5)
+    local_h = (utc_hour + lon / 15.0) % 24.0
+    daily = np.cos(2 * math.pi * (local_h - 14.0) / 24.0)
+    seas = 0.5 + 0.5 * math.cos(2 * math.pi * (m_float - 6) / 12.0)
+    return (daily * day_cycle * seas * daily_amp).astype(np.float32)
+
+
+def build_env_fields(sim_params: dict, t_h: float, month0: int,
+                     clock=None) -> Optional[dict]:
     """按 dataMode 参数构建内核 env 场覆盖层。
     返回 {sst, ohc, shear, rh, u850, v850, u200, v200, uMid, vMid} 或 None(无数据)。
-    sst/ohc/shear/rh 单位与内核一致: °C / kJ / kt / %; 风: kt(内核全 kt)。"""
+    sst/ohc/shear/rh 单位与内核一致: °C / kJ / kt / %; 风: kt(内核全 kt)。
+
+    clock: F1 起传入的绝对时刻;决定基态气候场的年内插值与模态索引取值。
+    """
     dm = sim_params.get('dataMode', False)
     if not dm:
         return None
+    # ── F2/F3: 优先用离线训练出来的环境场模型(基态 + 模态 + 增暖) ──
+    # 它是"消化过的真实数据"(OISST/ERA5/AOML 训练产物), 运行时零联网;
+    # 产物不存在时静默回落旧合成库/ERA5 raw —— 保证没有训练产物也能跑。
+    _model = None
+    try:
+        from . import envmodel as _EM
+        _model = _EM.solve(sim_params, clock=clock)
+    except Exception:
+        _model = None
     year = sim_params.get('dataYear')
     clim = bool(sim_params.get('dataClim', False)) or year is None
     dc = float(sim_params.get('dataDayCycle', 1.0))
     amp = DAILY_AMP
 
     def get3(name, damp=0.0):
-        m = load_months(name, year, clim)
+        m = load_months_env(name, year, clim)      # 已重采样 + 缓存
         if m is None:
             return None
-        return interp_month(resample_lat(m), t_h, month0, dc, damp)
+        return interp_month(m, t_h, month0, dc, damp, clock=clock)
 
     def get4(name, damp=0.0):
-        m = load_months(name, year, clim)
+        m = load_months_env(name, year, clim)      # 已重采样 + 缓存
         if m is None:
             return None
         # m: (12, 2, 121, 360) -> 分 u/v 各重采样
-        u = interp_month(resample_lat(m[:, 0]), t_h, month0, dc, damp)
-        v = interp_month(resample_lat(m[:, 1]), t_h, month0, dc, damp)
+        u = interp_month(np.ascontiguousarray(m[:, 0]), t_h, month0, dc, damp,
+                         clock=clock)
+        v = interp_month(np.ascontiguousarray(m[:, 1]), t_h, month0, dc, damp,
+                         clock=clock)
         return u, v
 
     fields = {}
@@ -270,17 +404,30 @@ def build_env_fields(sim_params: dict, t_h: float, month0: int) -> Optional[dict
     if sst is None:
         sst = get3('sst', amp['sst'])
     else:
-        # raw 全年文件走与库相同的处理: 纬度重采样 + 月间/日内插值
-        sst = interp_month(resample_lat(sst), t_h, month0, dc, amp['sst'])
+        # raw 全年文件走与库相同的处理: 重采样到内核网格 + 月间/日内插值
+        # (同样要缓存 —— 这是每年 12 个月面的几何变换, 与时间无关)
+        key = ('raw_sst_env', int(year))
+        cached = _env_cache.get(key)
+        if cached is None:
+            cached = np.ascontiguousarray(resample_env(sst), dtype=np.float32)
+            _env_cache[key] = cached
+            _env_cache.move_to_end(key)
+            while len(_env_cache) > _ENV_CACHE_MAX:
+                _env_cache.popitem(last=False)
+        sst = interp_month(cached, t_h, month0, dc, amp['sst'])
     if sst is not None:
         fields['sst'] = sst
     ohc = get3('ohc', amp['ohc'])
     if ohc is not None:
         fields['ohc'] = ohc
+        # 旧合成库的 ohc 是 kJ/cm²(见 climate.UNITS), 必须显式标注 ——
+        # core 只在标注为 'm' 时才把它当 D26 用
+        fields['_ohc_unit'] = 'kJ'
     shear = get3('shear', amp['shear'])
     if shear is not None:
         # 库 shear 单元: m/s(见 real_source)。转 kt
-        fields['shear'] = np.maximum(SHEAR_MIN_KT, shear * KT).astype(np.float32)
+        # ×0.55: 与 envmodel.solver 同一口径(月均矢量差 → 日尺度切变), 详见那里
+        fields['shear'] = np.maximum(SHEAR_MIN_KT, shear * KT * 0.55).astype(np.float32)
     rh = get3('rh700', amp['rh'])
     if rh is not None:
         fields['rh'] = np.clip(rh, 25, 95).astype(np.float32)
@@ -298,6 +445,76 @@ def build_env_fields(sim_params: dict, t_h: float, month0: int) -> Optional[dict
         fields['v200'] = (v * KT * 1.45).astype(np.float32)
         fields['uMid'] = (u * KT * 1.225).astype(np.float32)
         fields['vMid'] = (v * KT * 1.225).astype(np.float32)
+    # ── F2/F3: 模型场优先, 缺口用旧库补齐, 并把"降级字段"显式报给 core ──
+    # 不能整块 return 模型场: core 的 dataState 判定依赖字段完整性, 而模型
+    # 产物可能只烘焙了一部分(base_wind 还没下到时只有 SST/D26)。合并之后
+    # 契约(必有 sst/ohc/shear/rh/u850/...)仍成立, 由 _degraded 说明哪些是
+    # 用旧库/解析补的 —— 状态徽标因此不会对用户撒谎。
+    if _model:
+        degraded = []
+        # 自洽性: 模型给了真风切(shear)时, **不能**再从旧库补 u850/u200 ——
+        # core 的 data 分支一旦看到 u850 就会用 hypot(u200-u850) 覆盖 shear,
+        # 而旧库的 u200 是 1.45×u850 合成的假风, 等于把真风切又冲掉
+        # (实测: 真值 1.3~89 kt 被冲成 0~30 kt)。缺风场就让 core 走解析地转,
+        # 这样"风切"和"风场"至少各自自洽。
+        _skip = {'u850', 'v850', 'u200', 'v200', 'uMid', 'vMid'}             if 'shear' in _model else set()
+        for k in ('shear', 'rh', 'mslp', 'u850', 'v850', 'u200', 'v200',
+                  'ohc', 'sst'):
+            if k not in _model:
+                degraded.append(k)
+        for k in _skip:
+            fields.pop(k, None)
+        for k in ('sst', 'ohc', 'shear', 'rh', 'mslp', 'u850', 'v850',
+                  'u200', 'v200', 'uMid', 'vMid', 'ohc_kj', 't200'):
+            if k in _model:
+                fields[k] = _model[k]
+        # 单位标签必须跟着实际来源走: 旧库分支会写 _ohc_unit='kJ', 若模型给了
+        # 真正的 D26(米) 却不覆盖这个标签, core 会误判成 kJ 而改走解析柱
+        # (实测: 基态 137 m 被算成 63 m)。
+        if 'ohc' in _model:
+            fields['_ohc_unit'] = 'm'
+        if degraded:
+            fields['_degraded'] = degraded
+        # **诊断标记必须一起传下去**(2026-09-20): 合并循环只搬固定字段名, 于是
+        # solve() 里打的 _instant / _shear_instant / _ohc_instant 全被丢掉 ——
+        # 后果 ① UI 徽标永远显示"月均"(即使走的是瞬时场); ② 任何依赖这些标记的
+        # 下游逻辑(例如瞬时风切不再乘 0.55)在跨过这一层之后失效。
+        for _k in ('_instant', '_instant_partial', '_instant_groups', '_instant_src',
+                   '_shear_instant', '_ohc_instant', '_ohc_basins',
+                   '_shear_tc_scale_deg'):
+            if _k in _model:
+                fields[_k] = _model[_k]
+        # **日变化**: 模型路径原来完全没有(见 day_cycle_term 的说明)。瞬时场跳过,
+        # 因为它本身已经包含日内信号, 再叠加就是重复计入。
+        # **逐字段判**: 只要该字段本身是瞬时的就不加日变化。原来只看整体 _instant
+        # (要求 sst+shear 都瞬时), 于是"只有瞬时 SST"的日子会给瞬时海温再叠一层
+        # 合成日变化 —— 实测 2026-02-28 00Z 暖池 SST 因此偏高 0.96 °C(自查时发现)。
+        _grp = _model.get('_instant_groups') or {}
+        _inst_grp = {g for g, v in _grp.items() if v}
+        if dc > 0:
+            for _k, _amp_key in (('sst', 'sst'), ('ohc', 'ohc'), ('shear', 'shear'),
+                                 ('rh', 'rh'), ('mslp', 'mslp'),
+                                 ('u850', 'uv'), ('v850', 'uv'),
+                                 ('u200', 'uv'), ('v200', 'uv')):
+                # **只给"确实来自模型"的字段加**: 模型缺某个字段时 fields 里留的是
+                # 旧库的值, 而旧库那条路已经在 interp_month 里加过日内项了 ——
+                # 再给降级字段补一次就是双份日变化(自查时发现)。
+                if _k not in fields or _k not in _model:
+                    continue
+                # 该字段所属的瞬时分组已就绪 → 数据里本来就含日内信号, 不再合成
+                _g_of = {'sst': 'sst', 'mslp': 'sst', 'ohc': 'ohc'}.get(_k, 'shear')
+                if _g_of in _inst_grp:
+                    continue
+                _t = day_cycle_term(np.asarray(fields[_k]).shape, t_h, month0, dc,
+                                    float(amp.get(_amp_key, 0.0)), clock=clock)
+                if _t is not None:
+                    fields[_k] = (np.asarray(fields[_k], np.float32) + _t
+                                  ).astype(np.float32)
+    # 物理守卫: 模态/日变化叠加后 shear 可能被推到微负(实测 -0.068 kt)。
+    # 切变是**矢量差的模**, 不可能为负 —— 出口统一夹一次。
+    if fields and 'shear' in fields:
+        fields['shear'] = np.maximum(np.asarray(fields['shear'], np.float32),
+                                     0.0).astype(np.float32)
     return fields or None
 
 

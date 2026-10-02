@@ -1,15 +1,136 @@
 from __future__ import annotations
 
 import os
+import sys
 import math
 import logging
 from typing import Optional
 
 import pygame
 
-from .constants import DEFAULT_MAP, LAND_MASK
+from .constants import DEFAULT_MAP, LAND_MASK, LAND_MASK_FALLBACK
 
 logger = logging.getLogger(__name__)
+
+# ════════════════════ 内存优化开关(可运行时回退, 无需改代码)════════════════════
+# 背景(实测 2026-10-02, 见 output/exploration/20_fix_map_decode.md):
+#   map.png 与 land.png 各 10800×5400 RGBA = **233,280,000 B = 222.47 MB**,
+#   启动期两次 `pygame.image.load` 合计解码 **444.95 MB**(确定值), 而窗口只要
+#   2560×1540 = 15.8 MB。`is_land_at_geo` 首调还会先 `tobytes(整幅 RGBA)` 造一个
+#   **222.47 MB 的临时字节串**再 `[3::4]` 切片取 alpha —— 这是启动峰值的来源。
+#   本开关族只消除"取 alpha 时的整幅临时量", **不改任何像素结果**(见下面的长度守卫
+#   与逐行回退: 两条回退路径与旧表达式逐字节等价)。
+#
+# 回退: 设置环境变量 `TSIM_MAP_ALPHA_NO_TRANSIENT=0` 即恢复旧行为(整幅 tobytes),
+#      或 `cp output/exploration/_backup/map_mgr.py app/map_mgr.py` 整文件回退。
+
+
+def _flag(name: str, default: bool) -> bool:
+    """环境变量开关: 未设置用默认; '0/false/no/off' 视为关闭。"""
+    v = os.environ.get('TSIM_' + name)
+    if v is None:
+        return default
+    return v.strip().lower() not in ('0', 'false', 'no', 'off')
+
+
+#: True = 取 alpha 时不制造整幅 RGBA 临时量(快路 get_view('3'), 回退逐行切片)
+ALPHA_NO_TRANSIENT = _flag('MAP_ALPHA_NO_TRANSIENT', True)
+
+#: True = 建完**地理** alpha 表后释放 land RGBA(常驻 −222.47 MB)。
+#: 释放后 `_load_land_orig()` 改为返回 1×1 占位(4 处外部调用方只判 `is None`, 见报告
+#: `20_fix_map_decode.md` §4.6/§11.1); 需要真像素的内部路径一律改走 `_land_pixels()`。
+#: 关掉(设 0)即完全恢复旧行为(像素常驻 222.47 MB)。
+LAND_RGBA_TRANSIENT = _flag('MAP_LAND_RGBA_TRANSIENT', True)
+
+# ── W5(2026-10-02) 补的护栏: 释放后**再次物化** land 像素时会吃掉 −222.47 MB 的收益 ──
+# 实测约束(见 21_fix_verification.md §6.2): `_land_pixels()` 一旦被调用, `_land_orig`
+# 会重新物化回 10800×5400 = 222.47 MB。变体 A 省的是"**无人索取像素时的常驻**",
+# **不是"像素永不物化"** ⇒ 任何"顺手拿全尺寸陆地像素"的新代码都会静默把收益还回去。
+#
+#: True = 释放后再次物化时打**一条** `logging.warning`(每进程仅首次, 含调用方位置)。
+#: **只增加可观测性, 不改变行为、不影响性能**; 设 0 可完全关掉。
+LAND_MATERIALIZE_WARN = _flag('MAP_LAND_MATERIALIZE_WARN', True)
+
+#: True = 释放后再次物化直接 `AssertionError`(默认关)。给 CI/调试用:
+#: 打开后"渲染期索取全尺寸像素"会立刻失败, 而不是静默吃掉 222.47 MB。
+LAND_MATERIALIZE_STRICT = _flag('MAP_LAND_MATERIALIZE_STRICT', False)
+
+#: 进程级计数/去重: 第一次告警后 `warned=True`, 后续只累加 `count`(不刷屏)。
+_LAND_MAT = {'count': 0, 'warned': False, 'last_caller': ''}
+
+
+def land_materialize_stats() -> dict:
+    """护栏观测值: `{count, warned, last_caller}`。
+
+    `count` = "释放后再次物化"的累计次数(每进程); `count > 0` 即说明本该省下的
+    222.47 MB 至少被要回来过一次。探针/测试/将来的运行期自检都可读它。
+    """
+    return dict(_LAND_MAT)
+
+
+def _land_caller_hint() -> str:
+    """给出"谁在要像素": 从当前栈往上找**第一个不在本文件内**的帧(即真实调用方)。"""
+    try:
+        f = sys._getframe(1)
+        while f is not None:
+            fn = f.f_code.co_filename.replace('\\', '/')
+            if not fn.endswith('/map_mgr.py') and fn != 'map_mgr.py':
+                return '%s:%d in %s()' % (fn, f.f_lineno, f.f_code.co_name)
+            f = f.f_back
+    except Exception:
+        pass
+    return '<unknown>'
+
+
+def _note_land_rematerialize() -> None:
+    """记录一次"释放后再物化"并(按开关)告警/断言。**不改变正常路径的任何行为**。"""
+    _LAND_MAT['count'] += 1
+    _LAND_MAT['last_caller'] = _land_caller_hint()
+    if LAND_MATERIALIZE_STRICT:
+        raise AssertionError(
+            'land 像素被再次物化(222.47 MB 常驻回归), 调用方 %s; '
+            '渲染路径请改用 land_img/_land_alpha_bytes' % _LAND_MAT['last_caller'])
+    if LAND_MATERIALIZE_WARN and not _LAND_MAT['warned']:
+        _LAND_MAT['warned'] = True
+        logger.warning(
+            'land 像素在释放后被**再次物化**: 10800×5400 = 222.47 MB 会重新常驻, '
+            'W4b 的稳态收益当场失效。调用方 %s。'
+            '正常渲染路径不应索取全尺寸陆地像素(请用 land_img/_land_alpha_bytes); '
+            '本次只告警一次, 后续同类调用只累加 land_materialize_stats()["count"]。',
+            _LAND_MAT['last_caller'])
+
+
+def _surface_alpha_bytes(surface: 'pygame.Surface') -> bytes:
+    """取 32 位 Surface 的 **alpha 通道**(1 字节/像素), 与 `tobytes(s,'RGBA')[3::4]` 等价。
+
+    三级实现(结果逐字节相同, 只影响峰值内存):
+      1. `Surface.get_view('3')` —— 直接给出第 3 通道(alpha)平面, 无整幅临时量。
+         必须做长度守卫: 只有长度 == w*h 才采用, 否则视为不可用。
+      2. 逐行 `subsurface → tobytes('RGBA') → [3::4]` —— 峰值仅 1 行(w*4 B)。
+      3. 旧实现整幅 `tobytes('RGBA') → [3::4]` —— 峰值 w*h*4 B(10800×5400 时 222.47 MB)。
+    任一级失败/异常都向下回退, 最终一定返回与旧实现相同的结果。
+    """
+    w, h = surface.get_size()
+    n = w * h
+    if ALPHA_NO_TRANSIENT:
+        try:
+            b = bytes(surface.get_view('3'))
+            if len(b) == n:
+                return b
+        except Exception:
+            pass
+        try:
+            out = bytearray(n)
+            for y in range(h):
+                row = pygame.image.tobytes(
+                    surface.subsurface(pygame.Rect(0, y, w, 1)), 'RGBA')
+                if len(row) != w * 4:
+                    raise ValueError('row bytes %d != %d' % (len(row), w * 4))
+                out[y * w:(y + 1) * w] = row[3::4]
+            return bytes(out)
+        except Exception:
+            pass
+    return pygame.image.tobytes(surface, 'RGBA')[3::4]
 
 
 class MapView:
@@ -47,6 +168,39 @@ class MapView:
 
     def _src_y(self, view_h):
         return max(0.0, min(self.view_y, self.img_h - view_h))
+
+    def resize(self, screen_width: int, screen_height: int) -> None:
+        """窗口尺寸变化: 更新尺寸/缩放极限, 并保证地图仍铺满屏幕(cover)。
+
+        B4 只同步了尺寸而没重夹 scale: 放大窗口或进全屏后 min_scale 变大,
+        旧 scale 小于新 min_scale → 缩放后的地图比屏幕窄, 左右两边露出灰底,
+        看上去就是"地图渲染不全, 两边要补"。这里把 scale 顶到 min_scale。
+        """
+        # **保持视野中心**(用户 2026-09-19: "切换到模拟不要自作主张地改变其它模式的
+        # 视角, 继承视角")。各模式的底栏高度不同(模拟模式多一行图层开关), 但那只是
+        # 地图可视高度变化, 不该让镜头跳到别处: 这里先记住原中心(图像像素坐标),
+        # 尺寸/夹紧处理完再把它放回去。
+        _old_cy = None
+        try:
+            _old_cy = self.view_y + self.screen_height / max(1e-6, self.scale) / 2.0
+        except Exception:
+            _old_cy = None
+        self.screen_width = int(screen_width)
+        self.screen_height = int(screen_height)
+        self.min_scale = max(self.screen_width / self.img_w,
+                             self.screen_height / self.img_h)
+        if self.scale < self.min_scale:
+            self.scale = self.min_scale
+        self._clamp_view_y()
+        if _old_cy is not None:
+            self.view_y = _old_cy - self.screen_height / max(1e-6, self.scale) / 2.0
+            self._clamp_view_y()
+        # 复位渲染缓存(整图缓存/窗口缓存/偏移缓存)
+        self._cached_scale = -1.0
+        self._cached_sw = -1
+        self._cached_sh = -1
+        self._pan_cache_key = None
+        self._win_cache_key = None
 
     def geo_to_map(self, lon, lat):
         """视图无关的"地图空间"坐标(缩放后像素): screen = map - view_offset()。
@@ -89,6 +243,64 @@ class MapView:
         elif x < self.screen_width / 2.0 - half:
             x += wrap
         return x, y
+
+    def geo_to_screen_round(self, lon, lat):
+        """**连续运动物体**的屏幕坐标: 对连续差值**一次取整**(±0.5 舍入)。
+
+        为什么必须与 `geo_to_screen` 并存(2026-10-01 实测):
+        `geo_to_screen` 是"两段式取整" `int(px*scale) - int(view*scale)` —— 它的
+        好处是**与底图 blit 同相**, 并让"地图空间 + 整数视图偏移"不变式成立
+        (路径缓存的整页平移复用全靠它, **不要动**)。但对**连续运动**的物体,
+        两个取整会各自独立地跨整数边界: 只要物体不是相机目标, 两者跨界的时刻就
+        错开, 差值(屏幕坐标)在 m / m±1 之间来回跳 = 肉眼可见的 ±1px 抖动。
+        实测(dummy SDL 探针 `G:/tmp/probe_general_jitter.py`: 相机追 bbox 中心、
+        两个台风都不在中心): 399 帧里 x 方向翻转 **146** 次(0.33 px/帧)。
+        本方法把连续差值**一次**取整 ⇒ 单调台阶, 同一场景翻转 **0** 次。
+
+        代价: 相对底图可能有 <1px 的静态偏移(底图本身只能整像素 blit)。这条偏移
+        比"每帧 ±1px 来回跳"轻微得多 ⇒ **移动的图标**用它; **静态/缓存路径点**
+        继续用 `geo_to_screen`(整页平移复用需要整数均匀位移)。两者不可互换。
+        """
+        px = (lon - self.lon_min) * self._scale_x
+        py = (self.lat_max - lat) * self._scale_y
+        ox, oy = self._draw_offset()
+        s = self.scale
+        x = int(math.floor(px * s - self.view_x * s + 0.5)) + ox
+        y = int(math.floor(py * s - self.view_y * s + 0.5)) + oy
+        # 环绕: 与 geo_to_screen 同一约定(取离屏幕中心最近的副本)
+        wrap = self.wrap_px()
+        half = wrap / 2.0
+        if x > self.screen_width / 2.0 + half:
+            x -= wrap
+        elif x < self.screen_width / 2.0 - half:
+            x += wrap
+        return x, y
+
+    def target_view_for_region(self, lon_min, lon_max, lat_min, lat_max):
+        """算出"恰好装下该经纬范围"的目标视野 `(scale, view_x, view_y)`, **不改当前视图**。
+
+        与 `set_view_region` **同一套公式**(取两轴较紧的那个 fit, 夹在
+        `min_scale .. 8.0`; 零/负跨度时保持当前 scale), 但只**算**不写 ——
+        供收尾做**平滑推镜**(逐帧把位置与 scale 插值过去)使用。
+        `set_view_region` 本身一个字没改(路径缓存/地图空间的口径不受影响)。
+        """
+        if lon_max < lon_min:
+            lon_max += 360
+        clon = (lon_min + lon_max) / 2.0
+        clat = (lat_min + lat_max) / 2.0
+        lon_span = lon_max - lon_min
+        lat_span = lat_max - lat_min
+        if lon_span > 0 and lat_span > 0:
+            scale = max(self.min_scale, min(
+                self.screen_width / (lon_span * self._scale_x),
+                self.screen_height / (lat_span * self._scale_y), 8.0))
+        else:
+            scale = self.scale
+        view_x = ((clon - self.lon_min) * self._scale_x
+                  - self.screen_width / (2.0 * scale)) % self.img_w
+        view_y = (self.lat_max - clat) * self._scale_y \
+            - self.screen_height / (2.0 * scale)
+        return scale, view_x, view_y
 
     def screen_to_geo(self, sx, sy):
         ox, oy = self._draw_offset()
@@ -341,7 +553,15 @@ class MapManager:
         self._land_w: int = 0
         self.ocean_overlay: Optional[pygame.Surface] = None
         self.cmp: Optional[str] = None
+        #: land.png 的**真实像素** Surface(10800×5400 = 222.47 MB)。
+        #: ⚠ 属性名保持 `_land_orig` **故意不改名**：`tests/test_landfall_view_invariance.py:182`
+        #: 用 `object.__new__(MapManager)`(跳过 __init__)后直接 `mgr._land_orig = surf`
+        #: 注入合成小掩码；改名会让该测试失效，而 tests/ 不在本次写作用域内。
         self._land_orig: Optional[pygame.Surface] = None
+        #: 是否**曾经拿到过真实像素**(决定 `_load_land_orig()` 能否安全返回占位符)
+        self._land_ok: bool = False
+        #: 1×1 SRCALPHA 占位(懒建; 只给"仅判 is None"的调用方, 常驻 0 字节)
+        self._land_token: Optional[pygame.Surface] = None
         self._cached_map_render: Optional[pygame.Surface] = None
         self._cached_render_hash = None
         self._land_pending: bool = False
@@ -372,16 +592,59 @@ class MapManager:
         else:
             self.map_view.set_view_region(self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla)
 
-    def _load_land_orig(self):
-        if self._land_orig is None and os.path.exists(LAND_MASK):
+    def _land_pixels(self):
+        """需要**真实像素**时调用: 常驻则直接返回, 否则(重新)解码 land.png(222.47 MB)。
+
+        这是 `_load_land_orig()` 的"要像素"版本 —— 内部消费方
+        (`_rebuild_land_and_overlay` / `is_land_at_geo` / `_ensure_land_mask`)一律用它，
+        因为 `_load_land_orig()` 在 `LAND_RGBA_TRANSIENT` 下可能返回 1×1 占位。
+        """
+        if self._land_orig is not None:
+            self._land_ok = True
+            return self._land_orig
+        if LAND_RGBA_TRANSIENT and getattr(self, '_land_ok', False):
+            # W5 护栏: 曾经拿到过真像素、现在 `_land_orig` 为空 ⇒ 这是"**释放后再次物化**",
+            # 会把 222.47 MB 再要回来(见 21_fix_verification.md §6.2)。
+            # 只做记录/一次性告警(或严格模式下断言), 不阻止真正的解码 —— 构建期路径
+            # (掩码失效重建)本来就需要像素, 不许在这里"禁止"。
+            _note_land_rematerialize()
+        # land.png 不存在时退化为 land2.png(两个文件任一存在即可用)
+        for path in (LAND_MASK, LAND_MASK_FALLBACK):
+            if not os.path.exists(path):
+                continue
             try:
-                self._land_orig = pygame.image.load(LAND_MASK).convert_alpha()
+                self._land_orig = pygame.image.load(path).convert_alpha()
+                self._land_ok = True
+                if path != LAND_MASK:
+                    logger.info(f"LAND_MASK {LAND_MASK} 缺失, 已退化为 {path}")
             except Exception as e:
-                logger.error(f"加载陆地掩码失败: {e}")
+                logger.error(f"加载陆地掩码失败({path}): {e}")
+                self._land_orig = None
+            if self._land_orig is not None:
+                break
         return self._land_orig
 
+    def _load_land_orig(self):
+        """**保持旧契约**: 掩码不可用 → `None`; 可用 → 非 `None`。
+
+        与旧实现的唯一差别: "可用"时**不保证返回真像素** —— 已成功拿到过像素且
+        `LAND_RGBA_TRANSIENT` 下像素已被释放时, 返回 1×1 SRCALPHA 占位(常驻 0 字节)。
+        `app/` 内 4 处外部调用方全部只判 `is None`(报告 §4.6):
+        `view_state.py:100` / `playback_ctrl.py:295` / `_draw_path_mixin.py:1288` /
+        `season_stats.py:173` ⇒ 分支走向与查询结果完全相同。
+        **需要像素请用 `_land_pixels()`。**
+        """
+        if self._land_orig is not None:
+            return self._land_orig
+        if LAND_RGBA_TRANSIENT and getattr(self, '_land_ok', False):
+            if getattr(self, '_land_token', None) is None:
+                self._land_token = pygame.Surface((1, 1), pygame.SRCALPHA)
+            return self._land_token
+        # 从未成功过 ⇒ 真解码(失败即 None, 与旧行为逐字相同)
+        return self._land_pixels()
+
     def _rebuild_land_and_overlay(self):
-        land = self._load_land_orig()
+        land = self._land_pixels()
         if land is None or self.map_view is None:
             self.land_img = None
         else:
@@ -413,8 +676,9 @@ class MapManager:
         self.ocean_overlay = None
 
         if self.land_img is not None:
-            raw = pygame.image.tobytes(self.land_img, 'RGBA')
-            self._land_alpha_bytes = raw[3::4]
+            # 只取 alpha 通道: 走 _surface_alpha_bytes 以避免整幅 RGBA 临时量
+            # (2560×1540 时旧写法多一次 15.78 MB 的 tobytes; 结果逐字节相同)
+            self._land_alpha_bytes = _surface_alpha_bytes(self.land_img)
             self._land_w = self.land_img.get_width()
         else:
             self._land_alpha_bytes = None
@@ -436,7 +700,8 @@ class MapManager:
         # 地图渲染必须立即更新（视觉）；
         # 陆地掩码非视觉（仅登陆检测用），懒加载——只有实际用到 is_land_at_*
         # 时才重建（首次调用触发），启动时不需要掩码，省下 land.png 加载。
-        if self._land_orig is None and not os.path.exists(LAND_MASK):
+        if self._land_orig is None and not (os.path.exists(LAND_MASK)
+                                            or os.path.exists(LAND_MASK_FALLBACK)):
             # 无掩码文件：整条路径跳过，避免每个移动事件都重建
             self._land_alpha_bytes = None
             self._land_pending = False
@@ -457,10 +722,15 @@ class MapManager:
         仅一次；掩码加载失败或文件不存在时置空并跳过。"""
         if self._land_alpha_bytes is not None:
             return
-        if self._land_orig is None and not os.path.exists(LAND_MASK):
+        if self._land_orig is None and not (os.path.exists(LAND_MASK)
+                                            or os.path.exists(LAND_MASK_FALLBACK)):
             return
         if self._land_orig is None:
-            self._land_orig = self._load_land_orig()
+            # W4b: 这里**必须**用 `_land_pixels()` 而不是 `_load_land_orig()` ——
+            # 后者在"曾成功解码过 + 像素已释放"时会返回 1×1 占位, 把它存进
+            # `_land_orig` 会让下面的 `_rebuild_land_and_overlay()` 拿占位当像素,
+            # 把 land_img 建成 1×1(陆地渲染全废)。
+            self._land_orig = self._land_pixels()
         if self._land_orig is None:
             self._land_alpha_bytes = None
             self._land_w = 0
@@ -483,17 +753,30 @@ class MapManager:
 
     def is_land_at_geo(self, la, lo):
         """按经纬度直接采样原始陆地掩码（与视图无关）。
-        首次调用时把原图 alpha 通道转为 bytes 查表，避免每次 get_at 锁表面。"""
-        land = self._load_land_orig()
-        if land is None:
-            return False
+        首次调用时把原图 alpha 通道转为 bytes 查表，避免每次 get_at 锁表面。
+
+        W4b(2026-10-02): 表建好后按 `LAND_RGBA_TRANSIENT` 释放 land 像素(常驻
+        −222.47 MB)。**alpha 表已缓存时完全不触碰像素**(所以释放后重复调用仍走
+        缓存, 不会重新解码 222.47 MB, 也保证 `tests/test_landfall_view_invariance.py`
+        注入的合成掩码在多次调用间保持一致)。
+        """
         ab = self._land_geo_alpha
         if ab is None:
-            ab = pygame.image.tobytes(land, 'RGBA')[3::4]
+            land = self._land_pixels()
+            if land is None:
+                return False
+            # 旧写法 `pygame.image.tobytes(land, 'RGBA')[3::4]` 会先造一个
+            # **222.47 MB** 的整幅临时字节串(land.png 10800×5400×4 = 233,280,000 B),
+            # 这是启动峰值的来源之一。_surface_alpha_bytes 结果逐字节相同,
+            # 但峰值只剩 55.6 MB(或逐行回退时的 1 行)。
+            ab = _surface_alpha_bytes(land)
             self._land_geo_alpha = ab
             self._land_geo_w, self._land_geo_h = land.get_size()
             self._land_geo_sx = self._land_geo_w / 360.0
             self._land_geo_sy = self._land_geo_h / 180.0
+            if LAND_RGBA_TRANSIENT:
+                # 像素不再需要; `_land_ok` 保持 True ⇒ 外部 `is None` 判定仍为"可用"
+                self._land_orig = None
         lw, lh = self._land_geo_w, self._land_geo_h
         x = int((lo % 360.0) * self._land_geo_sx) % lw
         y = min(lh - 1, max(0, int((90.0 - la) * self._land_geo_sy)))

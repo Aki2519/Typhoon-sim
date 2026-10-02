@@ -126,7 +126,38 @@ class TySimEventMixin:
                 if self._sim_handle_event(e):
                     return True
             return self._handle_keydown(e)
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 2:
+            # 模拟模式: **中键 = 生成台风**(用户 2026-09-19, 默认开)。
+            # 左键改成只选中(点地生成默认关, 见 cfg.sim_click_spawn),
+            # 右键留给"未来轨迹预测"(后续再做, 目前不响应)。
+            if (getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim')
+                    and not self.dialog_mgr.any_active()
+                    and bool(getattr(self.cfg, 'sim_middle_spawn', True))):
+                mx, my = e.pos
+                if my < self.map_height:
+                    if self._sim_spawn_at_screen(mx, my):
+                        return True
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            # ⚠⚠ 功能栏按钮**必须先拿到优先权**, 哪怕它落在 `map_height` 以上
+            # (2026-10-01: 模拟模式的图层组从功能栏第三行搬到**地图区域内**,
+            #  于是下面的"地图左键"分支先把它吃掉了 —— 实测表现为
+            #  **点击被消费、状态不变**, 即"看得见点不动"的安慰剂按钮。
+            #  见 tools/_check_layer_clicks.py)
+            # 只做一次 hit_test, 命中就走功能栏那条路(与 map_height 以下的点击同一实现)。
+            # ⚠ 2026-10-01 (rev-simmix 复核): **必须限定模拟模式**。
+            #   功能栏正常按钮都在 map_height 以下, 唯一浮在地图区内的面板部件是
+            #   模拟模式的图层弹层(`ControlPanel.layer_popup_rect()`) —— 而该弹层
+            #   不随模式切换关闭(`_layer_popup_open` 无人复位), 切到 NORMAL/EDIT 后
+            #   它仍会被 draw() 画出来、hit_test() 仍返回 `layer_*`。
+            #   若不限定模式, 这条前置 return 会在地图左下 ~640x46 的条带里**抢走**
+            #   本来该给地图的点击: EDIT 的报点选择/线段插入(event_mixin.py:167-191)、
+            #   NORMAL 的双击强度图表(193-205) 都到不了, 而改动前它们排在
+            #   `_handle_click` 之前(旧兜底在 216 行) ⇒ 属本次引入的行为变化。
+            #   非模拟模式下旧路径同样以 `_handle_click` 收尾, 收紧不丢功能。
+            if (getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim')
+                    and self.control_panel is not None
+                    and self.control_panel.hit_test(e.pos) is not None):
+                return self._handle_click(e.pos)
             # 模拟模式: 地图左键点击 → 生成/选中台风
             if (getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim')
                     and not self.dialog_mgr.any_active()):

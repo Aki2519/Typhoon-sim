@@ -305,12 +305,25 @@ class TyList(DraggableDialog):
             count = expected - getattr(self, '_lr_tick', 0)
             delta = -1 if self._key_held_key == pygame.K_LEFT else 1
             for _ in range(count):
-                self._set_page(self.current_page + delta)
+                self._set_page(self.current_page + delta, wrap=True)
             self._lr_tick = expected
 
-    def _set_page(self, page: int) -> None:
-        """切页: 夹紧页码、同步选中行,并清除可能残留的编辑框状态。"""
-        self.current_page = max(0, min(page, self.get_total_pages() - 1))
+    def _set_page(self, page: int, wrap: bool = False) -> None:
+        """切页: 夹紧页码、同步选中行,并清除可能残留的编辑框状态。
+
+        ⚠ `wrap=True` 时**循环回绕**(末页再翻 -> 首页; 首页往前 -> 末页)。
+        用户 2026-10-01 报: "为什么台风列表界面不能页面循环切换?" ——
+        原来这里一律夹紧, 而 ↑/↓ 键走的是 `% len(...)`(**会**回绕) ⇒ 两者行为不一致。
+        现在 ←/→、滚轮、翻页按钮都走 `wrap=True`, 与 ↑/↓ 对齐。
+        "输入页码跳转"(`_do_jump`)仍用夹紧 —— 输 99 不该绕到第 3 页。
+        """
+        total = self.get_total_pages()
+        if total <= 0:
+            self.current_page = 0
+        elif wrap:
+            self.current_page = page % total
+        else:
+            self.current_page = max(0, min(page, total - 1))
         s = self.get_page_start()
         self.si = self._filtered_indices[s] if s < len(self._filtered_indices) else -1
         self.ei = -1
@@ -318,11 +331,11 @@ class TyList(DraggableDialog):
         self._clear_edit_field()
 
     def _page_wheel_or_btn(self, delta: int) -> bool:
-        np = self.current_page + delta
-        if 0 <= np < self.get_total_pages():
-            self._set_page(np)
-            return True
-        return False
+        """滚轮/翻页按钮翻页 —— **循环回绕**(末页继续翻回到首页)。"""
+        if self.get_total_pages() <= 0:
+            return False
+        self._set_page(self.current_page + delta, wrap=True)
+        return True
 
     def handle_event(self, e):
         if not self.active:
@@ -544,7 +557,7 @@ class TyList(DraggableDialog):
             self._key_held_key = e.key
             self._lr_tick = 0
             delta = -1 if e.key == pygame.K_LEFT else 1
-            self._set_page(self.current_page + delta)
+            self._set_page(self.current_page + delta, wrap=True)
             return True
 
         return False

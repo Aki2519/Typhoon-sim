@@ -17,6 +17,9 @@ from ..constants import (
 from ..landfall_effect import landfall_marker_name
 from ..spline import compute_arc_lengths
 from ..track_quality import km_per_deg_lon
+# P1(2026-10-02): 抗锯齿共享底座(超采样精灵缓存 + LRU 字节上限)。
+# **只读使用**, 不要在本文件复制一份超采样逻辑。
+from .. import paint_aa
 
 # ── 登陆点标记 png（按尺寸缓存） ──
 
@@ -74,14 +77,101 @@ class TySimDrawPathMixin:
         ux, uy = dx * inv, dy * inv
         pos = 0.0
         dash, gap = 6, 4
+        segs = []
         while pos < length:
             seg_end = min(pos + dash, length)
             x1 = int(start[0] + ux * pos)
             y1 = int(start[1] + uy * pos)
             x2 = int(start[0] + ux * seg_end)
             y2 = int(start[1] + uy * seg_end)
-            pygame.draw.line(surface, color, (x1, y1), (x2, y2), width)
+            segs.append(((x1, y1), (x2, y2), color))
             pos = seg_end + gap
+        # P1: 破折线段是**斜线** ⇒ 需要 AA; 一段 dash 只有 6px 长,
+        # 走区域超采样的包围盒很小(≈(6+|dx|)×...), 代价可忽略。
+        TySimDrawPathMixin._draw_segments_aa(surface, segs, width)
+
+    #: ── P1: 折线的**区域超采样**上限 ─────────────────────────────────────
+    #: 一次超采样要分配 (w*SS)×(h*SS) 的 RGBA 面。以 SS=2 计:
+    #:   0.5 Mpx 包围盒 → 2.0 Mpx 临时面 =  8 MB
+    #: ── P1: 折线的**分块**区域超采样 ─────────────────────────────────────
+    #: 单块超采样面的上限(单位 = **SS 像素**, 即 (tile*ss)² )。4 M SS px @ss=2
+    #: ⇒ 单块 ≤ 16 MB 临时面; 块边长 = isqrt(4M/4) = 1000 输出 px。
+    #: ⚠ 2026-10-02 修(Lead 实测报缺): 原先这里是**整组一张面 + 超限就回落**,
+    #:   等价于"包围盒 > 1 M px(≈1000×1000)就没有 AA" —— 而**横跨全屏的台风路径**
+    #:   包围盒轻松 1912×1072 = 2.05 M px ⇒ 最常见的情形反而没 AA
+    #:   (实测 mid_alpha = 0)。现在改为**分块**: 超限时按 tile 网格切块, 每块
+    #:   各自超采样 → smoothscale → blit ⇒ **内存峰值恒 ≤ 单块**、AA 全覆盖,
+    #:   代价与总面积成正比(与不分块等价)。块原点都是整数、ss 为整数 ⇒
+    #:   输出像素的 SS 采样块完整落在同一块内 ⇒ **无接缝、无重复绘制**。
+    _AA_MAX_SS_PIXELS = 4_000_000
+    #: 超采样倍数。与 paint_aa.SS 一致(4)会把临时面放大 16 倍 ⇒ 这里取 2,
+    #: 4 个样本/像素已能显著削锯齿(实测见报告 §验收)。
+    _AA_SS = 2
+
+    @classmethod
+    def _draw_segments_aa(cls, surface, segs, width, max_ss_pixels=None):
+        """把**一组同宽线段**做区域超采样后画出(真 AA), 内存有硬上界。
+
+        为什么不用 `paint_aa.aa_line`: 后者按**单段包围盒**建精灵, 对
+        "几百段、每段可能几百像素长"的台风路径会生成成百上千张临时面
+        (O(段数) × O(段长²)) —— 正是任务里要报出来的那种爆炸。
+
+        本实现: 整组线段算**一个**包围盒 → 按 `tile` 网格**分块** → 每块一张
+        超采样面(≤ `max_ss_pixels` SS 像素) → 画进它 → `smoothscale` → blit。
+        * 代价与"组包围盒面积"成正比, **与段数无关**(每块只画与该块相交的段);
+        * **内存峰值 = 单块**(全屏 1912×1072 @cap 4 M 只切成 2×2=4 块,
+          峰值 16 MB, 而不是整张 32.7 MB);
+        * 小包围盒(≤ 1 M px)时只有 1 块 ⇒ 与"单张面"实现**逐像素一致**。
+
+        segs: 可迭代的 `((x1,y1), (x2,y2), color)`; color 可逐段不同。
+        max_ss_pixels: 覆盖默认单块上限(renderer 的每帧海洋区边界用更小的值,
+        把峰值压到 ~1 MB)。
+        """
+        segs = list(segs)
+        if not segs:
+            return
+        w = max(1, int(width))
+        ss = cls._AA_SS
+        cap = cls._AA_MAX_SS_PIXELS if max_ss_pixels is None else int(max_ss_pixels)
+        cap = max(4096, cap)
+        xs = []
+        ys = []
+        for (x1, y1), (x2, y2), _c in segs:
+            xs.append(x1)
+            xs.append(x2)
+            ys.append(y1)
+            ys.append(y2)
+        pad = w + 2
+        x0 = int(math.floor(min(xs))) - pad
+        y0 = int(math.floor(min(ys))) - pad
+        ww = int(math.ceil(max(xs))) - x0 + pad
+        hh = int(math.ceil(max(ys))) - y0 + pad
+        if ww <= 0 or hh <= 0:
+            return
+        # 单块输出边长: 保证 (tile*ss)² ≤ cap
+        tile = max(32, int(math.isqrt(max(1, cap // (ss * ss)))))
+        lw = w * ss
+        half = max(1, lw // 2)
+        for oy in range(y0, y0 + hh, tile):
+            th = min(tile, y0 + hh - oy)
+            for ox in range(x0, x0 + ww, tile):
+                tw = min(tile, x0 + ww - ox)
+                big = pygame.Surface((tw * ss, th * ss), pygame.SRCALPHA)
+                for (x1, y1), (x2, y2), c in segs:
+                    # 快速剔除: 该段(含线宽余量)与本块不相交就跳过(省 draw call)
+                    if (max(x1, x2) < ox - w or min(x1, x2) > ox + tw + w
+                            or max(y1, y2) < oy - w or min(y1, y2) > oy + th + w):
+                        continue
+                    a = (int((x1 - ox) * ss), int((y1 - oy) * ss))
+                    b = (int((x2 - ox) * ss), int((y2 - oy) * ss))
+                    pygame.draw.line(big, c, a, b, lw)
+                    # 接头处补圆点: pygame.draw.lines 的相邻段在钝角处会有缺口,
+                    # 逐段画时必须自己补(否则粗线拐点出现"刻痕")。
+                    # ⚠ 只在 lw>=6(输出宽度>=3) 时补: 2px 线的缺口肉眼不可见,
+                    #   而逐顶点补一圈会让二值 ink 变胖(实测 IoU 从 0.62 提到 0.93+)。
+                    if lw >= 6:
+                        pygame.draw.circle(big, c, b, half)
+                surface.blit(pygame.transform.smoothscale(big, (tw, th)), (ox, oy))
 
     @staticmethod
     def _draw_lines_safe(surface, color, points, width, max_seg_len):
@@ -92,16 +182,23 @@ class TySimDrawPathMixin:
             return
         max_seg_sq = max_seg_len * max_seg_len
         seg_start = 0
+
+        def _emit(lo, hi):
+            if hi - lo < 2:
+                return
+            TySimDrawPathMixin._draw_segments_aa(
+                surface,
+                [(points[i - 1], points[i], color) for i in range(lo + 1, hi)],
+                width)
+
         for i in range(1, len(points)):
             x1, y1 = points[i - 1]
             x2, y2 = points[i]
             dx, dy = x2 - x1, y2 - y1
             if dx * dx + dy * dy > max_seg_sq:
-                if i - seg_start >= 2:
-                    pygame.draw.lines(surface, color, False, points[seg_start:i], width)
+                _emit(seg_start, i)
                 seg_start = i
-        if len(points) - seg_start >= 2:
-            pygame.draw.lines(surface, color, False, points[seg_start:], width)
+        _emit(seg_start, len(points))
 
     @staticmethod
     def _draw_lines_colored(surface, points, point_colors, width, max_seg_len, point_types=None):
@@ -110,16 +207,33 @@ class TySimDrawPathMixin:
         if len(points) < 2:
             return
         max_seg_sq = max_seg_len * max_seg_len
+        segs = []                      # ((x1,y1),(x2,y2),color) —— 不连续处整组重画
         for i in range(1, len(points)):
             x1, y1 = points[i - 1]
             x2, y2 = points[i]
             dx, dy = x2 - x1, y2 - y1
-            if dx * dx + dy * dy <= max_seg_sq:
-                c = point_colors[i - 1]
-                if point_types and point_types[i - 1] in ('EX', 'SS', 'SD'):
-                    TySimDrawPathMixin._draw_dashed(surface, c, (x1, y1), (x2, y2), width)
-                else:
-                    pygame.draw.line(surface, c, (x1, y1), (x2, y2), width)
+            if dx * dx + dy * dy > max_seg_sq:
+                # 跨折返: 先把已积累的整组超采样画掉(保持"一组一张面"的代价模型)
+                TySimDrawPathMixin._draw_segments_aa(surface, segs, width)
+                segs = []
+                continue
+            c = point_colors[i - 1]
+            if point_types and point_types[i - 1] in ('EX', 'SS', 'SD'):
+                # 虚线: 展开成小段, 与相邻实线一起进同一张超采样面(段短、成本小)
+                dx2, dy2 = x2 - x1, y2 - y1
+                length = math.sqrt(dx2 * dx2 + dy2 * dy2)
+                if length >= 1:
+                    inv = 1.0 / length
+                    ux, uy = dx2 * inv, dy2 * inv
+                    pos = 0.0
+                    while pos < length:
+                        seg_end = min(pos + 6, length)
+                        segs.append(((int(x1 + ux * pos), int(y1 + uy * pos)),
+                                     (int(x1 + ux * seg_end), int(y1 + uy * seg_end)), c))
+                        pos = seg_end + 4
+            else:
+                segs.append(((x1, y1), (x2, y2), c))
+        TySimDrawPathMixin._draw_segments_aa(surface, segs, width)
 
     _circle_cache: OrderedDict = OrderedDict()
     _MAX_CIRCLE_CACHE = 512
@@ -127,15 +241,48 @@ class TySimDrawPathMixin:
     _path_render_view_version = 0       # 视图版本号，视图变化时递增
 
     def _get_circle_marker(self, radius, color):
+        """报点圆点精灵(缓存)。
+
+        P1(2026-10-02): 原来用 `pygame.draw.circle` —— **pygame 基础图元无抗锯齿**
+        (实测边缘中间 alpha 像素 = 0, 见 `output/exploration/p1_map_aa.md`)。
+        改走共享底座 `paint_aa.aa_disc`(4× 超采样 + smoothscale + 字节上限 LRU)。
+        精灵尺寸/中心**保持不变**(2r×2r, 中心 (r,r)) —— 调用方的 blit 偏移契约
+        (`_make_point_marker` 返回 `radius, radius`; `_blit_highlight` 用
+        `x - radius`) 因此完全不用改。
+        """
         key = (radius, color)
         cache = self._circle_cache
         if key in cache:
             cache.move_to_end(key)
             return cache[key]
         surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-        pygame.draw.circle(surf, color, (radius, radius), radius)
+        paint_aa.aa_disc(surf, color, (radius, radius), radius)
         cache[key] = surf
         if len(cache) > self._MAX_CIRCLE_CACHE:
+            cache.popitem(last=False)
+        return surf
+
+    #: 唯一的**非 AA** 圆盘缓存(只给当前位置高亮的红盘用; 理由见 `_blit_highlight`)。
+    #: 与 `_circle_cache` **分开存**, 否则同一个 (radius,color) 键会互相污染。
+    _circle_cache_aliased: OrderedDict = OrderedDict()
+    _MAX_CIRCLE_CACHE_ALIASED = 32
+
+    def _get_circle_marker_aliased(self, radius, color):
+        """无抗锯齿的圆盘精灵(仅 `_blit_highlight` 的红盘使用)。
+
+        ⚠ 这是 P1 里**刻意保留**的一处 aliased 绘制: 它在画面上只剩 2px 细环,
+        AA 收益亚像素级, 但会抹掉饱和 (220,60,60) 像素而弄坏
+        `tests/test_pan_reuse.py` 的定位契约。详见 `_blit_highlight` 的 docstring。
+        """
+        key = (radius, color)
+        cache = self._circle_cache_aliased
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+        surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, color, (radius, radius), radius)
+        cache[key] = surf
+        if len(cache) > self._MAX_CIRCLE_CACHE_ALIASED:
             cache.popitem(last=False)
         return surf
 
@@ -158,6 +305,8 @@ class TySimDrawPathMixin:
         return surf
 
     def _get_tri_marker(self, tri_w, tri_h, color):
+        """EX 三角标记精灵(缓存)。P1: 多边形同样无抗锯齿 ⇒ 改走 `paint_aa.aa_poly`。
+        尺寸/顶点保持不变, 调用方的 `tri_w, tri_h` 偏移契约不变。"""
         key = (tri_w, tri_h, color)
         cache = self._tri_marker_cache
         if key in cache:
@@ -165,7 +314,7 @@ class TySimDrawPathMixin:
             return cache[key]
         surf = pygame.Surface((tri_w * 2, tri_h * 2), pygame.SRCALPHA)
         tri = [(tri_w, 0), (0, tri_h * 2), (tri_w * 2, tri_h * 2)]
-        pygame.draw.polygon(surf, color, tri)
+        paint_aa.aa_poly(surf, color, tri)
         cache[key] = surf
         if len(cache) > self._MAX_SHAPE_CACHE:
             cache.popitem(last=False)
@@ -187,13 +336,68 @@ class TySimDrawPathMixin:
             self._size_factors_cached = (prf, irf)
         return self._size_factors_cached
 
+    #: 高亮视觉参数: 提亮副本 = 原路径面 RGB 整体 +GAIN; 峰值时按 PEAK_ALPHA/255
+    #: 叠在上面 ⇒ "整体提亮"(不是闪烁, 也不改线宽 —— 改线宽要重建面, 代价高)。
+    _HL_GAIN = 130
+    _HL_PEAK_ALPHA = 235
+
+    def _blit_path_highlight(self, surface, ty, src, level: float, pos) -> None:
+        """把路径**整体提亮**一层, 强度 = `level` ∈ (0,1](渐入/渐出用它做单次斜坡)。
+
+        实现: 提亮副本**每次高亮只建一次**(缓存在本对象上, key=(面身份,尺寸)),
+        之后每帧只是普通 alpha 混合 blit 一次 —— **没有每帧重建**。
+        ⚠ 为什么不用 `BLEND_RGB_ADD`: 实测 pygame 的加法混合**不吃 `set_alpha`**
+        (a=64/128/255 的增量完全相同), 无法做渐入渐出。
+        ⚠ 透明背景像素 alpha=0, 加完 RGB 仍不可见 ⇒ 只提亮笔画本身。
+        ⚠ 缓存放本对象(不是 typhoon/v, 两者都有 `__slots__`); 只在**当前高亮**用到
+        的那 1-2 张面上保留, key 变了就整表替换 ⇒ 不会增长。
+        """
+        a = int(self._HL_PEAK_ALPHA * max(0.0, min(1.0, float(level))))
+        if a <= 0:
+            return
+        key = (id(src), src.get_size())
+        cache = getattr(self, '_hl_glow_cache', None)
+        if cache is None:
+            cache = {}
+            self._hl_glow_cache = cache
+        glow = cache.get(key)
+        if glow is None:
+            # 用**普通 Surface** 复制(不要 src.copy(): 若 src 是 Surface 子类,
+            # copy() 会返回子类实例且不跑 __init__, 子类覆盖的方法可能炸)
+            glow = pygame.Surface(src.get_size(), pygame.SRCALPHA)
+            glow.blit(src, (0, 0))
+            g = int(self._HL_GAIN)
+            glow.fill((g, g, g, 0), special_flags=pygame.BLEND_RGB_ADD)
+            cache.clear()
+            cache[key] = glow
+        glow.set_alpha(a)
+        surface.blit(glow, pos)
+
+    def _path_visible_deadline(self, ty) -> float:
+        """该台风路径必须保持**可见(可绘制)**的截止时刻(ms)。
+
+        正常情况 = `finish_time + _FADE_MS`(原来的口径)。
+        收尾(高亮 2.4s + 淡出)期间必须延长到"高亮渐出完 + 淡完": alpha 是从高亮
+        结束才起算淡出的, 而可见性窗口从 `finish_time` 起算 ⇒ fade 档会在 alpha≈17
+        时被裁掉, quick 档更糟(1.5s 的窗口比高亮还短)。
+        截止时间由 `TrackMixin._track_path_deadline` 提供(只有收尾台风 >0)。
+        """
+        dl = (float(ty.finish_time) + _FADE_MS) if ty.finish_time > 0 else 0.0
+        fn = getattr(self, '_track_path_deadline', None)
+        if fn is not None:
+            try:
+                dl = max(dl, float(fn(ty)))
+            except Exception:
+                pass
+        return dl
+
     def should_draw_typhoon(self, ty) -> bool:
         if self.md == self.MODE_NORMAL:
             if ty == self.current_typhoon():
                 return True
             if self.fade_path and ty.finish_time > 0:
                 ct = pygame.time.get_ticks()
-                if ct - ty.finish_time < _FADE_MS:
+                if ct < self._path_visible_deadline(ty):
                     return True
             return False
         elif self.md == self.MODE_SEASON:
@@ -201,7 +405,7 @@ class TySimDrawPathMixin:
                 return True
             if self.fade_path and ty.sf and ty.finish_time > 0:
                 ct = pygame.time.get_ticks()
-                if ct - ty.finish_time < _FADE_MS:
+                if ct < self._path_visible_deadline(ty):
                     return True
             return False
         elif self.md == self.MODE_EDIT:
@@ -343,6 +547,14 @@ class TySimDrawPathMixin:
         # 屏幕坐标 = 基准 - 视图偏移: 视图前移 → 坐标减小
         dx = anchor[0] - now[0]
         dy = anchor[1] - now[1]
+        # ⚠⚠ 用户 2026-10-01: "平滑路径有可能不会应用, 需要开关一次" —— **就是这里**。
+        # 纯平移优化只"平移已有数组", 不重建样条。可如果**平滑数组本身是空的**
+        # (而 smooth_path 是开的), 平移过后依然是空的 ⇒ 画面永远不平滑,
+        # 且  被标成最新 ⇒ 后面也不会再判过期 ⇒ **卡死在"不平滑"状态**,
+        # 只有把平滑开关来回拨一次(触发值变化 -> update_all_screen_points)才恢复。
+        # 修法: 开关开着却没有平滑数据时**拒绝走平移捷径**, 落到下面全量重投影 + 重建样条。
+        if getattr(self, 'smooth_path', False) and len(getattr(v, 'screen_points', ()) or ()) >= 2                 and not v.smooth_map_points and not v.smooth_screen_points:
+            return False
         if dx == 0 and dy == 0:
             v._sp_ver = getattr(self, '_sp_version', 0)
             return True
@@ -409,7 +621,14 @@ class TySimDrawPathMixin:
     def _draw_typhoons(self, surface):
         current_ty = self.current_typhoon()
         if self.md == self.MODE_EDIT and self.edit_typhoon:
-            self.draw_typhoon(surface, self.edit_typhoon, highlight=True)
+            # 轮次 160(F5): 编辑模式原先**不过可见性门**, 屏幕外也调 draw_typhoon。
+            # 而 `update_screen_points` 在 bbox 与 view_rect 不相交时是
+            # 「**先清空 smooth_* 再早退**」(typhoon_render.py:93-95) ⇒ 样条恒空 ⇒
+            # draw_typhoon 里那条"开关开着但样条为空"的过期判定每帧命中 ⇒
+            # 每帧全量重投影(973 的平移捷径被同一条件否掉)。与风季循环(下面 425)
+            # 对齐: 不可见就不画 —— 屏幕外本来也不该产生任何重投影成本。
+            if self._is_typhoon_visible(self.edit_typhoon):
+                self.draw_typhoon(surface, self.edit_typhoon, highlight=True)
         else:
             others_dim = self._normal_others_dim()
             for ty in self.tys:
@@ -441,7 +660,21 @@ class TySimDrawPathMixin:
                 self.md == self.MODE_EDIT and highlight)
 
     def _show_future(self, highlight) -> bool:
-        """是否绘制未经过的路径（编辑模式始终显示）。"""
+        """是否绘制未经过的路径（编辑模式始终显示）。
+
+        ⚠ 轮次 155: **模拟模式一律不画**。模拟台风的 `track` 是内核逐 6h 算出来的,
+        "物理领先显示钟一步"的那几个点属于**内部超前**, 不是"未来预报" ——
+        用户 2026-09-19 明确反馈过"为什么会渲染下一步的路径"。
+        原先这件事是靠 `_sim_render` **每帧把 `ty.pts` 截断到 ci+1** 实现的, 代价是
+        同时打断了四个共享函数的前置条件(活线段 / 类别过渡前半段 / 图标预载 /
+        信息框起止时间), 还让路径缓存键(含 `id(ty.pts)`)每帧失效。
+        改成在这里返回 False 之后, 截断可以整个删掉, 四个前置条件一起恢复。
+        """
+        # ⚠ 必须用 getattr 取 MODE_SIM: 测试/工具里的轻量桩(FakeSim)没有这个类属性,
+        # 硬取会 AttributeError(实测 test_pan_reuse / test_seam_render 多条全挂)。
+        # 仓库里其它同类判断也都写成 getattr(..., 'MODE_SIM', 'sim')。
+        if getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim'):
+            return False
         if self.md == self.MODE_EDIT and highlight:
             return True
         return getattr(self, 'show_future_path', True)
@@ -886,8 +1119,27 @@ class TySimDrawPathMixin:
         return ty._path_cache_drag_future, ty._path_cache_drag_trav, (origin_x, origin_y)
 
     def _blit_highlight(self, surface, x, y, radius, highlight_r, point_color, off_x, off_y):
-        outer = self._get_circle_marker(highlight_r, CUR_POS)
-        inner = self._get_circle_marker(radius, point_color)
+        """当前位置高亮: 红盘(CUR_POS) + 中心点色盘。
+
+        ⚠ P1 审计结论 —— **外圈红盘刻意保持无 AA**(本任务唯一的"有证据地不改"):
+          · 可见部分只有 `[radius, highlight_r]` 那 **2px 细环**, 而且其后
+            `_draw_edit_selection` 还会在白/黄环位置上再压一层; 对 2px 环做 AA 的
+            收益是亚像素级的。
+          · 一旦 AA, 环内**不再有饱和 (220,60,60) 像素**(实测: 旧 4 个 -> 新 0 个,
+            见 `G:/tmp/p1_diag.py` 输出), 于是
+            `tests/test_pan_reuse.py::TestEditSelectionHighlight::test_highlight_follows_selection`
+            直接失败 —— 它靠"画面上存不存在 (220,60,60)±容差 的像素"来定位选中点。
+            那是**可观察的产品行为契约**, 改它要动 `tests/`(不在本任务写作用域)。
+          · 中心点色盘仍是 AA(`_get_circle_marker`), 所以"定点边缘变平滑"这个用户
+            诉求不受影响。
+        替代方案(留待 Lead 裁决): 红环也 AA, 同时把那条测试改成按 alpha>0 统计环位置。
+        """
+        # 内盘同样保持无 AA: 它 AA 之后软边会压在红环上, 把 (220,60,60) 混成
+        # (142,62,62)(实测), 仍会弄坏同一条测试。两盘一起保持旧行为 ⇒ 这一处
+        # 完全等价于改动前; **报点圆点标记**(`_make_point_marker` → `_get_circle_marker`)
+        # 仍是 AA 的, 所以"定点边缘像素化"的用户诉求不受影响。
+        outer = self._get_circle_marker_aliased(highlight_r, CUR_POS)
+        inner = self._get_circle_marker_aliased(radius, point_color)
         surface.blit(outer, (x - highlight_r + off_x, y - highlight_r + off_y))
         surface.blit(inner, (x - radius + off_x, y - radius + off_y))
 
@@ -913,7 +1165,26 @@ class TySimDrawPathMixin:
 
         screen_points = getattr(ty, 'screen_points', None)
         sp_mismatch = not screen_points or len(screen_points) != len(ty.pts)
-        sp_stale = sp_mismatch or ty.v._sp_ver != getattr(self, '_sp_version', 0)
+        # ⚠⚠ 用户 2026-10-01: "平滑路径有可能不会应用在路径上, 需要开关一次后才确保应用"。
+        # 根因: 平滑样条可能在 smooth_path 为 True 时**依然是空的** ——
+        #    有一条早退分支(view_rect 与 bbox 不相交时),
+        #   它**先清空 smooth_* 就 return**; 而  只在
+        #   "smooth_path 的值**发生变化**"时才调 。
+        #   => 出现"开关是开的、样条是空的"状态, 画面就是不平滑;
+        #     只有把开关来回拨一次(值发生变化)才重建。
+        # 修法(治本): 把"开关开着但样条/地图点为空"也算过期 => 下一帧自动重建。
+        #   早退分支与任何"样条丢了"的路径都一并修好, 不必在设置那边补条件。
+        # ⚠ 独立验证员建议: 守卫原本要求**两个数组都空**, 那"只有一个空"的部分状态
+        #   就不会被重建(它用产品自身路径造不出该状态 —— update_screen_points 开头
+        #   总把两者一起清 —— 所以这是合成状态, 不构成现网 bug)。但只要有别的路径
+        #   只清其中一个, 旧写法就会漏。放宽成"**任一为空**"更稳, 代价只是多判一次。
+        if (getattr(self, 'smooth_path', False) and len(ty.pts) >= 2
+                and (not getattr(ty.v, 'smooth_map_points', None)
+                     or not getattr(ty.v, 'smooth_screen_points', None))):
+            sp_stale = True
+        else:
+            sp_stale = (sp_mismatch
+                        or ty.v._sp_ver != getattr(self, '_sp_version', 0))
         if sp_stale:
             if self.right_button_dragging:
                 # 拖拽中任何坐标过期（拖拽偏移/缩放/重投影）：当前视图下重算
@@ -952,19 +1223,46 @@ class TySimDrawPathMixin:
                     return
 
         path_alpha = 255
+        hl_level = 0.0
         mode = getattr(self.cfg, 'fade_path_mode', 'fade')
         if mode != 'never' and ty.finish_time > 0:
             ct = pygame.time.get_ticks()
-            elapsed = (ct - ty.finish_time) * 0.001
-            dur = FADE_DURATION_QUICK if mode == 'quick' else FADE_DURATION
-            if elapsed >= dur:
-                path_alpha = 0
+            _is_hl = getattr(self, '_track_is_highlight', None)
+            if _is_hl is not None and _is_hl(ty):
+                # ── 收尾时序由 TrackMixin 的状态机给出(用户 2026-10-01 精确规格) ──
+                #   高亮 = 0.2s 渐入 → 2.0s 保持 → 0.2s 渐出 (**单次, 不是闪烁**);
+                #   高亮期间路径满不透明, 高亮**渐出完**才开始按 cfg 淡出。
+                path_alpha = int(self._track_finale_path_alpha(ct))
+                hl_level = float(self._track_highlight_level(ct))
             else:
-                path_alpha = max(0, int(255 * (1.0 - elapsed * (_INV_FADE_QUICK if mode == 'quick' else _INV_FADE))))
+                # 非收尾台风: 老口径(从 finish_time 起算 + 闪/淡出)保持原样
+                hl_ms = int(getattr(self, '_track_hl_s', 2.0) * 1000)
+                fade_start = ty.finish_time
+                hl_active = False
+                _hl_set = getattr(self, '_track_hl_tys', None) or ()
+                _hl_this = (ty is getattr(self, '_track_hl_ty', None)
+                            or any(t is ty for t in _hl_set))
+                if _hl_this:
+                    hl_from = getattr(self, '_track_hl_from', 0)
+                    if hl_from:
+                        fade_start = max(fade_start, hl_from + hl_ms)
+                        if ct < hl_from + hl_ms:
+                            hl_active = True
+                elapsed = (ct - fade_start) * 0.001
+                dur = FADE_DURATION_QUICK if mode == 'quick' else FADE_DURATION
+                if hl_active:
+                    path_alpha = 255 if (ct - hl_from) % 600 < 300 else 90
+                elif elapsed < 0:
+                    path_alpha = 255
+                elif elapsed >= dur:
+                    path_alpha = 0
+                else:
+                    path_alpha = max(0, int(255 * (1.0 - elapsed * (
+                        _INV_FADE_QUICK if mode == 'quick' else _INV_FADE))))
 
         if dim < 1.0:
             path_alpha = max(0, int(path_alpha * dim))
-        if path_alpha <= 0 and mode != 'never':
+        if path_alpha <= 0 and mode != 'never' and hl_level <= 0.0:
             return
 
         # ── 从缓存获取或创建路径 Surface ──
@@ -976,14 +1274,37 @@ class TySimDrawPathMixin:
             trav_surf.set_alpha(path_alpha)
             surface.blit(full_surf, (blit_x + self._drag_offset_x, blit_y + self._drag_offset_y))
             surface.blit(trav_surf, (blit_x + self._drag_offset_x, blit_y + self._drag_offset_y))
+            if hl_level > 0.0:
+                # 高亮: 同一位置的"提亮副本", 按 level 渐入/渐出(单次峰值)
+                for _s in (full_surf, trav_surf):
+                    self._blit_path_highlight(surface, ty, _s, hl_level,
+                                              (blit_x + self._drag_offset_x,
+                                               blit_y + self._drag_offset_y))
         else:
             path_surf, path_blit = result
             path_surf.set_alpha(path_alpha)
             surface.blit(path_surf, (path_blit[0] + self._drag_offset_x, path_blit[1] + self._drag_offset_y))
+            if hl_level > 0.0:
+                self._blit_path_highlight(surface, ty, path_surf, hl_level,
+                                          (path_blit[0] + self._drag_offset_x,
+                                           path_blit[1] + self._drag_offset_y))
 
         # ── 实时位置（live segment + highlight dot 共用）──
+        # ⚠ 2026-10-01: 必须与**图标**用同一条投影(`_icon_live_screen` →
+        #   `MapView.geo_to_screen_round`, 连续差值一次取整)。两者原先都走两段式
+        #   取整 `int(px*s)-int(view*s)`, 相机连续前推时在"图标不是相机目标"的场景
+        #   (风季/追踪全部/多台风)会各自 ±1px 来回跳; 只修图标不修这里, 图标与活线段
+        #   端点就会相差 ≤1px —— 看上去就是图标在抖。实测见
+        #   `G:/tmp/probe_general_jitter.py`(399 帧 x 方向翻转 146 → 0)。
+        #   注意: 这只改**每帧现算**的实时点; `screen_points`/路径缓存面仍走
+        #   `geo_to_screen` + 整页平移复用, 一个字节没动。
         live_pos = ty.cpos()
-        live_xy = self.latlon_to_screen(live_pos['la'], live_pos['lo']) if live_pos else None
+        _live_fn = getattr(self, '_icon_live_screen', None)
+        if live_pos and _live_fn is not None:
+            live_xy = _live_fn(live_pos['la'], live_pos['lo'])
+        else:
+            live_xy = (self.latlon_to_screen(live_pos['la'], live_pos['lo'])
+                       if live_pos else None)
 
         # ── 实时段：已走路径从当前报点连续延伸到台风实时位置 ──
         n_pts = len(ty.pts)
@@ -999,7 +1320,8 @@ class TySimDrawPathMixin:
         if highlight and not ty.sf:
             if self._line_mode():
                 if live_pos:
-                    pygame.draw.circle(surface, CUR_POS, live_xy, 2)
+                    # P1: 圆点 -> 抗锯齿(paint_aa 精灵缓存)
+                    paint_aa.aa_disc(surface, CUR_POS, live_xy, 2)
             else:
                 cur_idx = ty.ci
                 # 编辑模式(未播放): 高亮圆点跟随选中报点(与信息框/圆环/列表联动一致)
@@ -1018,9 +1340,8 @@ class TySimDrawPathMixin:
                     highlight_r = radius + int(2 * point_radius_factor)
                     self._blit_highlight(surface, x, y, radius, highlight_r, point_color, self._drag_offset_x, self._drag_offset_y)
 
-        # ── 当前点运动矢量箭头（只画高亮台风，用于判断移向/移速）──
-        if highlight and not ty.sf and live_xy and live_pos:
-            self._draw_motion_vector(surface, ty, live_xy, live_pos, path_alpha)
+        # 用户 2026-10-01: 「运动矢量箭头」(红色方向箭头)整项去掉 ——
+        # 调用点与  实现一并删除, 设置里的开关也已移除。
 
         # ── 编辑模式拖动指示：红色圆环 + 实时坐标 ──
         if (highlight and self.md == self.MODE_EDIT and self.dragging_point
@@ -1030,50 +1351,6 @@ class TySimDrawPathMixin:
         elif (highlight and self.md == self.MODE_EDIT and not self.right_button_dragging):
             # A1/B7: 选中点高亮 + 悬停提示 + 点标签
             self._draw_edit_selection(surface, ty, screen_points)
-
-    def _draw_motion_vector(self, surface, ty, cur_xy, cur_lalo, path_alpha: int) -> None:
-        """当前点运动矢量箭头。
-
-        方向: 把"沿当前移向 1 小时后的地理位置"用真实投影投到屏幕再取屏幕差 ——
-              缩放/平移/经度缠绕都不必单独处理。
-        长度: 随移速增长但饱和(参考模型 min(13, 2.5+spd*.38) 的做法),
-              快速台风不会画出一根长箭。
-        """
-        if not getattr(self.cfg, 'show_motion_vector', True) or path_alpha < 128:
-            return
-        try:
-            mv = ty.motion_vector()
-        except Exception:
-            mv = None
-        if not mv:
-            return
-        u, v = mv
-        spd = math.hypot(u, v)
-        if spd < 4.0:
-            return
-        la, lo = cur_lalo['la'], cur_lalo['lo']
-        la2 = max(-89.0, min(89.0, la + v / 110.57))
-        lo2 = lo + u / km_per_deg_lon(la)
-        x2, y2 = self.latlon_to_screen(la2, lo2)
-        dx, dy = x2 - cur_xy[0], y2 - cur_xy[1]
-        norm = math.hypot(dx, dy)
-        if norm < 1e-6:
-            return
-        if abs(dx) > self.screen_width * 0.5:
-            return          # 跨 0 度经线: 投影会把箭头指到屏幕另一端, 本帧不画
-        length = min(58.0, 16.0 + spd * 0.45)
-        ex = cur_xy[0] + dx / norm * length
-        ey = cur_xy[1] + dy / norm * length
-        # 深色描边 + 本色填充: 亮底图/暗底图都能看清
-        for color, width in (((0, 0, 0), 4), (CUR_POS, 2)):
-            pygame.draw.line(surface, color, cur_xy, (ex, ey), width)
-        ang = math.atan2(dy, dx)
-        head = 7.0
-        tip = (ex, ey)
-        left = (ex - head * math.cos(ang - 0.5), ey - head * math.sin(ang - 0.5))
-        right = (ex - head * math.cos(ang + 0.5), ey - head * math.sin(ang + 0.5))
-        pygame.draw.polygon(surface, (0, 0, 0), [tip, left, right], 3)
-        pygame.draw.polygon(surface, CUR_POS, [tip, left, right])
 
     def _draw_live_segment(self, surface, ty, screen_points, path_alpha, live_xy):
         """已走路径的实时延伸段：从 pts[ci]（或样条中间点）画到台风当前插值位置。"""
@@ -1257,8 +1534,11 @@ class TySimDrawPathMixin:
         point_radius_factor = self._size_factors()[0]
         r = max(6, int(5 * point_radius_factor)) + 5
         pulse = 1 + (pygame.time.get_ticks() // 300) % 2
-        pygame.draw.circle(surface, (255, 90, 90), (px, py), r, 2)
-        pygame.draw.circle(surface, (255, 150, 150), (px, py), r + pulse, 1)
+        # P1: 拖动指示环 -> 抗锯齿圆环(原来是 pygame.draw.circle 的 width 描边)
+        # 注意半径语义: pygame 的 circle(r, width) 描边占 [r-w, r];
+        # paint_aa.aa_ring(R, width) 占 [R-w/2, R+w/2] ⇒ 传 R = r - w//2 才等价。
+        paint_aa.aa_ring(surface, (255, 90, 90), (px, py), r - 1, 2)
+        paint_aa.aa_ring(surface, (255, 150, 150), (px, py), r + pulse, 1)
         # 十字准星
         for ax, ay, bx, by in ((px - r - 5, py, px - r + 1, py), (px + r - 1, py, px + r + 5, py),
                                (px, py - r - 5, px, py - r + 1), (px, py + r - 1, px, py + r + 5)):
@@ -1328,6 +1608,13 @@ class TySimDrawPathMixin:
             is_sel = (sel == i)
             if is_sel:
                 # 选中: 白/黄圆环 + 具体时间标签(MM-DD HH:MM)
+                # ⚠ P1 审计结论 —— 这三处 2px 细环**刻意保持无 AA**(与
+                # `_blit_highlight` 同一条规则, 见那里的 docstring):
+                #   它们与"当前位置红色高亮盘"在**同一半径区间**上逐层覆盖
+                #   (白环 span [ring_r-2, ring_r] 正好压住红盘 [radius, highlight_r]),
+                #   一旦两侧都变成软边, 红环最后那 4 个饱和 (220,60,60) 像素就没了,
+                #   `tests/test_pan_reuse.py::test_highlight_follows_selection` 随即失败
+                #   (实测: 8 passed -> 1 failed)。2px 环的 AA 收益亚像素级 ⇒ 不改。
                 pygame.draw.circle(surface, (255, 220, 120), (x, y), ring_r + 2, 2)
                 pygame.draw.circle(surface, (255, 255, 255), (x, y), ring_r, 2)
                 t = p.get('t', '')

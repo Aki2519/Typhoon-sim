@@ -151,6 +151,10 @@ class TySimDrawInfoBoxesMixin:
         mv = movement_speed_kt(ty.pts, ty.points_time, ty.ci)
         key_data = (
             ty.b, ty.n, ty.tace,
+            # 模式必须进缓存键: "巅峰@日期"只在风季模式显示(用户 2026-09-19),
+            # 少了这一项, 先画风季后画正常模式会直接命中旧框(离屏渲染实测两张
+            # 图字节相同才发现)
+            getattr(self, 'md', None),
             ty.cust, ty.sname, ty.start_time,   # 名称字段(编辑名称后缓存失效)
             cp.get('name', '') if cp else '',   # 逐点名称模式下当前点名变化
             cp['w'] if cp else 0,
@@ -196,35 +200,51 @@ class TySimDrawInfoBoxesMixin:
         lp = ty.pts[-1]
         tyy = fp['t'][:4] if len(fp['t']) >= 4 else "未知"
         if getattr(self, 'point_name_mode', False) and cp:
+            # ⚠ 2026-10-01 审查: 这里原来空名会**回退成台风默认名**, 与图标侧
+            # 今天改成的"空行不显示名字"语义相反 ⇒ 同屏会出现"图标旁没名字、
+            # 信息框里却有 2025 xxW"。现在两侧统一: 空名就是空。
+            # (该文件的缓存键已含 , 改语义不会引入陈旧命中。)
             tn = (cp.get('name') or '').strip()
-            if not tn:
-                tn = self.get_display_name(ty)
         else:
             tn = self.get_display_name(ty)
 
         st = fp['t']
         et = lp['t']
-        sf = f"{st[4:6]}/{st[6:8]}" if len(st) >= 8 else "未知"
-        ef = f"{et[4:6]}/{et[6:8]}" if len(et) >= 8 else "未知"
-        # 时间范围带时分: '01/05 12:30~01/12 00:00'(含分钟时显示真实分钟)
-        sft = f"{sf} {st[8:10]}:{st[10:12] if len(st) >= 12 else '00'}" if len(st) >= 10 else sf
-        eft = f"{ef} {et[8:10]}:{et[10:12] if len(et) >= 12 else '00'}" if len(et) >= 10 else ef
-        if len(st) >= 10 and len(et) >= 10:
-            try:
-                s_dt = datetime(int(st[:4]), int(st[4:6]), int(st[6:8]), int(st[8:10]))
-                e_dt = datetime(int(et[:4]), int(et[4:6]), int(et[6:8]), int(et[8:10]))
-                td = (e_dt - s_dt).days
-            except Exception:
-                td = 0
-        else:
-            td = 0
 
-        max_wind = max_wind_from_points(ty.pts)
+        def _zz(t: str) -> str:
+            """报点时间 → 'MM/DD HHZ' / 'MM/DD HHMMz'(分钟非零才带分钟)。
+
+            用户 2026-09-19: "起止时间改成 06/21 12z-06/27 00z 这种(使用 z 而非
+            XX:XX, 分钟直接显示 0645z 这样的)"。
+            """
+            if len(t) < 8:
+                return "未知"
+            mm, dd = t[4:6], t[6:8]
+            if len(t) < 10:
+                return f"{mm}/{dd}"
+            hh = t[8:10]
+            mi = t[10:12] if len(t) >= 12 else '00'
+            try:
+                has_min = int(mi) != 0
+            except Exception:
+                has_min = False
+            return f"{mm}/{dd} {hh}{mi if has_min else ''}z"
+
+        sft = _zz(st)
+        eft = _zz(et)
+
+        # 巅峰口径(用户 2026-09-19): **只看已经播过的部分**(过去最强), 不再把
+        # 未来的报点算进来 —— 否则"当前巅峰"会显示还没发生的强度。
+        _ci = int(getattr(ty, 'ci', 0) or 0)
+        _past = ty.pts[:_ci + 1] if 0 <= _ci < len(ty.pts) else ty.pts
+        peak = peak_point(_past) or peak_point(ty.pts)
+        max_wind = max_wind_from_points(_past) if _past else max_wind_from_points(ty.pts)
         current_wind = cp['w'] if cp else "?"
         cur_st = (cp['st'].upper() if cp and cp['st'] else '-') if cp else '-'
         cur_pres = cp['p'] if cp else 0
         peak_txt = f"巅峰:{max_wind}kt"
-        if peak:
+        # 巅峰后面的时间只在风季模式显示(用户: "另外两个模式的状态栏巅峰后面的时间都去掉")
+        if peak and getattr(self, 'md', None) == getattr(self, 'MODE_SEASON', 'season'):
             pt = peak['t']
             peak_txt += f"@{pt[4:6]}-{pt[6:8]}" if len(pt) >= 8 else ""
         mv_txt = f" 移速:{mv:.0f}kt" if mv else ""
@@ -243,12 +263,20 @@ class TySimDrawInfoBoxesMixin:
 
         lines = [
             f"{ty.basin}{ty.n} {tyy} {tn}",
-            f"{sft}-{eft} ({td}天)",
+            # 起止时间: '06/21 12z-06/27 00z'(z 口径, 不带时长) —— 用户 2026-09-19
+            f"{sft}-{eft}",
             f"{peak_txt} 实时:{current_wind}kt",
             f"气压:{cur_pres}hPa" if cur_pres else "气压:-",
             pos_txt,
-            f"总ACE:{ty.tace:.4f} 实时ACE:",
+            # 总 ACE 去掉(用户 2026-09-19), 只留实时 ACE 数字
+            "实时ACE:",
         ]
+        # 模拟模式: 多一行**预报**(巅峰/登陆强度) —— 用户 2026-09-19
+        # "巅峰及登陆强度要显示(提前一报的好处就是这个)"。数据来自内核集合
+        # 统计(tc['fcPeak']/['fcLand']), 由适配器挂到 ty 上。
+        _fc_line = self._sim_forecast_line(ty)
+        if _fc_line:
+            lines.append(_fc_line)
         line_h = self._season_info_box_line_height()
         text_x = 16
         y = _BOX_PAD
@@ -282,7 +310,11 @@ class TySimDrawInfoBoxesMixin:
     _BOX_ALPHA_RATE = 255.0 / _BOX_FADE_MS
 
     def _box_alpha(self, ty, now: float) -> int:
-        st = self._box_anim.get(ty)
+        # 轮次 156: 防御性取值 —— `_box_anim` 只在 `draw_season_info_boxes` 里懒初始化,
+        # 其它调用者(如模拟模式)可能先到这里; 原来直接 `self._box_anim.get(...)`
+        # 会在未初始化时抛 AttributeError, 而调用点包在 `except: logger.debug` 里
+        # ⇒ **整个信息框静默消失**。
+        st = (getattr(self, '_box_anim', None) or {}).get(ty)
         if st is None:
             return 255
         t = now - st['start']
@@ -294,6 +326,65 @@ class TySimDrawInfoBoxesMixin:
         else:
             a = st['from'] - t * self._BOX_ALPHA_RATE
         return max(0, min(255, int(a)))
+
+    def _sim_forecast_line(self, ty) -> str:
+        """模拟模式信息框的预报行(非模拟模式返回 '')。
+
+        格式与其它行一致(MM/DD HHZ); 峰值带 P10~P90 不确定度; 登陆强度在
+        不足 40% 集合成员登陆时不给(避免编一个假的确定值)。
+        """
+        if getattr(self, 'md', None) != getattr(self, 'MODE_SIM', 'sim'):
+            return ''
+        pk = getattr(ty, 'fcPeak', None)
+        ld = getattr(ty, 'fcLand', None)
+        if not pk and not ld:
+            return ''
+
+        out = []
+        if pk:
+            _s = '预巅峰:%dkt' % round(float(pk['kt']))
+            if pk.get('kt_lo') is not None and pk.get('kt_hi') is not None:
+                _s += '(%d~%d)' % (round(float(pk['kt_lo'])), round(float(pk['kt_hi'])))
+            if pk.get('h') is not None:
+                _s += ' +%dh' % round(float(pk['h']))
+            out.append(_s)
+        if ld:
+            out.append('预登陆:%dkt +%dh' % (round(float(ld['kt'])),
+                                           round(float(ld.get('h') or 0))))
+        return '  '.join(out)
+
+    def blit_info_box(self, surface: pygame.Surface, ty, box_w: int, box_h: int,
+                      x: int, y: int, alpha: int = 255) -> None:
+        """画**一个**信息框(含"实时ACE"数字)。
+
+        轮次 156: 从 `draw_season_info_boxes` 的循环体里抽出来, 让**风季与模拟模式
+        共用同一份**渲染 —— 模拟模式原先直接调 `_render_info_box` 却只 blit
+        `_res[0]`, 把 `ace_x/ace_y/tc` 丢掉了, 于是框里"实时ACE:"后面**永远空白**
+        (该函数的文档明确要求"数字由调用方每帧单独绘制")。
+
+        alpha<255 时走风季那套"从左侧滑入 + 淡入淡出"。
+        """
+        box, ace_x, ace_y, tc = self._render_info_box(ty, box_w, box_h)
+        # 实时ACE数字：按 (量化cace, tc) 缓存复用，避免每帧裸 render(法9/K27)
+        digit_key = (round(ty.cace, 4), tc)
+        digits = _ace_digit_cache.get(digit_key)
+        if digits is None:
+            digits = _font_box.en_font.render(f"{ty.cace:.4f}", True, tc)
+            if len(_ace_digit_cache) >= _ACE_DIGIT_CACHE_MAX:
+                _ace_digit_cache.pop(next(iter(_ace_digit_cache)))
+            _ace_digit_cache[digit_key] = digits
+        if alpha < 255:
+            t = alpha / 255.0
+            ease = 1.0 - (1.0 - t) ** 3
+            x = int(x - (x + box_w) * (1.0 - ease))
+            faded = _faded_copy(box, alpha)
+            surface.blit(faded, (x, y))
+            d = digits.copy()
+            d.set_alpha(alpha)
+            surface.blit(d, (x + ace_x, y + ace_y))
+        else:
+            surface.blit(box, (x, y))
+            surface.blit(digits, (x + ace_x, y + ace_y))
 
     def draw_season_info_boxes(self, surface: pygame.Surface) -> None:
         now = pygame.time.get_ticks()
@@ -348,28 +439,8 @@ class TySimDrawInfoBoxesMixin:
             x = start_x + c * (box_w + spacing_x)
             y = start_y + r * (box_h + spacing_y)
 
-            box, ace_x, ace_y, tc = self._render_info_box(ty, box_w, box_h)
-            # 实时ACE数字：按 (量化cace, tc) 缓存复用，避免每帧裸 render(法9/K27)
-            digit_key = (round(ty.cace, 4), tc)
-            digits = _ace_digit_cache.get(digit_key)
-            if digits is None:
-                digits = _font_box.en_font.render(f"{ty.cace:.4f}", True, tc)
-                if len(_ace_digit_cache) >= _ACE_DIGIT_CACHE_MAX:
-                    _ace_digit_cache.pop(next(iter(_ace_digit_cache)))
-                _ace_digit_cache[digit_key] = digits
-            if alpha < 255:
-                # 从左侧滑入/滑出（缓出）+ 淡入淡出
-                t = alpha / 255.0
-                ease = 1.0 - (1.0 - t) ** 3
-                x = int(x - (x + box_w) * (1.0 - ease))
-                faded = _faded_copy(box, alpha)
-                surface.blit(faded, (x, y))
-                d = digits.copy()
-                d.set_alpha(alpha)
-                surface.blit(d, (x + ace_x, y + ace_y))
-            else:
-                surface.blit(box, (x, y))
-                surface.blit(digits, (x + ace_x, y + ace_y))
+            # 轮次 156: 单个框的渲染抽成共用方法(含"实时ACE"数字与滑入动画)
+            self.blit_info_box(surface, ty, box_w, box_h, x, y, alpha)
 
         # 8 槽溢出提示(P1-10): 有活跃台风未分配到槽位时在框区底部提示
         unslotted = [t for t in active_typhoons if t not in self.info_box_slots]
@@ -378,6 +449,42 @@ class TySimDrawInfoBoxesMixin:
             ts = rt(_font_box, tip, (255, 210, 110))
             surface.blit(ts, (SEASON_INFO_BOX_START_X,
                               start_y + per_col * (box_h + spacing_y)))
+
+    def _active_clock_tuple(self):
+        """正常/编辑模式的圆环钟时间 (年,月,日,时,分,当日进度)。
+
+        **2026-09-19 修**: 这两个模式的 `_clock` 原先不传 time_tuple, 钟就直接读
+        `self.sy / self.st / self.ste` —— 那是**风季控制器**的字段, 正常/编辑模式
+        里没人更新, 于是永远停在初始值(用户:"正常/编辑模式的时间轴坏了")。
+        改成取当前台风(编辑模式取被编辑台风)的**当前报点时刻**, 按 at/points_time
+        做秒级插值; 一个台风都没有时退回系统当前时间(总比显示 2025-01-01 强)。
+        """
+        try:
+            ty = (self.edit_typhoon if self.md == self.MODE_EDIT
+                  else self.current_typhoon())
+        except Exception:
+            ty = None
+        dt = None
+        try:
+            pts = getattr(ty, 'pts', None) or []
+            pd = getattr(ty, 'points_dt', None) or []
+            pt = getattr(ty, 'points_time', None) or []
+            ci = int(getattr(ty, 'ci', 0) or 0)
+            if pts and len(pd) == len(pts) and 0 <= ci < len(pd):
+                dt = pd[ci]
+                if (ci + 1 < len(pd) and ci + 1 < len(pt)
+                        and float(pt[ci + 1]) > float(pt[ci])):
+                    span = float(pt[ci + 1]) - float(pt[ci])
+                    frac = max(0.0, min(1.0, (float(getattr(ty, 'at', 0.0) or 0.0)
+                                              - float(pt[ci])) / span))
+                    dt = dt + (pd[ci + 1] - dt) * frac
+        except Exception:
+            dt = None
+        if dt is None:
+            dt = datetime.now()
+        day_secs = dt.hour * 3600 + dt.minute * 60 + dt.second
+        return (dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                day_secs / 86400.0)
 
     def draw_season_clock(self, surface: pygame.Surface, origin=(0, 0),
                           time_tuple=None) -> None:
@@ -479,6 +586,23 @@ class TySimDrawInfoBoxesMixin:
                                     ty.cace, ty.tace, self.screen_width - 10)
             return
 
+        if self.md == getattr(self, 'MODE_SIM', 'sim'):
+            # 模拟模式用**同一套** ACE 条(用户 2026-09-19: "ace 条像其它模式一样显示.
+            # 上限默认 1500. 突破了就停在白框最右面")。_draw_progress 内部
+            # min(1.0, cur/total) 已保证封顶停在右边框。
+            sim = getattr(self, 'sim_v4', None) or {}
+            cur = float(sim.get('aceSum', 0.0) or 0.0)
+            cap = float(getattr(self.cfg, 'sim_ace_cap', 1500.0) or 1500.0)
+            try:
+                yr = self._sim_calendar(sim, disp=True)[0]
+            except Exception:
+                yr = datetime.now().year
+            # 只画进度条与条内数值: **不画"总 ACE"那一行**
+            # (用户 2026-09-19: "右上角始终显示 2026: 1500.0000, 这个删掉")
+            self._draw_progress(surface, f"{yr} ACE:", cur, cap,
+                                self.screen_width - 10, show_total=False)
+            return
+
         ace_year = self.current_ace_year
         year_str = str(ace_year) if self.hemisphere == HEMISPHERE_NORTH else f"{ace_year}-{ace_year + 1}"
 
@@ -493,7 +617,8 @@ class TySimDrawInfoBoxesMixin:
         cya = self.yad.get(ace_year, 0.0)
         self._draw_progress(surface, label, self.csa, cya, self.screen_width - 10)
 
-    def _draw_progress(self, surface, label, current_ace, total_ace, right):
+    def _draw_progress(self, surface, label, current_ace, total_ace, right,
+                       show_total: bool = None):
         w, h = 495, 45
         x = right - w
 
@@ -528,7 +653,8 @@ class TySimDrawInfoBoxesMixin:
 
         self._draw_ace_note(surface, x, 32, h)
 
-        if getattr(self, 'show_ace_total', True):
+        _st = getattr(self, 'show_ace_total', True) if show_total is None else show_total
+        if _st:
             ls = _stroked(_font_ace, label, (255, 255, 255))
             surface.blit(ls, (right - ls.get_width() + 1, 89 - 1))
             ys = _stroked(_font_ace, f"{total_ace:.4f}", (255, 255, 255))

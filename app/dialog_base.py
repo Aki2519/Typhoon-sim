@@ -11,7 +11,7 @@ from .constants import (
     SETTINGS_TEXT_LIGHT, SETTINGS_TEXT_DIM,
     SETTINGS_TOGGLE_ON, SETTINGS_TOGGLE_OFF,
     DIALOG_CORNER_RADIUS, DIALOG_BORDER_WIDTH,
-    f_s, f_m
+    f_s, f_m, rt
 )
 
 if TYPE_CHECKING:
@@ -110,14 +110,18 @@ class Dialog:
             tc = SETTINGS_TEXT_LIGHT if hover else SETTINGS_TEXT_DIM
         pygame.draw.rect(surface, bg, rect, border_radius=6)
         if isinstance(text, str):
-            ts = CONTENT_FONT.render(text, True, tc)
+            # 走 rt(): 复用 fonts.rt 的字节预算文本缓存(原直连 CONTENT_FONT.render
+            # 只能吃 SmartFont 的 128 条 FIFO, 在 139 键的工作集下每帧自噬)。
+            # 返回面跨帧共享, 本函数只读(blit), 未就地修改。
+            ts = rt(CONTENT_FONT, text, tc)
         else:
             ts = text
         surface.blit(ts, (rect.x + (rect.w - ts.get_width()) // 2, rect.y + (rect.h - ts.get_height()) // 2))
 
     def draw_dark_title(self, surface, text: str, rect: pygame.Rect, y_offset: int = 12):
         """暗色标题居中。"""
-        ts = TITLE_FONT.render(text, True, SETTINGS_TEXT_LIGHT)
+        # 走 rt()(同 draw_dark_button); 返回面只读(blit), 未就地修改。
+        ts = rt(TITLE_FONT, text, SETTINGS_TEXT_LIGHT)
         surface.blit(ts, (rect.x + 20, rect.y + y_offset))
 
     _bg_cache: dict = {}
@@ -181,7 +185,8 @@ class Dialog:
         if bar_surf is None:
             bar_surf = pygame.Surface((bar_rect.width, bar_rect.height), pygame.SRCALPHA)
             bar_surf.fill((0, 0, 0, 30))
-            title = title_font.render(title_text, True, title_color)
+            # 走 rt(): 只读(blit 进新建的 bar_surf), 不改返回面。
+            title = rt(title_font, title_text, title_color)
             bar_surf.blit(title, (
                 bar_surf.get_width() // 2 - title.get_width() // 2,
                 bar_surf.get_height() // 2 - title.get_height() // 2))

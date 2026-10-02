@@ -34,6 +34,8 @@ USER_PREFS_FILE = "temp.json"
 DEFAULT_MAP = "./map/map.png"
 CUSTOM_MAP = "./map/custom_map.png"
 LAND_MASK = "./map/land.png"
+#: land.png 缺失时的兜底(两者任一存在即可用)
+LAND_MASK_FALLBACK = "./map/land2.png"
 AREA_OCEAN_FILE = "./assets/Area_ocean.json"
 
 DIALOG_TITLE_BAR_HEIGHT = 45

@@ -72,6 +72,16 @@ def _fmt_size(path):
         return "-"
 
 
+#: P5: 色阶方案的 **UI 显示文案**(仅显示层)。值仍来自 `COLOR_SCALE_SCHEMES`, 不新建颜色。
+#: 为什么这样标: Ty4 自己 `t4_track.py:59-60` 就是 `PALETTE_CLASSIC = dict(PALETTE_2023)`,
+#: 即原程序的 NewColor 开关同样切不出视觉差异 ⇒ 本项目"两套相同"是**忠实复刻**,
+#: 既不该编造一组 RGB 去"修好它", 也不该删掉选项掩盖"与 Ty4 同构"这个事实。
+_SCHEME_UI_LABEL = {
+    "wiki": "经典 Wiki 色阶（同 2023）",
+    "2023": "2023 新版色阶（同经典）",
+}
+
+
 class _Dropdown:
     """下拉框: 点击展开, 选项列表由对话框统一置顶绘制(见 draw)。"""
 
@@ -154,6 +164,10 @@ class PaintDialog(DraggableDialog):
         self.grid = False
         self.draw_rad = "none"
         self.multireset = "none"
+        #: P5: 投影开关。值与 P4 的 `paint_projection.PROJECTIONS` / P3 的
+        #: `cfg["projection"]` 同名(paint_render.py:160/232-233)。
+        #: "equirect" = 等距圆柱(默认, 与历史行为一致); "conic" = 圆锥(Lambert 正形)。
+        self.projection = "equirect"
         self.legend_pos = "auto"
         self.legend_bg = False
         self.labels = False
@@ -179,12 +193,20 @@ class PaintDialog(DraggableDialog):
         self._stats: List[dict] = []
         self._status = ""
         self._status_ts = 0.0
+        #: P5: 校验类提示不随时间消失(否则用户在 8s 后看不到自己填错了什么)
+        self._status_sticky = False
         # 放大查看: 单击预览进入, 图片占满接近整个地图区域(留空隙)
         self._zoom = False
         self._zoom_level = 1.0          # 滚轮缩放倍率
         self._zoom_img_rect: Optional[pygame.Rect] = None   # 放大模式下图片实际绘制区
         self._ctx_menu = False          # 右键菜单(另存为)
         self._ctx_rect: Optional[pygame.Rect] = None
+        #: P9(K12): 左栏滚动量（窗口矮时左栏内容 678px 装不下，可滚看全）
+        self._left_scroll = 0
+        #: P9(K1): 文件工具条的 » 溢出菜单状态（窄窗口时按钮收进这里）
+        self._toolbar_menu_open = False
+        self._toolbar_overflow: List[str] = []
+        self._toolbar_more_rect: Optional[pygame.Rect] = None
 
         self.x0 = self.y0 = 0
         self._browser: Optional[FileBrowserDialog] = None
@@ -213,33 +235,75 @@ class PaintDialog(DraggableDialog):
         self.bg_rect = pygame.Rect((sw - w) // 2, (sh - h) // 2, w, h)
         self.x0 = self.bg_rect.x + PAD
         self.y0 = self.bg_rect.y + self.title_bar_height + 12
+        # P9(K12): 尺寸变化后回到顶部再重建（rebuild 会用 _row_y 定位控件,
+        # 而归零保证控件矩形与 _left_scroll=0 一致）
+        self._left_scroll = 0
         self._rebuild_fields()
         self._rebuild_dropdowns()
         if self._browser is not None:
             self._browser._build_layout()
 
-    def _row_y(self, idx):
-        # 左列内容从面板内顶部(留出「绘制范围」标题)开始
+    def _row_y_raw(self, idx):
+        """未滚动时的左栏行 y（内容坐标系）。"""
         return self.y0 + 24 + idx * (ROW_H + ROW_GAP)
+
+    def _row_y(self, idx):
+        """左列行 y（**含滚动偏移**）。
+
+        P9(K12): 左栏内容需要 678px，而窗口矮时面板只有 150–280px
+        （实测 `panel高 = dialog.h - 64 - 12 - 470 - 10`）。加滚动后，所有"按行定位"
+        的控件（分节标题/勾选框/地图按钮/下拉基线）都跟着 `_left_scroll` 走。
+        """
+        return self._row_y_raw(idx) - self._left_scroll
+
+    # ── P9(K12): 左栏滚动（只挪位置，不动任何控件语义/默认值/文本/焦点）──
+
+    def _left_content_height(self):
+        """左栏内容所需高度(px)：最后一行是 row(22) 的「地图文件」+ 行高 + 底部留白。"""
+        return (self._row_y_raw(22) + ROW_H + 12) - self.y0
+
+    def _left_scroll_max(self):
+        """可滚动量(px)；内容装得下时为 0 ⇒ 此时**完全等同旧行为**（不画滚动条）。"""
+        return max(0, self._left_content_height() - self._left_panel_rect().height)
+
+    def _left_scroll_by(self, d):
+        """滚动左栏。**只挪位置，不动任何控件语义/默认值/文本/焦点**。"""
+        new = max(0, min(self._left_scroll + d, self._left_scroll_max()))
+        delta = new - self._left_scroll
+        if not delta:
+            return False
+        self._left_scroll = new
+        for f in self._fields.values():
+            f.rect.move_ip(0, -delta)                 # 保留已输入文本与焦点状态
+        for dd in self._dropdowns.values():
+            dd.rect.move_ip(0, -delta)
+        for k in list(self._field_base_y):
+            self._field_base_y[k] -= delta
+        for k in list(self._dd_base_y):
+            self._dd_base_y[k] -= delta
+        return True
 
     def _rebuild_fields(self):
         for f in self._fields.values():
             f.deactivate()
         self._fields.clear()
         self._field_base_y.clear()
+        # P9(K8/B7): 每行第 5 个元素 `_conv`（int/float）**从未被使用** —— 真正的类型转换
+        # 集中在 `_collect_fields()` 里按 key 硬编码。历史上这张表本想"表驱动转换"，
+        # 后来改成集中解析却没删形参，留下"两个转换来源"的误导 ⇒ 直接删掉。
         rows = [
             # 区域输入仅当 mode==region 显示
-            ("region", 2, _fmt_region(self.region), 24, None),
-            ("path_width", 4, f"{self.path_width}", 4, int),
-            ("point_size", 5, f"{self.point_size}", 4, int),
-            ("margin_w", 6, f"{self.margin_w:g}", 6, float),
-            ("margin_h", 7, f"{self.margin_h:g}", 6, float),
-            ("min_w", 8, f"{self.min_w}", 5, int),
-            ("min_h", 9, f"{self.min_h}", 5, int),
-            ("map_path", 22, self.map_path or "", 160, None),
+            ("region", 2, _fmt_region(self.region), 24),
+            ("path_width", 4, f"{self.path_width}", 4),
+            ("point_size", 5, f"{self.point_size}", 4),
+            ("margin_w", 6, f"{self.margin_w:g}", 6),
+            ("margin_h", 7, f"{self.margin_h:g}", 6),
+            ("min_w", 8, f"{self.min_w}", 5),
+            ("min_h", 9, f"{self.min_h}", 5),
+            ("map_path", 22, self.map_path or "", 160),
         ]
         inp_x = self.x0 + LABEL_W
-        for key, idx, val, mlen, _conv in rows:
+        for key, idx, val, mlen in rows:
             rect = pygame.Rect(inp_x, self._row_y(idx), INPUT_W, 26)
             if key == "map_path":
                 rect = pygame.Rect(inp_x, self._row_y(idx), LEFT_W - LABEL_W - 110, 26)
@@ -253,21 +317,28 @@ class PaintDialog(DraggableDialog):
         self._dropdowns.clear()
         self._dd_base_y.clear()
         defs = [
-            ("scheme", 11, [(k, v) for k, v in COLOR_SCALE_SCHEMES.items()], self.scheme),
-            ("coord_unit", 12, [("deg", "经纬度(°)"), ("px", "像素(px)")], self.coord_unit),
+            # P5: 色阶只改**显示文案**, 不改 colors.py 的值 —— "经典/2023 相同"是对原版
+            # Ty4 的忠实复刻(t4_track.py:59-60 PALETTE_CLASSIC = dict(PALETTE_2023)),
+            # 不许为了"让它们不同"而编造 RGB, 也不删选项(那会丢掉"与 Ty4 同构"的事实)。
+            ("scheme", 11, [(k, _SCHEME_UI_LABEL.get(k, v))
+                            for k, v in COLOR_SCALE_SCHEMES.items()], self.scheme),
+            ("coord_unit", 12, [("deg", "经纬度(°)"),
+                                ("px", "像素(px)·启用宽度/大小")], self.coord_unit),
             ("order", 13, [("simult", "同时"), ("sort", "按强度排序"),
                            ("points_top", "定位点置顶")], self.draw_order),
             ("draw_rad", 14, [("none", "不绘画"), ("all", "全部绘画"),
                               ("last", "仅最后定位"), ("tropical", "仅热带部分")], self.draw_rad),
-            ("multireset", 15, [("none", "不重置"), ("auto", "自动重置"),
-                                ("last", "仅最后定位")], self.multireset),
+            # P5: 「多文件重置」已删(P3 定案: Ty4 的 MultipleFile 只实现 ==2, 选项语义为空;
+            # 本渲染每台风独立画路径, 不存在跨文件连线需要重置)。该行让给「投影」开关。
+            ("projection", 15, [("equirect", "等距圆柱"), ("conic", "圆锥(Lambert 正形)")],
+             self.projection),
             ("legend_pos", 16, [(k, v) for k, v in LEGEND_POS_NAMES.items()], self.legend_pos),
         ]
         # 统一按第一列 x0+LABEL_W 排列(图例位置不再偏右)
         inp_x = self.x0 + LABEL_W
         for key, idx, opts, cur in defs:
             dd = _Dropdown(pygame.Rect(inp_x, self._row_y(idx), 240, 26),
-                           opts, cur, lambda v, k=key: setattr(self, k, v),
+                           opts, cur, lambda v, k=key: self._on_dd_select(k, v),
                            dark=self.dark_mode)
             self._dropdowns[key] = dd
             self._dd_base_y[key] = self._row_y(idx)
@@ -277,12 +348,111 @@ class PaintDialog(DraggableDialog):
         self._dropdowns["preset"] = dd
         self._dd_base_y["preset"] = self._row_y(2)
 
+    def _on_dd_select(self, key, v):
+        """下拉选中回调: 写属性 + 对"容易被误解/看不出效果"的选项给一条解释性提示。
+
+        P5: 这些提示是**说明性**的, 不改变任何渲染参数 —— 例如"经典/2023 相同"是原版
+        Ty4 的行为, 说清楚比"偷偷让它们不一样"正确。
+        """
+        setattr(self, key, v)
+        msg = None
+        sticky = False
+        if key == "coord_unit":
+            if v == "px":
+                msg = ("坐标单位=像素：路径宽度 / 定点大小 生效"
+                       "（线宽=路径宽度，点半径=定点大小/2）")
+            else:
+                msg = ("坐标单位=经纬度：线宽/点径走角度制，"
+                       "「路径宽度 / 定点大小」这两个框不生效")
+        elif key == "scheme" and v in ("wiki", "2023"):
+            msg = ("说明：经典 Wiki 与 2023 两套色阶在本项目**与原版 Ty4 中**都相同"
+                   "（Ty4 的 NewColor 开关同样无视觉差异），不是本程序的缺陷")
+            sticky = True
+        elif key == "draw_rad":
+            # P10 文案同步：「风圈」需要 RAD 行，本机数据没有 ⇒ 选任何非「不绘画」
+            # 都**暂无视觉效果**（app-feat 已禁用 `wind×0.5` 的假缺省，实测改前多出的
+            # 73px 就是编造的圆环）。这里如实说明"不是坏了、是缺数据"。
+            if v == "none":
+                msg = "风圈：不绘画。"
+            else:
+                msg = ("风圈=" + {"all": "全部绘画", "last": "仅最后定位",
+                                 "tropical": "仅热带部分"}.get(v, v)
+                       + "：本机台风数据没有 RAD 行，本次没有视觉效果——"
+                         "不是功能损坏，是数据缺失。")
+                sticky = True
+        elif key == "projection":
+            msg = ("投影=" + ("圆锥(Lambert 正形)" if v == "conic" else "等距圆柱")
+                   + ("。若图纸外观暂未变化，说明渲染侧仍在接线中。"
+                      if v == "conic" else "。"))
+            sticky = (v == "conic")
+        if msg:
+            self._status = msg
+            self._status_ts = time.time()
+            self._status_sticky = sticky
+
     def _on_preset_select(self, v):
         self.region_preset = v
         self.region = COMMON_REGIONS[v]
         f = self._fields.get("region")
         if f:
             f.set_text(_fmt_region(self.region))
+
+    # ── P5: 「区域」输入的即时校验 ──
+
+    def _region_error(self) -> Optional[str]:
+        """校验「区域」输入框, 返回可直接显示的中文错误文案, 合法则返回 None。
+
+        语义与 README / `paint_render.resolve_bounds`(paint_render.py:88-96) 严格一致:
+        4 个数, 顺序 `上,左,高,宽` ⇒ 经度 `[左, 左+宽]`、纬度 `[上-高, 上]`。
+
+        ⚠ 为什么必须校验"高/宽 > 0": `resolve_bounds` 只在 `width>0 and height>0` 时才
+        采纳 region, 否则**静默回落到轨迹 bbox 分支**(paint_render.py:95-96) —— 用户会
+        以为"设了范围", 实际拿到的是自动范围, 这正是第一轮记录的"填错不报错只画出怪图"。
+        """
+        f = self._fields.get("region")
+        if f is None:
+            return None
+        txt = f.get_text().strip()
+        if not txt:
+            return "区域不能为空（格式：上,左,高,宽）"
+        raw = [v.strip() for v in txt.replace("，", ",").split(",") if v.strip()]
+        if len(raw) != 4:
+            return f"需要 4 个数（上,左,高,宽），当前 {len(raw)} 个"
+        try:
+            nums = [float(v) for v in raw]
+        except ValueError:
+            return "只能填数字（格式：上,左,高,宽）"
+        top, left, height, width = nums
+        if height <= 0 or width <= 0:
+            return f"高/宽必须 > 0（当前 高={height:g}, 宽={width:g}）——否则范围会被忽略"
+        if top > 90.0 or top - height < -90.0:
+            return (f"纬度越界：需要 -90 ≤ 上-高 且 上 ≤ 90"
+                    f"（当前 上={top:g}, 上-高={top - height:g}）")
+        if left < 0.0 or left > 360.0:
+            return f"左边界需在 0..360（当前 {left:g}）"
+        if left + width > 360.0 + 1e-6:
+            return (f"右边界 {left + width:g} 超出 360°（本渲染不支持跨 0° 缝的区域，"
+                    f"请改用 全局 或缩小宽）")
+        return None
+
+    def _region_ok(self) -> bool:
+        return self._region_error() is None
+
+    def _set_mode(self, mode: str) -> None:
+        """切换绘制范围。P5: 离开「区域」时**失活隐藏的区域输入框**。
+
+        否则该输入框虽然在普通/全局模式下不可见(_draw_left 不画), 却仍会抢走点击与
+        键盘输入(input_field.py:304-307 左键点在 rect 内即 activate_at) —— 用户会在
+        一片空白处把光标"丢"进一个看不见的框里。
+        """
+        self.mode = mode
+        if mode != "region":
+            f = self._fields.get("region")
+            if f is not None:
+                f.deactivate()
+            if self._status_sticky:
+                self._status = ""
+                self._status_sticky = False
 
     def _selected_paths(self):
         return [d['path'] for d, s in zip(self.files, self.sel_rows) if s]
@@ -356,20 +526,92 @@ class PaintDialog(DraggableDialog):
         names = {"normal": 0, "region": 1, "global": 2}
         return pygame.Rect(self.x0 + names[mode] * 132, self._row_y(0), 124, 30)
 
-    def _file_toolbar_rects(self):
+    #: P9(K1): 文件工具条按钮尺寸。**不随窗口缩小**（宁可换行/收进溢出菜单，
+    #: 也不把按钮改小 —— 按钮热区是 ui-experience 标准 4 的硬要求）。
+    _TB_BTN_W = 96
+    _TB_GAP = 6
+    _TB_BTN_H = 28
+    _TB_MORE_W = 62
+    _TB_MAX_ROWS = 2
+
+    def _file_toolbar_layout(self):
+        """按**文件面板可用宽度**自适应排布工具条 → (可见按钮, »矩形, 溢出键)。
+
+        P9(K1) 根因：原实现把 8 个按钮（8×(96+6) = **810px**）从 `fr.right` 反向累加，
+        **从不与面板可用宽度比对**。实测：`sw=2560` 面板 1056px 正常；`sw=1600`
+        面板 856px 正常；**`sw=1280` 面板 536px ⇒ 左溢出 280px**；**`sw=1024`
+        面板 280px ⇒ 左溢出 536px** —— 直接压到左侧参数面板上（标准 1：控件不许被遮挡）。
+
+        策略：先看一行放得下几个，铺满 ≤2 行；仍放不下就把余下的收进 `»` 溢出菜单
+        （桌面惯例）。**按钮尺寸恒定**。
+        """
         fr = self._file_panel_rect()
         labels = [("add", "导入台风"), ("oneall", "一键全部"), ("del", "移除"),
                   ("dedup", "去重"), ("clear", "清空"), ("refresh", "刷新"),
                   ("all", "全选"), ("unall", "全不选")]
+        bw, gap, bh = self._TB_BTN_W, self._TB_GAP, self._TB_BTN_H
+        avail = max(bw, fr.width - 12)
+        cap = max(1, (avail + gap) // (bw + gap))          # 每行放得下几个
+        fit = cap * self._TB_MAX_ROWS
+        n_vis = len(labels) if fit >= len(labels) else max(1, fit)
+        while n_vis < len(labels):
+            # 需要 »：确认最后一行"已用宽度 + »"放得下，否则再少放一个按钮
+            last_row = n_vis % cap or cap
+            used = last_row * (bw + gap) - gap
+            if used + gap + self._TB_MORE_W <= avail or n_vis <= 1:
+                break
+            n_vis -= 1
+        visible = labels[:n_vis]
+        overflow = [k for k, _ in labels[n_vis:]]
         out = {}
-        # 工具条整体右下偏移: 起于文件面板右下角以上, 靠右
-        x = fr.right
-        y = fr.y + 6
-        for key, lab in reversed(labels):
-            w0 = 96
-            x -= w0 + 6
-            out[key] = pygame.Rect(x, y, w0, 28)
+        for i, (key, _lab) in enumerate(visible):
+            r, c = divmod(i, cap)
+            out[key] = pygame.Rect(fr.x + 6 + c * (bw + gap),
+                                   fr.y + 6 + r * (bh + gap), bw, bh)
+        more_rect = None
+        if overflow:
+            r, c = divmod(len(visible), cap)
+            more_rect = pygame.Rect(fr.x + 6 + c * (bw + gap),
+                                    fr.y + 6 + r * (bh + gap), self._TB_MORE_W, bh)
+        self._toolbar_overflow = overflow
+        self._toolbar_more_rect = more_rect
+        return out, more_rect, overflow
+
+    def _file_toolbar_rects(self):
+        """兼容原调用方（绘制/命中测试）：只返回**可见**按钮的 {key: rect}。"""
+        return self._file_toolbar_layout()[0]
+
+    def _toolbar_menu_rects(self):
+        """» 溢出菜单的条目矩形（在 » 按钮下方竖排，右对齐到面板右缘）。"""
+        mr = getattr(self, '_toolbar_more_rect', None)
+        if mr is None:
+            return []
+        fr = self._file_panel_rect()
+        out = []
+        for i, key in enumerate(getattr(self, '_toolbar_overflow', []) or []):
+            w = 110
+            x = min(mr.x + self._TB_MORE_W - w, fr.right - w - 4)
+            out.append((key, pygame.Rect(x, mr.bottom + 2 + i * 26, w, 26)))
         return out
+
+    def _file_toolbar_click(self, x, y):
+        # P9(K1): 溢出菜单画在最上层，优先命中；点别处先关闭再继续普通流程
+        if getattr(self, '_toolbar_menu_open', False):
+            for key, r in self._toolbar_menu_rects():
+                if r.collidepoint(x, y):
+                    self._toolbar_menu_open = False
+                    self._file_action(key)
+                    return True
+            self._toolbar_menu_open = False
+        mr = getattr(self, '_toolbar_more_rect', None)
+        if mr is not None and mr.collidepoint(x, y):
+            self._toolbar_menu_open = not getattr(self, '_toolbar_menu_open', False)
+            return True
+        for key, rect in self._file_toolbar_rects().items():
+            if rect.collidepoint(x, y):
+                self._file_action(key)
+                return True
+        return False
 
     def _checkbox_rect(self, idx):
         # 两列布局: 左列 idx 0-2, 右列 idx 3-5; idx6(bg) 也放左列第4? 用3+4排布
@@ -402,7 +644,12 @@ class PaintDialog(DraggableDialog):
                         return True
                 self.deactivate()
             return True
-        for f in self._fields.values():
+        # P5: 「区域」输入框只在 region 模式下可见(_draw_left 仅在该模式绘制它),
+        # 因此事件也必须按可见性路由 —— 否则普通/全局模式下会有一个**看不见的输入框**
+        # 抢走点击与键盘输入(input_field.py:304-307 左键点在 rect 内就 activate_at)。
+        for key, f in self._fields.items():
+            if key == "region" and self.mode != "region":
+                continue
             if f.handle_event(e):
                 return True
         if e.type == pygame.MOUSEBUTTONDOWN:
@@ -416,6 +663,10 @@ class PaintDialog(DraggableDialog):
                 if self._zoom:
                     # 滚轮: 缩放倍率
                     self._zoom_level = max(1.0, min(8.0, self._zoom_level * (1.15 ** d)))
+                elif (self._left_panel_rect().collidepoint(e.pos)
+                      and self._left_scroll_by(d * (ROW_H + ROW_GAP))):
+                    # P9(K12): 光标在左栏且内容溢出 ⇒ 滚左栏（消费掉本次滚轮）
+                    pass
                 elif self._file_panel_rect().collidepoint(e.pos):
                     self._file_scroll = max(0, self._file_scroll + d)
                 return True
@@ -460,7 +711,7 @@ class PaintDialog(DraggableDialog):
             return
         for mode in ("normal", "region", "global"):
             if self._mode_btn_rect(mode).collidepoint(x, y):
-                self.mode = mode
+                self._set_mode(mode)
                 return
         for key, dd in self._dropdowns.items():
             if dd.toggle(pos):
@@ -473,8 +724,9 @@ class PaintDialog(DraggableDialog):
         if self._file_toolbar_click(x, y):
             return
         fr = self._file_panel_rect()
-        if fr.collidepoint(x, y) and y > fr.y + 72:
-            idx = self._file_scroll + (y - (fr.y + 74)) // 30
+        if fr.collidepoint(x, y) and y > self._file_list_top() + 2:
+            # P9(K1): 命中测试与绘制同源（表头可能因工具条换行而下移）
+            idx = self._file_scroll + (y - (self._file_list_top() + 4)) // 30
             if 0 <= idx < len(self.files):
                 self.sel_rows[idx] = not self.sel_rows[idx]
                 self._refresh_stats_now()
@@ -490,13 +742,15 @@ class PaintDialog(DraggableDialog):
                     self.use_map = False
                 else:
                     setattr(self, key, not getattr(self, key))
-                return True
-        return False
-
-    def _file_toolbar_click(self, x, y):
-        for key, rect in self._file_toolbar_rects().items():
-            if rect.collidepoint(x, y):
-                self._file_action(key)
+                    # P10 文案同步：`all_points` 关掉 = **只画路径线、不画任何点**
+                    # （Ty4 §11.2 / t4_render.py:365），旧文案"显示所有定位点"会让用户
+                    # 以为关掉只是"不显示全部点"（旧实现确实那样，已改）。这里把语义说清。
+                    if key == "all_points":
+                        self._status = ("显示定位点：路径线 + 各定位点" if self.all_points
+                                        else "已关闭「显示定位点」：只画路径线，"
+                                             "不画任何点（不是只画最后一个点）")
+                        self._status_ts = time.time()
+                        self._status_sticky = True
                 return True
         return False
 
@@ -522,9 +776,18 @@ class PaintDialog(DraggableDialog):
             self._set_files(keep)
             self._refresh_stats_now()
         elif key == "dedup":
+            # P9(K7/B6): 判重键 `(name, size)` → **`path`**。
+            # 为什么这是数据丢失级 bug：`size` 是**格式化后的显示字符串**（如 "1.0 MB"），
+            # 不同目录下同名、同显示尺寸的两个文件会被判为同一份，而 `_set_files(out)`
+            # 是真删列表项 ⇒ **静默删掉用户的一个文件条目**。路径才是文件身份；
+            # `name`（只是 basename）与 `size`（显示值）都只是属性。
             seen, out = set(), []
             for d in self.files:
-                k = (d['name'], d['size'])
+                k = d.get('path')
+                if not k:
+                    # 手工构造/异常条目缺 path: 无身份可比 ⇒ 不参与判重, 也不吞掉别的
+                    out.append(d)
+                    continue
                 if k not in seen:
                     seen.add(k)
                     out.append(d)
@@ -534,7 +797,17 @@ class PaintDialog(DraggableDialog):
             self._set_files([])
             self._refresh_stats_now()
         elif key == "refresh":
-            self._status = "已刷新"
+            # P5: 「刷新」原来只改状态文字(不重扫), 用户以为列表被重读 —— 现在真刷新尺寸,
+            # 并如实报告"文件已不存在"的条目数(不静默删行, 由用户决定是否"移除")。
+            gone = 0
+            for d in self.files:
+                p = d.get('path')
+                if p and os.path.isfile(p):
+                    d['size'] = _fmt_size(p)
+                else:
+                    gone += 1
+            self._status = (f"已刷新尺寸（{len(self.files)} 个文件"
+                            + (f"，其中 {gone} 个已不存在" if gone else "") + "）")
             self._status_ts = time.time()
         elif key == "all":
             self.sel_rows = [True] * len(self.files)
@@ -601,12 +874,16 @@ class PaintDialog(DraggableDialog):
         for key, f in self._fields.items():
             txt = f.get_text().strip()
             if key == "region":
-                try:
-                    nums = [float(v.strip()) for v in txt.replace("，", ",").split(",") if v.strip()]
-                    if len(nums) == 4:
-                        out["region"] = (nums[0], nums[1], nums[2], nums[3])
-                except ValueError:
-                    pass
+                # P5: 非法输入**不写入** out["region"]（解析失败的旧行为不变），
+                # 但错误文案由 _region_error() 统一给出, 供 UI 常驻显示与阻止渲染。
+                if self._region_error() is None:
+                    try:
+                        nums = [float(v.strip()) for v in
+                                txt.replace("，", ",").split(",") if v.strip()]
+                        if len(nums) == 4:
+                            out["region"] = (nums[0], nums[1], nums[2], nums[3])
+                    except ValueError:
+                        pass
                 continue
             if key == "map_path":
                 out["map_path"] = txt or None
@@ -627,9 +904,22 @@ class PaintDialog(DraggableDialog):
     def _do_render(self):
         tys = self._selected_tys()
         vals = self._collect_fields()
+        # P5: 区域模式下输入非法 ⇒ **不再静默用旧值画一张怪图**, 而是明确报错并停下。
+        # 依据: resolve_bounds 只在 width>0 and height>0 时采纳 region, 否则静默回落
+        # 轨迹 bbox(paint_render.py:95-96) —— 用户会以为"设了范围"。
+        if self.mode == "region":
+            _err = self._region_error()
+            if _err is not None:
+                self._status = f"区域输入有误：{_err}"
+                self._status_ts = time.time()
+                self._status_sticky = True
+                return
         region = vals.get("region") or self.region
         if self.mode == "region":
             self.region = region
+            self._status_sticky = False
+        else:
+            self._status_sticky = False
         map_path = (vals.get("map_path") or self.map_path) if self.use_map else None
         try:
             renderer = TrackMapRenderer({
@@ -646,7 +936,10 @@ class PaintDialog(DraggableDialog):
                 "all_points": self.all_points,
                 "grid": self.grid,
                 "draw_rad": self.draw_rad,
-                "multireset": self.multireset,
+                # P5: 投影透传。字段名与 P3/P4 冻结约定一致(paint_render.py:232-233
+                # 读 `opts.get("projection")`, 非法/缺省 ⇒ "equirect")。
+                "projection": self.projection,
+                # P5: 「多文件重置」(multireset) 已按 P3 定案移除 —— 不再透传。
                 "legend_pos": self.legend_pos,
                 "legend_entries": WIKI_LEGEND_ENTRIES,
                 "legend_bg": self.legend_bg,
@@ -672,7 +965,9 @@ class PaintDialog(DraggableDialog):
             self._status_ts = time.time()
             return
         try:
-            pic_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "picture")
+            # 截图统一进 output/(用户 2026-09-19 精简主目录)
+            pic_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                   "output", "picture")
             os.makedirs(pic_dir, exist_ok=True)
             fn = os.path.join(pic_dir, time.strftime("trackmap_%Y%m%d_%H%M%S.png"))
             pygame.image.save(self._result, fn)
@@ -713,6 +1008,7 @@ class PaintDialog(DraggableDialog):
         for dd in self._dropdowns.values():
             if dd.open:
                 dd.draw_open(surface, dark)
+        self._draw_toolbar_menu(surface, dark)      # P9(K1): » 溢出菜单同级置顶
         if self._ctx_menu:
             self._draw_ctx_menu(surface, dark)
         if self._browser is not None and self._browser.active:
@@ -756,6 +1052,32 @@ class PaintDialog(DraggableDialog):
         surface.blit(ts, (box.right + 8, box.y + (box.h - ts.get_height()) // 2))
 
     def _draw_left(self, surface, dark):
+        """P9(K12): 左栏绘制入口 —— 内容超出面板高度时**裁剪到面板内**并可滚动。
+
+        装得下（`_left_scroll_max()==0`）时行为与旧版**逐像素相同**：只是多了一次
+        `set_clip`（裁剪区就是面板矩形本身，面板内的绘制不受影响）。
+        """
+        lp = self._left_panel_rect()
+        old_clip = surface.get_clip()
+        surface.set_clip(lp)
+        try:
+            self._draw_left_body(surface, dark)
+        finally:
+            surface.set_clip(old_clip)
+        mx = self._left_scroll_max()
+        if mx <= 0:
+            return
+        # 滚动条（4px 细条，贴在面板右内缘）
+        track = pygame.Rect(lp.right - 7, lp.y + 4, 4, lp.height - 8)
+        pygame.draw.rect(surface, (60, 66, 82) if dark else (200, 210, 228),
+                         track, border_radius=2)
+        frac = lp.height / max(1, self._left_content_height())
+        bar_h = max(24, int(track.height * frac))
+        bar_y = track.y + int((track.height - bar_h) * (self._left_scroll / mx))
+        pygame.draw.rect(surface, (130, 150, 185) if dark else (110, 140, 180),
+                         pygame.Rect(track.x, bar_y, 4, bar_h), border_radius=2)
+
+    def _draw_left_body(self, surface, dark):
         lp = self._left_panel_rect()
         pygame.draw.rect(surface, _pb(dark, 1), lp, border_radius=8)
         pygame.draw.rect(surface, _bd(dark), lp, 1, border_radius=8)
@@ -775,9 +1097,17 @@ class PaintDialog(DraggableDialog):
         if self.mode == "region":
             self._label(surface, "区域(上,左,高,宽)", lx, row(2), dark)
             self._fields["region"].draw(surface)
+            # P5: 非法输入时给输入框加**常驻红框**(不依赖 8 秒就消失的状态栏)
+            if self._region_error() is not None:
+                pygame.draw.rect(surface, (235, 90, 90),
+                                 self._fields["region"].rect.inflate(6, 6), 2,
+                                 border_radius=5)
             self._dropdowns["preset"].draw_base(surface, dark)
         # 参数
-        self._label(surface, "参数", lx, row(3) - 26, dark, bright=True, font=f_m)
+        # 参数（P5: 标题放在 row(3) 这个**预留空行**里。原来写 row(3)-26 = row(2)+2,
+        # 与上一行内容同 y 完全叠字 —— 区域模式下就是"参数上,左,高,宽)"那种糊字。
+        # 实测 probe_paint_ui_overlap.py: row(3)/row(10)/row(17) 三行本来就没有任何元素。）
+        self._label(surface, "参数", lx, row(3) + 1, dark, bright=True, font=f_m)
         rows = [("路径宽度(px)", "path_width"), ("定点大小(px)", "point_size"),
                 ("半宽留空(°)", "margin_w"), ("半高留空(°)", "margin_h"),
                 ("最小宽度(px)", "min_w"), ("最小高度(px)", "min_h")]
@@ -785,16 +1115,18 @@ class PaintDialog(DraggableDialog):
             self._label(surface, lab, lx, row(4 + i), dark)
             self._fields[key].draw(surface)
         # 下拉
-        self._label(surface, "设置", lx, row(10) - 26, dark, bright=True, font=f_m)
+        # P5: 同上, 标题放 row(10) 预留空行(原来 row(10)-26 与"最小高度(px)"完全叠字)
+        self._label(surface, "设置", lx, row(10) + 1, dark, bright=True, font=f_m)
         dd_lab = [("scheme", "色阶方案"), ("coord_unit", "坐标单位"),
-                  ("order", "绘画顺序"), ("draw_rad", "风圈"),
-                  ("multireset", "多文件重置"), ("legend_pos", "图例位置")]
+                  ("order", "绘画顺序"), ("draw_rad", "风圈(需RAD数据)"),
+                  ("projection", "投影"), ("legend_pos", "图例位置")]
         for i, (key, lab) in enumerate(dd_lab):
             self._label(surface, lab, lx, row(11 + i), dark)
             self._dropdowns[key].draw_base(surface, dark)
         # 勾选(两列 4+3)
-        self._label(surface, "显示", lx, row(17) - 26, dark, bright=True, font=f_m)
-        chk = [("skip_invest", "忽略前期扰动定位"), ("all_points", "显示所有定位点"),
+        # P5: 同上, 标题放 row(17) 预留空行(原来 row(17)-26 与"图例位置"完全叠字)
+        self._label(surface, "显示", lx, row(17) + 1, dark, bright=True, font=f_m)
+        chk = [("skip_invest", "忽略前期扰动定位"), ("all_points", "显示定位点"),
                ("grid", "显示经纬网"), ("labels", "显示文字标注"),
                ("use_map", "地图底图"), ("legend_bg", "图例底框"),
                ("bg_btn", "自定义背景")]
@@ -811,6 +1143,36 @@ class PaintDialog(DraggableDialog):
         self._button(surface, br, "选择地图", (60, 110, 175), dark)
         self._map_browse_rect = br
 
+    def _draw_toolbar_menu(self, surface, dark):
+        """P9(K1): 绘制 » 溢出菜单（画在最上层，与下拉展开层同级）。"""
+        if not getattr(self, '_toolbar_menu_open', False):
+            return
+        self._file_toolbar_layout()          # 确保 _toolbar_more_rect / _toolbar_overflow 最新
+        labs = {"add": "导入台风", "oneall": "一键全部", "del": "移除", "dedup": "去重",
+                "clear": "清空", "refresh": "刷新", "all": "全选", "unall": "全不选"}
+        for key, r in self._toolbar_menu_rects():
+            pygame.draw.rect(surface, (46, 52, 66) if dark else (240, 244, 252),
+                             r, border_radius=4)
+            pygame.draw.rect(surface, _bd(dark), r, 1, border_radius=4)
+            ts = rt(f_s, labs.get(key, key), _light(dark))
+            surface.blit(ts, (r.x + 8, r.centery - ts.get_height() // 2))
+
+    def _file_list_top(self):
+        """文件列表表头的 y 坐标。
+
+        P9(K1) 连带修正：工具条现在可能占 **1–2 行**（窄窗口换行/溢出），
+        列表必须让到工具条**下面**，否则第二行按钮会压住表头
+        （1024 宽实测：按钮占 `fr.y+40..fr.y+68`，而表头原来固定在 `fr.y+44`）。
+        绘制与命中测试都走这一个来源，避免"画在这、点在那"。
+        """
+        fr = self._file_panel_rect()
+        vis, more, _ov = self._file_toolbar_layout()
+        bottoms = [r.bottom for r in vis.values()]
+        if more is not None:
+            bottoms.append(more.bottom)
+        tb_bottom = max(bottoms) if bottoms else (fr.y + 6 + self._TB_BTN_H)
+        return max(fr.y + 44, tb_bottom + 8)
+
     def _draw_file_panel(self, surface, dark):
         fr = self._file_panel_rect()
         pygame.draw.rect(surface, _pb(dark, 1), fr, border_radius=8)
@@ -826,8 +1188,14 @@ class PaintDialog(DraggableDialog):
             lab = {"add": "导入台风", "oneall": "一键全部", "del": "移除", "dedup": "去重",
                    "clear": "清空", "refresh": "刷新", "all": "全选", "unall": "全不选"}[key]
             self._button(surface, rect, lab, color, dark)
-        # 表头固定顶部
-        hdr = fr.y + 44
+        # P9(K1): » 溢出按钮（窄窗口下放不下的按钮收进它的菜单）
+        mr = getattr(self, '_toolbar_more_rect', None)
+        if mr is not None:
+            _open = getattr(self, '_toolbar_menu_open', False)
+            self._button(surface, mr, "更多 »",
+                         (110, 150, 200) if _open else (90, 105, 135), dark)
+        # 表头固定顶部（P9(K1): 让到工具条下方, 由 _file_list_top 统一给出）
+        hdr = self._file_list_top()
         tcol = _light(dark, True)
         cols = [("顺序", 56), ("文件名", int(fr.width * 0.28)), ("所在路径", int(fr.width * 0.46)),
                 ("文件尺寸", int(fr.width * 0.16))]
@@ -961,7 +1329,8 @@ class PaintDialog(DraggableDialog):
             self._button(surface, rect, lab, color, dark)
 
     def _draw_status(self, surface, dark):
-        if self._status and time.time() - self._status_ts < 8:
+        # P5: 校验类错误(status_sticky)常驻, 其余状态仍 8 秒后淡出
+        if self._status and (self._status_sticky or time.time() - self._status_ts < 8):
             pr = self._preview_rect()
             ts = rt(f_s, self._status, (240, 205, 110) if dark else (150, 100, 30))
             surface.blit(ts, (self.x0, pr.bottom - 32))

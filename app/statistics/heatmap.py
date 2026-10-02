@@ -5,7 +5,8 @@ import logging
 import math
 import os
 import pygame
-from PIL import Image as PILImage
+# ⚠ 2026-10-02(W1 修复1R): `from PIL import Image as PILImage` 已移到
+# `_load_heat()` 方法体内(唯一使用点), 避免把 Pillow 拖进启动路径。
 from typing import Optional
 
 from ..constants import (f_s, f_m, rt, TXT, DIALOG_TITLE_BAR_HEIGHT, SUCAI_DIR,
@@ -26,6 +27,12 @@ def _load_heat():
     global _heat_img, _HEAT_H, _heat_lut
     if _heat_img is not None or _HEAT_H < 0:
         return
+    # ⚠ 2026-10-02(W1 修复1R): 原来是模块级 `from PIL import Image as PILImage`,
+    #   而本模块被 app/dialog_manager.py 模块级导入 ⇒ Pillow 进了启动路径。
+    #   `_load_heat()` 本身是**懒加载 + 记忆化**(上面的守卫 + 末尾 `_HEAT_H < 0`
+    #   失败哨兵), 且是热力图色表的**唯一** PILImage 使用点 ⇒ 把 import 放这里,
+    #   首次真正要用色表时才 import。
+    from PIL import Image as PILImage
     path = os.path.join(SUCAI_DIR, 'SMCY', 'resource', 'ace-heat.png')
     if os.path.exists(path):
         try:

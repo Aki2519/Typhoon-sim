@@ -16,6 +16,104 @@ import pygame
 
 from . import core as V
 
+# ── 抗锯齿原语（共享底座 `app/paint_aa.py`，只读复用）──────────────────────
+# 用户 2026-10-02（H2）：程序的地图渲染也要抗锯齿。pygame 的基础图元
+# (`draw.line/circle/polygon/ellipse/lines`) **完全不抗锯齿**，而本模块是全仓
+# aliased 图元最多的一处（21 处）。逐处判定见 `output/exploration/p2_simcore_aa.md`：
+#   · **1px 斜线/曲线** → `aaline/aalines`：原生 AA、**零分配零缓存**（这是 pressure
+#     层每帧 ~2800 段等值线的最优解 —— 逐段精灵路径才会产生几千个缓存条目）；
+#   · **实心圆/圆环/点** → `paint_aa.aa_disc/aa_ring`：超采样精灵缓存，半径取值有限 ⇒
+#     缓存项极少；
+#   · **轴对齐直线**（`draw_grid`）→ **不改**：整数像素边界本来就精确，加 AA 只白付代价；
+#   · **宽度≥2 的椭圆**（眼墙）→ 本模块与共享底座都没有"粗椭圆 AA"原语，**暂不改**。
+#
+# `app/__init__.py` 是**空文件** ⇒ `from app import paint_aa` 只载入 pygame 依赖，
+# 不会把 app 的其它模块拉进来；两种 import 顺序（render 先 / app 先）实测都通过。
+# 仍 fail-soft：独立运行 simcore（没有 app 包）时退回 pygame 原生原语。
+try:
+    from app import paint_aa as _AA
+except Exception:                       # pragma: no cover - 独立运行 simcore 的兜底
+    _AA = None
+
+#: 确定性计数（line/disc/ring/poly/ellipse），供验收探针开启；生产默认关闭（一次 bool 判断）。
+_AA_TRACE = False
+_AA_CALLS = [0, 0, 0, 0, 0]
+_AA_LINE, _AA_DISC, _AA_RING, _AA_POLY, _AA_ELL = 0, 1, 2, 3, 4
+
+
+def _pygame_draw_rgba(color):
+    """把 `pygame.draw.*` 接受的 int 颜色还原成 (r, g, b, a) —— **与 pygame.draw 同一语义**。
+
+    ⚠ 实测（`G:\\tmp\\intcolor_test.py`）：`pygame.draw.circle(surf, 64, ...)` 画出来的是
+    **(0,0,64,0)**，即 pygame.draw 把 int 当 **0xAARRGGBB** ⇒ alpha=0 ⇒ **完全不可见**；
+    而 `pygame.Color(64)` 是 (0,0,0,64)（0xRRGGBBAA）—— 两者语义**不同**，别混用。
+    元组颜色原样返回（3 元组补 alpha=255）。
+
+    为什么需要它：`draw_tc_hud` 原来传的是 `grade_kt(...)[2]`，而 `grade_kt` 返回的是
+    `_CMA_KT` 的**整条 4 元组** `(中文, 英文, 阈值, 颜色)`（见 `:180-200`，其 docstring
+    "返回 (中文名, 英文, 颜色)" 与实现不符）⇒ `[2]` 是**阈值(int)**、`[3]` 才是颜色。
+    于是**图标底盘一直是透明的**（阈值 21/34/64/… 全部 < 256 ⇒ alpha=0）。
+    这是**既有 bug**，不属于本次 AA 写域 ⇒ 这里只做**忠实还原**（alpha=0 就不画），
+    外观与改前**逐位一致**；是否改成 `[3]` 由 Lead 决定（见 `p2_simcore_aa.md` MAJOR-2）。
+    """
+    if isinstance(color, int):
+        return ((color >> 16) & 255, (color >> 8) & 255, color & 255,
+                (color >> 24) & 255)
+    c = tuple(color)
+    return c if len(c) == 4 else (c[0], c[1], c[2], 255)
+
+
+def _aa_line(surface, color, p1, p2, width: int = 1) -> None:
+    """抗锯齿线段。width<=1 走原生 `aaline`（零分配零缓存）；更粗走共享底座精灵路径。"""
+    if _AA_TRACE:
+        _AA_CALLS[_AA_LINE] += 1
+    if _AA is not None:
+        _AA.aa_line(surface, color, p1, p2, width)
+        return
+    if width <= 1:
+        pygame.draw.aaline(surface, color, p1, p2)
+    else:
+        pygame.draw.line(surface, color, p1, p2, width)
+
+
+def _aa_disc(surface, color, center, radius) -> None:
+    """抗锯齿实心圆（缓存精灵，半径取值有限 ⇒ 缓存项少）。"""
+    if _AA_TRACE:
+        _AA_CALLS[_AA_DISC] += 1
+    if _AA is not None:
+        _AA.aa_disc(surface, color, center, radius)
+        return
+    pygame.draw.circle(surface, color,
+                       (int(round(center[0])), int(round(center[1]))),
+                       max(1, int(round(radius))))
+
+
+def _aa_ring(surface, color, center, radius, width: int = 1) -> None:
+    """抗锯齿圆环（缓存精灵）。"""
+    if _AA_TRACE:
+        _AA_CALLS[_AA_RING] += 1
+    if _AA is not None:
+        _AA.aa_ring(surface, color, center, radius, width)
+        return
+    pygame.draw.circle(surface, color,
+                       (int(round(center[0])), int(round(center[1]))),
+                       max(1, int(round(radius))), max(1, int(width)))
+
+
+def _aa_ellipse_outline(surface, color, center, rx, ry, steps: int = 64) -> None:
+    """椭圆外框的抗锯齿版：参数化取点后 `pygame.draw.aalines`（原生 AA，零分配）。
+
+    点位全落在与 `pygame.draw.ellipse(rect, color, 1)` **同一个椭圆**上，折线内接它，
+    64 段时长轴偏差 < 0.5px ⇒ 位置/尺寸等价（验收用 ink bbox + IoU 把关）。
+    """
+    if _AA_TRACE:
+        _AA_CALLS[_AA_ELL] += 1
+    cx, cy = float(center[0]), float(center[1])
+    pts = [(cx + float(rx) * math.cos(2.0 * math.pi * k / steps),
+            cy + float(ry) * math.sin(2.0 * math.pi * k / steps))
+           for k in range(steps)]
+    pygame.draw.aalines(surface, color, True, pts)
+
 logger = logging.getLogger(__name__)
 
 # ── 色标(256 级 RGBA) ──
@@ -86,6 +184,9 @@ _IR_T0, _IR_T1 = 300.0, 184.0
 
 # 强度分级(Saffir-Simpson, kt)
 _CMA_KT = [
+    # 用户 2026-09-19: 生成过程要看得见 DB → TD → TS, 所以补上扰动(DB)档;
+    # 21-33kt 才是热带低压(TD), 34kt 起才算命名风暴(TS)。
+    ('热带扰动', 'DB', 0, (150, 200, 220)),
     ('热带低压', 'TD', 21, (53, 196, 240)),
     ('热带风暴', 'TS', 34, (53, 240, 122)),
     ('一级飓风', 'C1', 64, (240, 224, 53)),
@@ -138,6 +239,101 @@ _layer_surf_cache: dict = {}
 _LAYER_SURF_CACHE_MAX = 12
 
 
+class GridMap:
+    """环境格点 → 屏幕的**仿射**映射(不做经度环绕翻面)。
+
+    为什么必须与点坐标用的 fx/fy 分开(app 的 geo_to_screen 会对每个点单独
+    按"离屏幕中心最近的副本"翻面):
+
+      · 整张 0.5° 格点场走 fx/fy 时, fx(0) 与 fx(360) 会解到同一个像素
+        (lon % 360 + 环绕), 于是贴图宽度算成 **0** —— 实测 sst/ohc 整层
+        永远画不出来(平均像素差 0.12/0.20), 风切/气压/流线只剩零头;
+      · 逐点翻面还让阈值附近的格点每帧跳一个图宽 —— 风羽"闪烁且不固定"。
+
+    这里换成: 先按**未环绕**的仿射坐标算全部格点, 再整体挑一个离屏幕最近的
+    环绕副本(k 一次算好, 全场共用)。参数由 app 侧按当前地图视图给出。
+    """
+
+    __slots__ = ('lon0', 'lon1', 'lat0', 'lat1', 'x0', 'x1', 'y0', 'y1',
+                 'wrap', 'clip')
+
+    def __init__(self, lon0: float, lon1: float, lat0: float, lat1: float,
+                 x0: float, x1: float, y0: float, y1: float,
+                 wrap: float = 0.0, clip: tuple = (0, 0, 0, 0)) -> None:
+        self.lon0, self.lon1 = float(lon0), float(lon1)
+        self.lat0, self.lat1 = float(lat0), float(lat1)
+        self.wrap = float(wrap or 0.0)
+        self.clip = tuple(clip) if clip else (0, 0, 0, 0)
+        if self.wrap > 1.0:
+            cw = self.clip[2] if self.clip[2] > 0 else 1.0
+            cx = self.clip[0] + cw / 2.0
+            k = round((cx - (x0 + x1) / 2.0) / self.wrap)
+            x0 += k * self.wrap
+            x1 += k * self.wrap
+        self.x0, self.x1 = float(x0), float(x1)
+        self.y0, self.y1 = float(y0), float(y1)
+
+    # ── 坐标变换 ──
+    def x(self, lon: float) -> float:
+        d = self.lon1 - self.lon0
+        if d == 0:
+            return self.x0
+        return self.x0 + (float(lon) - self.lon0) * (self.x1 - self.x0) / d
+
+    def y(self, lat: float) -> float:
+        d = self.lat1 - self.lat0
+        if d == 0:
+            return self.y0
+        return self.y1 + (float(lat) - self.lat0) * (self.y0 - self.y1) / d
+
+    def xs(self, lons):
+        """批量(保留给逐点循环, 语义同 x())。"""
+        return [self.x(v) for v in lons]
+
+    def px_per_deg_x(self) -> float:
+        d = self.lon1 - self.lon0
+        return abs((self.x1 - self.x0) / d) if d else 0.0
+
+    def visible(self, size) -> Optional[tuple]:
+        """屏幕可见矩形 (vx0, vy0, vx1, vy1); 完全不可见时 None。"""
+        W, H = int(size[0]), int(size[1])
+        if self.clip[2] > 0:
+            W = min(W, self.clip[0] + self.clip[2])
+            H = min(H, self.clip[1] + self.clip[3])
+        vx0 = max(0, int(math.floor(min(self.x0, self.x1))))
+        vx1 = min(W, int(math.ceil(max(self.x0, self.x1))))
+        vy0 = max(0, int(math.floor(min(self.y0, self.y1))))
+        vy1 = min(H, int(math.ceil(max(self.y0, self.y1))))
+        if vx1 - vx0 < 2 or vy1 - vy0 < 2:
+            return None
+        return (vx0, vy0, vx1, vy1)
+
+    def src_window(self, nx: int, ny: int, vis: tuple):
+        """可见矩形对应的**源格窗口**与它在屏幕上的落点。
+
+        返回 (c0, r0, c1, r1, dst_rect)。
+        """
+        vx0, vy0, vx1, vy1 = vis
+        xa, xb = min(self.x0, self.x1), max(self.x0, self.x1)
+        ya, yb = min(self.y0, self.y1), max(self.y0, self.y1)
+        dx = max(1e-9, xb - xa)
+        dy = max(1e-9, yb - ya)
+        u0, u1 = (vx0 - xa) / dx, (vx1 - xa) / dx
+        w0, w1 = (vy0 - ya) / dy, (vy1 - ya) / dy
+        c0 = max(0, min(nx - 1, int(math.floor(u0 * nx))))
+        c1 = max(c0 + 1, min(nx, int(math.ceil(u1 * nx))))
+        r0 = max(0, min(ny - 1, int(math.floor(w0 * ny))))
+        r1 = max(r0 + 1, min(ny, int(math.ceil(w1 * ny))))
+        sx0 = xa + (c0 / nx) * dx
+        sx1 = xa + (c1 / nx) * dx
+        sy0 = ya + (r0 / ny) * dy
+        sy1 = ya + (r1 / ny) * dy
+        dst = pygame.Rect(int(round(sx0)), int(round(sy0)),
+                          max(1, int(round(sx1 - sx0))),
+                          max(1, int(round(sy1 - sy0))))
+        return c0, r0, c1, r1, dst
+
+
 def _tc_signature(sim):
     """台风参数签名(量化): 位置 0.1 度(≈11km, 1280px 全图约 0.35px)、强度 1kt。"""
     sig = []
@@ -163,7 +359,7 @@ def _cloud_surface(sim, mode: str, w: int, h: int) -> pygame.Surface:
     last, made, lw, lh = _cloud_last
     if last is not None and lw == w and lh == h and now - made < _CLOUD_MIN_INTERVAL_MS:
         return last                       # 限流: 沿用上一幅(观感无差)
-    sat = render_sat(sim, mode)
+    sat = np.flipud(render_sat(sim, mode))      # 同上: 云网格也是南在上
     surf = pygame.surfarray.make_surface(np.transpose(sat[..., :3], (1, 0, 2)))
     surf = pygame.transform.smoothscale(surf, (max(1, w), max(1, h)))
     surf.set_alpha(235)
@@ -246,32 +442,232 @@ def _cld_grids(sim):
     return g
 
 
+import os
+
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_HI_LAND = None
+_HI_LAND_TRIED = False
+
+
+def _hi_land_mask():
+    """高分辨率陆地掩码 (1080,2160): 直接读 map/heightmap.png 现算, 不另存 npy。
+
+    heightmap 是"北在上"(与 map.png 一致), 而 env 网格 row0 = LAT0(南在上),
+    所以读入后上下翻转一次; 再 [::5,::5] 降到 1080x2160 与图层升采样对齐。
+    高程编码: 像素值 = 高程(米) + 12000, 故 陆地 <=> 值 > 12000。
+    """
+    global _HI_LAND, _HI_LAND_TRIED
+    if not _HI_LAND_TRIED:
+        _HI_LAND_TRIED = True
+        try:
+            from PIL import Image
+            p = os.path.join(_ROOT_DIR, 'map', 'heightmap.png')
+            if os.path.exists(p):
+                # 只取 lat -60..60 那一段(heightmap 共 -90..90, 5400 行):
+                # 计算域是 -60..60, 若整幅拿去当掩码, 1080 行会被压缩进 -60..60,
+                # 陆地就跑到错误纬度上(南半球的轮廓出现在北半球)
+                band = np.asarray(Image.open(p))[900:4500]      # 60N..60S
+                _HI_LAND = np.flipud(band)[::5, ::5] > 12000    # (720, 2160)
+        except Exception:
+            _HI_LAND = None
+    return _HI_LAND
+
+
+#: 风切色标上限(kt)。用户 2026-09-20 要求风切用**瞬时**值后, 瞬时场 95 分位就有
+#: ~95 kt、急流核能到 150+ —— 原来的 0-60 上限把半个地球画成同一片红(饱和)。
+#: 现在 0-100, 结构与梯度都还看得见(超 100 才截顶)。
+SHEAR_LUT_MAX_KT = 100.0
 LUT_SHEAR = _build_lut([
     (0.00, (24, 44, 120)),      # 弱切变: 深蓝
-    (0.28, (40, 150, 210)),     # 青
-    (0.52, (90, 210, 140)),     # 绿
-    (0.74, (240, 210, 90)),     # 黄
+    (0.20, (40, 150, 210)),     # 青
+    (0.40, (90, 210, 140)),     # 绿
+    (0.60, (240, 210, 90)),     # 黄
+    (0.80, (235, 130, 60)),     # 橙
     (1.00, (225, 70, 60)),      # 强切变: 红
 ])
 
 
+def _smooth_field(rgba: np.ndarray, sigma: float = 3.5) -> np.ndarray:
+    """把最近邻放大的"方块感"磨平(只平滑 RGB, alpha 保持不动)。
+
+    sigma 默认 3.5 对应 6 倍最近邻(每 6 像素一格); 内核切到 0.5° 后升采样倍率
+    变 3, 调用方按倍率缩放 sigma, 否则会把真实结构一起糊掉。
+    """
+    try:
+        from scipy.ndimage import gaussian_filter
+        rgb = gaussian_filter(rgba[..., :3].astype(np.float32), sigma=(3.5, 3.5, 0))
+        return np.dstack([np.clip(rgb, 0, 255).astype(np.uint8), rgba[..., 3]])
+    except Exception:
+        return rgba
+
+
+def _build_step_lut(colors):
+    """离散分档 LUT: 256 索引 -> N 档等宽颜色(参考观测产品那种"阶梯"配色)。"""
+    n = len(colors)
+    idx = np.clip((np.arange(256) * n) // 256, 0, n - 1)
+    return np.array([colors[i] for i in idx], dtype=np.uint8)
+
+
+def _hex(c):
+    return (int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16))
+
+
+#: SST 分档(1°C 一档, 0..33°C), 颜色逐档取自用户给的 REMSS MW-IR 产品色标
+SST_STEPS = [_hex(c) for c in (
+    "#dfe3ef", "#cbcee7", "#c2c3e7", "#adaede", "#9d9ad4", "#8885cf",
+    "#7573c5", "#5f5ebc", "#4d49b5", "#003b9d", "#0748ad", "#1153bf",
+    "#175fce", "#1f6add", "#206ce2", "#2c8ad8", "#3aa8dd", "#6bd5e6",
+    "#6dd5e6", "#3fc9c0", "#70eaa3", "#6eea9e", "#53d479", "#38c050",
+    "#1bab28", "#019501", "#f2b000", "#e58000", "#da5201", "#c20305",
+    "#d22b58", "#e454aa", "#e96bd4", "#ec5ede")]
+#: OHC 分档(10 kJ/cm² 一档, 0..220), 取自 CMEMS OHC 产品色标
+#: (110~200 段的色标被刻度文字遮挡, 按红->粉->品红插值)
+OHC_STEPS = [_hex(c) for c in (
+    "#01c7c8", "#01cfa8", "#00d18d", "#17d67a", "#5fdd4f", "#a3e52f",
+    "#c8e02f", "#e6db2f", "#e7c530", "#e7ae30", "#e8952f", "#e87a2c",
+    "#e85d28", "#e84025", "#e62222", "#dc1435", "#d2104a", "#c80e5f",
+    "#bd0c72", "#b60a80", "#c00a86", "#d40c7f", "#e01a78")]
+LUT_SST_STEPS = _build_step_lut(SST_STEPS)
+LUT_OHC_STEPS = _build_step_lut(OHC_STEPS)
+
+
+_env_arr_cache: dict = {}
+_ENV_ARR_CACHE_MAX = 8
+
+#: 图层显示域: 内核只算 ±60, 但地图能看到两极 —— 外推补齐, 否则极区是空白
+LAYER_LAT0, LAYER_LAT1 = -90.0, 90.0
+
+
+_ALL_LAND_CACHE = {'tried': False, 'mask': None}
+
+
+def _all_land_hi(shape, ry: int, rx: int):
+    """100% 陆地格点掩码升采样到高分辨率画布尺寸(缺失返回 None)。
+
+    缓存在 simulator/env/model/land_cell.npz(tools/make_cell_land_mask.py 生成),
+    与内核 all_land_mask() 同一份文件 —— 检查一次, 显示与模拟共用。
+    """
+    if not _ALL_LAND_CACHE['tried']:
+        _ALL_LAND_CACHE['tried'] = True
+        try:
+            p = os.path.join(_ROOT_DIR, 'simulator', 'env', 'model', 'land_cell.npz')
+            with np.load(p) as z:
+                _ALL_LAND_CACHE['mask'] = np.asarray(z['all_land'])
+        except Exception:
+            logger.debug('land_cell.npz 缺失, 图层退回逐像素海岸线掩码', exc_info=True)
+    m = _ALL_LAND_CACHE['mask']
+    if m is None:
+        return None
+    big = np.repeat(np.repeat(m, ry, axis=0), rx, axis=1)
+    if big.shape != tuple(shape):
+        return None
+    return big
+
+
+def _pad_poles(arr: np.ndarray, lat0: float = None, lat1: float = None) -> np.ndarray:
+    """纬度方向外推填充: 把**不足 ±90** 的图层补到 ±90, 让两极也有数据。
+
+    用户 2026-09-19: "两极没有海温等数据"。这里用**边缘梯度线性外推**
+    (不是常数填充 —— 常数会在边界处出现一条硬边), 再按物理范围夹紧。
+
+    arr: (rows, cols, 4) 北在上, 行心均匀覆盖 `[lat0, lat1]`。
+    lat0/lat1: 该数组**真实**覆盖的纬度范围。省略时按**内核域**取
+    (`ENV_LAT0/ENV_LAT1`)。
+
+    ⚠⚠ **轮次 151 修掉的严重缺陷**: 本函数原来把输入**写死当 ±60** 处理
+    (`d_lat = 120.0/ny`), 而内核早已从 ±60 扩到 **±90**(`ENVNY=360`) ——
+    于是一个 720 行、本来就覆盖 ±90 的场被当成 ±60, 每端又硬补 180 行,
+    合计 1080 行; 消费端 (`_blit_layer`) 按"行数/列数"自动推出跨度 180°,
+    结果**真实数据只占 120°** ⇒ 垂直方向被压成 **2/3**, 60N 画到约 40N
+    (用户原话: "被压扁了, 纬度越高偏的越多")。
+    接收进来的那两个形参(`lo=0.0, hi=1.0`)当时**根本没被使用** —— 根因就在这里。
+
+    现在: 只有 `lat0/lat1` 真的窄于 ±90 才补, 且按它自己的分辨率补;
+    已经覆盖 ±90 的场原样返回(幂等), 不会再被拉扁。
+    """
+    if arr.ndim != 3 or arr.shape[0] < 4:
+        return arr
+    if lat0 is None:
+        lat0 = float(V.C['LAT0'])
+    if lat1 is None:
+        lat1 = float(V.C['LAT1'])
+    if lat1 < lat0:
+        lat0, lat1 = lat1, lat0
+    _span = float(lat1 - lat0)
+    if _span <= 0.0:
+        return arr
+    ny = arr.shape[0]
+    d_lat = _span / ny
+    # 两端各需要补多少行才能盖到 ±90
+    n_south = int(round((lat0 - LAYER_LAT0) / d_lat))
+    n_north = int(round((LAYER_LAT1 - lat1) / d_lat))
+    n_south = max(0, n_south)
+    n_north = max(0, n_north)
+    if n_south == 0 and n_north == 0:
+        return arr                      # 已经覆盖 ±90, 幂等
+    # ⚠ 轮次 153: 必须在**浮点**上做外推。`arr` 是 uint8, `arr[0:1] - arr[1:2]`
+    # 会按模 256 回绕(实测 [[10,20,30]]-[[200,200,200]] 得 +66 而非 -190)⇒ 边缘
+    # 梯度方向整个反了。本分支当前**不可达**(两个调用点传入的都真实覆盖 ±90),
+    # 但留着就是给以后扩域的人下套。
+    _f = arr.astype(np.float32)
+    parts = []
+    if n_south:
+        rg = np.arange(1, n_south + 1, dtype=np.float32).reshape(-1, 1, 1)
+        south = _f[0:1] + (_f[0:1] - _f[1:2]) * rg
+        parts.append(south[::-1])
+    parts.append(_f)
+    if n_north:
+        rg = np.arange(1, n_north + 1, dtype=np.float32).reshape(-1, 1, 1)
+        north = _f[-1:] + (_f[-1:] - _f[-2:-1]) * rg
+        parts.append(north)
+    out = np.concatenate(parts, axis=0)
+    # 只对颜色做夹紧(alpha 保持), 避免外推把色标打出界
+    out[..., :3] = np.clip(out[..., :3], 0, 255)
+    return out.astype(np.uint8)
+
+
 def render_env_layer(sim, name: str, alpha: int = 210) -> np.ndarray:
-    """海温/热含量/湿度叠加层 RGBA (ENVNY, ENVNX, 4), 半透明; 陆地以外显示。"""
-    arr = sim['env'][name]
+    """海温/热含量/湿度/风切叠加层 RGBA (ENVNY, ENVNX, 4), 半透明; 陆地以外显示。
+
+    结果按 (层名, _envVer, alpha, 校验和) 缓存 —— 这张 RGBA 只依赖**环境场
+    状态**, 与视图无关, 而拼包 + 高分辨率海岸线掩码实测约 190-220 ms/层。
+    不缓存的话只要开着 sst 就每帧付一次(实测 sst 单层 1.7 s 冷启动 / 200 ms
+    稳态), 等于把帧率钉死在 5 fps。
+
+    校验和是必要的: 直接改 sim['env'][name](诊断脚本与测试会这么干)并不会更新
+    _envVer, 只按版本号做键会拿回上一份结果 —— tests/test_simcore_ocean 的
+    "风切色阶随数值增大"用例正是这样被卡住的。求一次和 ≈0.2 ms。
+    """
+    # OHC 显示用海洋柱诊断的热含量(kJ/cm², 与 CMEMS 产品同口径)
+    if name == 'ohc' and 'ocn' in sim and 'ohc_kj' in sim['ocn']:
+        _arr = sim['ocn']['ohc_kj']
+    else:
+        _arr = sim['env'][name]
+    try:
+        _sum = round(float(np.asarray(_arr).sum()), 3)
+    except Exception:
+        _sum = None
+    _key = (str(name), int(sim.get('_envVer', -1)), int(alpha), _sum)
+    _hit = _env_arr_cache.get(_key)
+    if _hit is not None:
+        return _hit
+    arr = _arr
     out = np.zeros((V.ENVNY, V.ENVNX, 4), dtype=np.uint8)
     if name == 'sst':
-        t = np.clip((arr - 18.0) / 13.5, 0, 1) * 255.0
-        idx = t.astype(int)
-        out[..., :3] = LUT_SST[idx][..., :3]
+        # 0..33°C, 1°C 一档(离散)
+        t = np.clip(arr / 33.0, 0, 1) * 255.0
+        out[..., :3] = LUT_SST_STEPS[t.astype(int)][..., :3]
         out[..., 3] = alpha
     elif name == 'ohc':
-        t = np.clip((arr - 20.0) / 120.0, 0, 1) * 255.0
-        idx = t.astype(int)
-        out[..., :3] = LUT_OHC[idx][..., :3]
+        # 0..220 kJ/cm², 10 一档(离散)
+        t = np.clip(arr / 220.0, 0, 1) * 255.0
+        out[..., :3] = LUT_OHC_STEPS[t.astype(int)][..., :3]
         out[..., 3] = alpha
     elif name == 'shear':
-        # 垂直风切变(kt): 4kt 以下深蓝, 22kt 以上红(intensity_step 用的同一量纲)
-        t = np.clip((arr - 4.0) / 18.0, 0, 1) * 255.0
+        # F6: 垂直风切变(kt) —— 原来是 (arr-4)/18, 22kt 以上全同一个红, 而真实
+        # 风切能到 60-70kt(CIRA 图上红色等值线一直到 70), 一接真数据整层就是
+        # 纯红块。改成 0-60kt 线性。
+        t = np.clip(arr / SHEAR_LUT_MAX_KT, 0, 1) * 255.0
         out[..., :3] = LUT_SHEAR[t.astype(int)][..., :3]
         out[..., 3] = alpha
     else:  # rh
@@ -280,11 +676,48 @@ def render_env_layer(sim, name: str, alpha: int = 210) -> np.ndarray:
         out[..., 1] = 220
         out[..., 2] = 120
         out[..., 3] = (a * 130).astype(np.uint8)
-    # 陆地以外显示: 陆地像素透明度置 0
+    # 注意: 这里**不再**先用 0.5° 的 sim['land'] 整格挖空 —— 那样海岸线会变成
+    # 0.5°(约 55km)的方块阶梯。改成先把所有格子都填上颜色, 最后按高分辨率海岸线裁。
     land = sim['land']
-    if land.shape == out.shape[:2]:
+    if _hi_land_mask() is None and land.shape == out.shape[:2]:
         out[..., 3] = (out[..., 3] * (land < 0.5)).astype(np.uint8)
-    return out
+    # 0.5° 的粗掩码会把颜色糊到小岛和海岸线上(用户反馈"sst/ohc 在陆地上也有"),
+    # 这里升采样到 1080x2160 后按真实海岸线再掩一次
+    hi = _hi_land_mask()
+    if hi is not None:
+        # 自适应整数倍升采样: 不管内核是 1°(120行) 还是 0.5°(240行),
+        # 都放大到 hi 掩码的 (720,2160)。写死 6 会在 0.5° 下变成 1440x4320,
+        # 既浪费又和掩码形状对不上(掩码会被整段跳过)。
+        ry = max(1, int(round(hi.shape[0] / max(1, out.shape[0]))))
+        rx = max(1, int(round(hi.shape[1] / max(1, out.shape[1]))))
+        big = np.repeat(np.repeat(out, ry, axis=0), rx, axis=1)
+        if big.shape[:2] == hi.shape:
+            big = _smooth_field(big, sigma=max(1.2, 3.5 * ry / 6.0))
+            # **只挖"100% 陆地"的格子**(用户 2026-09-19: "图中有因为小岛造成的空缺…
+            # 如果陆地占比达到 100% 再不模拟这个格子")。原来按高分辨率海岸线逐像素挖,
+            # 于是每个小岛都在图层上打一个洞; 现在按格点陆地占比缓存
+            # (simulator/env/model/land_cell.npz, 见 tools/make_cell_land_mask.py)
+            # 只挖全陆格, 3% 陆地那种小岛格照常着色 → 不再有岛状空缺。
+            _al = _all_land_hi(big.shape[:2], ry, rx)
+            if _al is not None:
+                big[..., 3][_al] = 0
+            else:
+                big[..., 3][hi] = 0          # 缓存缺失 → 退回老行为
+            # env 网格 row0 = 60°S(南在上), 而 _blit_layer 把它贴在 fy(LAT1)
+            # (画面顶部) —— 不翻一次整层场就是上下镜像(2 月暖池会跑到北边)
+            # 轮次 151: 不再传死参 0.0/1.0。内核域**就是**该数组的纬度范围
+            # (§内核已扩到 ±90, ENVNY=360 —— 见 `LAT0/LAT1`), 交给 `_pad_poles`
+            # 自己判断要不要补; 已经覆盖 ±90 时它是**幂等**的, 不会再被拉扁。
+            _res = _pad_poles(np.flipud(big))
+            if len(_env_arr_cache) >= _ENV_ARR_CACHE_MAX:
+                _env_arr_cache.clear()
+            _env_arr_cache[_key] = _res
+            return _res
+    _res = _pad_poles(np.flipud(out))
+    if len(_env_arr_cache) >= _ENV_ARR_CACHE_MAX:
+        _env_arr_cache.clear()
+    _env_arr_cache[_key] = _res
+    return _res
 
 
 def _pressure_extremes(p: np.ndarray, ny: int, nx: int):
@@ -379,7 +812,7 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
     """气压等值线(marching squares) + 高/低标记。"""
     if levels is None:
         levels = [976, 980, 984, 988, 992, 996, 1000, 1004, 1008, 1012, 1016, 1020, 1024, 1028]
-    p = sim['env']['pTot']
+    p = sim['env'].get('pDisp', sim['env']['pTot'])
     ny, nx = V.ENVNY, V.ENVNX
     # 逐格屏幕坐标只算一次: fx 只依赖经度 / fy 只依赖纬度, 原实现每层每格调
     # 4 次(fx,fy)(14 层 × 数千格 ≈ 数万次 Python 调用, 实测 ~37ms/帧)
@@ -408,7 +841,9 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
         col = (200, 205, 215)
         # 一次性 tolist: 逐元素 float() 转换 4x2800 次反而更慢
         for ax, ay, bx, by in zip(x0.tolist(), y0.tolist(), x1.tolist(), y1.tolist()):
-            pygame.draw.line(surface, col, (ax, ay), (bx, by), 1)
+            # AA: 1px 斜线走原生 aaline(零分配零缓存) —— pressure 层每帧 ~2800 段,
+            # 是全模块最需要 AA、也最不能付"逐段精灵"代价的一处。
+            _aa_line(surface, col, (ax, ay), (bx, by), 1)
     # 高/低标记(向量化: 原 120×360 双层 Python 循环实测 0.13s/帧)
     lj, li, hj, hi = _pressure_extremes(p, ny, nx)
     for j, i in zip(lj, li):
@@ -443,10 +878,14 @@ def _label(text: str, color) -> pygame.Surface:
             s = fn(text, color)
         else:
             if _FALLBACK_FONT is None:
+                # pygame 2.5.7 的 SysFont 在本机会崩(splitext 收到 int) -> 用仓库字体,
+                # 否则等值线的数值标注会静默消失
                 try:
-                    _FALLBACK_FONT = pygame.font.SysFont('microsoftyahei', 18)
+                    _FALLBACK_FONT = pygame.font.Font(
+                        os.path.join(_ROOT_DIR, 'assets', 'font',
+                                     'MapleMono-NF-CN-Medium.ttf'), 18)
                 except Exception:
-                    _FALLBACK_FONT = pygame.font.Font(None, 18)   # 内建字体, 稳定兜底
+                    _FALLBACK_FONT = pygame.font.Font(None, 18)
             s = _FALLBACK_FONT.render(text, True, color)
         if len(_label_cache) > 64:
             _label_cache.pop(next(iter(_label_cache)))
@@ -455,6 +894,96 @@ def _label(text: str, color) -> pygame.Surface:
 
 
 _BARB_COLOR = (220, 225, 235)
+
+
+#: 风切等值线: 5 kt 一档(CIMSS 惯例); 5/10 绿, 15/20 黄, 25+ 红
+SHEAR_LEVELS = (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 120, 130)
+_shear_cache: dict = {}
+_SHEAR_CACHE_MAX = 2
+
+
+def _shear_color(level: int):
+    if level <= 10:
+        return (40, 220, 60)
+    if level <= 20:
+        return (240, 225, 60)
+    return (235, 60, 55)
+
+
+#: 等值线抽取用的降采样因子(0.5° → 1°)。
+#: 为什么降: NCEP 的原始网格是 2.5°, 双线性升到 0.5° 后信息量并没有增加, 在
+#: 0.5° 网格上抽等值线只会得到一堆沿粗网格走的细碎线段(看着像贴赤道的"洋流")。
+#: 在 1° 网格上抽, 线段更长更顺, 更接近 CIMSS 参考图的观感。
+_SHEAR_DS = 2
+
+
+def _shear_segments(sim):
+    """按档取风切线段(整批缓存: 风切只在 env_update 时变)。
+
+    返回 [(level, seg, ds)]: seg 的格下标是**降采样后**的网格(1°), 用 ds 换算。
+    """
+    sh = sim['env']['shear']
+    key = (id(sh), int(sim.get('_envVer', -1)), float(sh.sum()))
+    hit = _shear_cache.get(key)
+    if hit is not None:
+        return hit
+    ny, nx = sh.shape
+    ds = _SHEAR_DS
+    if ny % ds == 0 and nx % ds == 0:                 # 2× 块平均
+        lo = sh.reshape(ny // ds, ds, nx // ds, ds).mean(axis=(1, 3))
+    else:
+        lo, ds = sh, 1
+    out = []
+    for lv in SHEAR_LEVELS:
+        seg = _contour_segments(lo, (lv,), key=None)
+        if seg is not None:
+            out.append((lv, seg, ds))
+    if len(_shear_cache) >= _SHEAR_CACHE_MAX:
+        _shear_cache.clear()
+    _shear_cache[key] = out
+    return out
+
+
+def draw_shear_contours(surface, sim, fx: Callable, fy: Callable) -> None:
+    """垂直风切变等值线(不填色, 直接叠在地图上)。"""
+    segs = _shear_segments(sim)
+    if not segs:
+        return
+    for lv, (j0, i0, u0, v0, j1, i1, u1, v1), ds in segs:
+        # 格下标在**降采样后**的网格上(ds=2 即 1°), 换算回经纬度时要乘 ds
+        nx = V.ENVNX // ds
+        xs0 = np.asarray([fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD'] * ds)
+                          for i in range(nx)], dtype=np.float64)
+        xs1 = np.asarray([fx(V.C['LON0'] + (i + 1.5) * V.C['ENVD'] * ds)
+                          for i in range(nx)], dtype=np.float64)
+        ny = V.ENVNY // ds
+        ys0 = np.asarray([fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'] * ds)
+                          for j in range(ny)], dtype=np.float64)
+        ys1 = np.asarray([fy(V.C['LAT0'] + (j + 1.5) * V.C['ENVD'] * ds)
+                          for j in range(ny)], dtype=np.float64)
+        i0 = np.clip(i0, 0, nx - 1)
+        i1 = np.clip(i1, 0, nx - 1)
+        j0 = np.clip(j0, 0, ny - 1)
+        j1 = np.clip(j1, 0, ny - 1)
+        col = _shear_color(lv)
+        w = 2 if lv >= 25 else 1
+        x0 = xs0[i0] + u0 * (xs1[i0] - xs0[i0])
+        y0 = ys0[j0] + v0 * (ys1[j0] - ys0[j0])
+        x1 = xs0[i1] + u1 * (xs1[i1] - xs0[i1])
+        y1 = ys0[j1] + v1 * (ys1[j1] - ys0[j1])
+        for ax, ay, bx, by in zip(x0.tolist(), y0.tolist(), x1.tolist(), y1.tolist()):
+            # AA: w=1(多数档)走原生 aaline; w=2(≥25kt 档)走共享底座精灵路径。
+            _aa_line(surface, col, (ax, ay), (bx, by), w)
+        # 数值标注: 每档取若干段的中点在线上标数字(参考 CIMSS 产品)
+        n = x0.shape[0]
+        if n >= 8:
+            for k in range(1, n, max(6, n // 5)):
+                mx = 0.5 * (x0[k] + x1[k])
+                my = 0.5 * (y0[k] + y1[k])
+                if not (0 <= mx < surface.get_width() and 0 <= my < surface.get_height()):
+                    continue
+                lab = _label(str(lv), col)
+                surface.blit(lab, (int(mx) + 3, int(my) - lab.get_height() // 2))
 
 
 _STREAM_SEEDS: dict = {}
@@ -473,28 +1002,121 @@ def _stream_seeds(n: int):
     return g
 
 
+_SEED_WINDOW_CACHE: dict = {}
+
+
+def _stream_seeds_window(n: int, lon0: float, lon1: float,
+                         lat0: float, lat1: float):
+    """**可见窗口内**的固定种子点。
+
+    原来种子撒在整个 0.5° 全球域(360°×120°), 而地图默认视图只框住 50°×55°
+    (约 4% 面积) → 屏幕上只剩几条, 用户说"洋流/环流就几条, 完全不知道是什么"。
+    现在按可见窗口撒种, 密度与屏幕面积挂钩; 窗口量化后缓存, 平移缩放不会让
+    整片流线重新抖动。
+    """
+    key = (n, round(lon0 / 2.0), round(lon1 / 2.0),
+           round(lat0 / 2.0), round(lat1 / 2.0))
+    g = _SEED_WINDOW_CACHE.get(key)
+    if g is None:
+        rng = np.random.default_rng(abs(hash(key)) % (2 ** 31))
+        pad_lon = (lon1 - lon0) * 0.06
+        pad_lat = (lat1 - lat0) * 0.06
+        lon = rng.uniform(lon0 - pad_lon, lon1 + pad_lon, n)
+        lat = rng.uniform(max(V.C['LAT0'] + 6.0, lat0 - pad_lat),
+                          min(V.C['LAT1'] - 6.0, lat1 + pad_lat), n)
+        g = (lon, lat)
+        if len(_SEED_WINDOW_CACHE) > 24:
+            _SEED_WINDOW_CACHE.clear()
+        _SEED_WINDOW_CACHE[key] = g
+    return g
+
+
+def _visible_window(grid, size):
+    """可见区对应的经纬度窗口(用于种子/覆盖范围)。"""
+    if grid is None:
+        return (V.C['LON0'], V.C['LON1'], V.C['LAT0'], V.C['LAT1'])
+    vis = grid.visible(size)
+    if vis is None:
+        return (V.C['LON0'], V.C['LON1'], V.C['LAT0'], V.C['LAT1'])
+    vx0, vy0, vx1, vy1 = vis
+    xa, xb = min(grid.x0, grid.x1), max(grid.x0, grid.x1)
+    ya, yb = min(grid.y0, grid.y1), max(grid.y0, grid.y1)
+    fx0 = (vx0 - xa) / max(1e-9, xb - xa)
+    fx1 = (vx1 - xa) / max(1e-9, xb - xa)
+    fy0 = (vy0 - ya) / max(1e-9, yb - ya)
+    fy1 = (vy1 - ya) / max(1e-9, yb - ya)
+    lon0 = grid.lon0 + fx0 * (grid.lon1 - grid.lon0)
+    lon1 = grid.lon0 + fx1 * (grid.lon1 - grid.lon0)
+    lat1 = grid.lat1 - fy0 * (grid.lat1 - grid.lat0)
+    lat0 = grid.lat1 - fy1 * (grid.lat1 - grid.lat0)
+    return (lon0, lon1, lat0, lat1)
+
+
 _FLOW_KEY = (9, 8, 7)          # colorkey 魔法色(风羽色/地图色都命不中)
 _flow_cache: dict = {}
 _FLOW_CACHE_MAX = 4
-_flow_last: list = [None, 0]   # [surf, made_ms]
+#: 节流状态: **按图层名分开**。
+#: ⚠⚠ 轮次 151 修掉的缺陷: 原先是**一个共享的 `[surf, made_ms]`**, 而
+#: `draw_streamlines`(环流/风场)在 `draw_currents`(洋流)**之前**调用 ⇒ 洋流层在
+#: 150ms 窗口内必然复用**风场**那张流线图, 画出来就是风场环流(单独开洋流是对的,
+#: 两层同开才错, 且下一帧自愈)。实测: 同开时 `_build_streamlines` 调用记录里只有
+#: `flow`、`_flow_cache` 无 `cur` 键、洋流在地图上**新增 0 像素**。
+_flow_last: dict = {}
+
+
+def _flow_throttle_get(name: str):
+    """取该图层的节流缓存(150ms 内的上一张图), 没有则 None。"""
+    st = _flow_last.get(name)
+    if st is not None and st[0] is not None:
+        now = pygame.time.get_ticks()
+        if now - st[1] < 150:
+            return st[0]
+    return None
+
+
+def _flow_throttle_put(name: str, surf) -> None:
+    _flow_last[name] = [surf, pygame.time.get_ticks()]
 
 
 def _build_streamlines(sim, fx: Callable, fy: Callable, w: int, h: int,
-                       seeds: int, steps: int, step_h: float) -> pygame.Surface:
-    """把流线画到一张 colorkey 背景的整屏 surface 上(blit 走 SDL 快速路径)。"""
-    surf = pygame.Surface((w, h))
-    surf.fill(_FLOW_KEY)
-    lon, lat = _stream_seeds(seeds)
-    lon = lon.copy()
-    lat = lat.copy()
-    draw = pygame.draw.line
+                       seeds: int, steps: int, step_h: float,
+                       field=None, min_speed: float = 1.5,
+                       window=None) -> pygame.Surface:
+    """把流线画到一张 colorkey 背景的整屏 surface 上(blit 走 SDL 快速路径)。
+
+    window=(lon0, lon1, lat0, lat1): 只在**可见窗口**里撒种子(见
+    _stream_seeds_window) —— 全球撒种在放大视图下只剩几条线。
+    """
+    # ⚠ 2026-10-02（AA 改造）：原实现是**不透明面 + `fill(_FLOW_KEY)` + `set_colorkey`**
+    # —— 那是给 `pygame.draw.line` 用的 colorkey 快速 blit 路径。换成 `aaline` 之后
+    # **必须**改成 SRCALPHA：aaline 会把线色与 key 色混合成**不透明**的中间色，那些
+    # 像素 ≠ key ⇒ 会被 blit 出去，形成一条**暗边且没有任何真 alpha**
+    # （实测 A/B/C 三选一：旧 line 源面非 key 261 / blit ink 261 / mid_alpha 0；
+    #   aaline+colorkey 源面非 key 504 / blit ink 504 / mid_alpha **0**；
+    #   SRCALPHA+aaline blit ink 504 / mid_alpha **504**）。
+    # SRCALPHA 下 aaline 写的是**部分 alpha**，blit 走逐像素混合 ⇒ 真 AA。
+    # 代价：这一层的 blit 从 colorkey 变成逐像素 alpha（每帧仍只有一次整屏 blit）。
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    if window is not None:
+        lon, lat = _stream_seeds_window(seeds, *window)
+    else:
+        lon, lat = _stream_seeds(seeds)
+    lon = np.asarray(lon).copy()
+    lat = np.asarray(lat).copy()
+    def sample(lo, la):
+        """默认用风场(含台风涡旋); field=(u,v) 时用外部流场(如表层洋流)。"""
+        if field is None:
+            return V.wind_at_arr(sim, lo, la, 0.0)
+        return (V.env_bilinear_arr(field[0], lo, la),
+                V.env_bilinear_arr(field[1], lo, la))
+
     for s in range(steps):
-        u, v = V.wind_at_arr(sim, lon, lat, 0.0)
+        u, v = sample(lon, lat)
         sp = np.hypot(u, v)
         km_lon = np.maximum(111.32 * np.cos(np.radians(lat)), 1.0)
         mlon = lon + u * 1.852 * step_h * 0.5 / km_lon       # RK2 中点
         mlat = np.clip(lat + v * 1.852 * step_h * 0.5 / 110.57, -89.0, 89.0)
-        mu, mv = V.wind_at_arr(sim, mlon, mlat, 0.0)
+        mu, mv = sample(mlon, mlat)
         nlon = lon + mu * 1.852 * step_h / km_lon
         nlat = np.clip(lat + mv * 1.852 * step_h / 110.57, -89.0, 89.0)
         fade = 1.0 - 0.62 * (s / max(1, steps - 1))
@@ -502,53 +1124,129 @@ def _build_streamlines(sim, fx: Callable, fy: Callable, w: int, h: int,
         ys0 = [fy(float(t)) for t in lat]
         xs1 = [fx(float(t)) for t in nlon]
         ys1 = [fy(float(t)) for t in nlat]
-        for i in np.nonzero(sp > 1.5)[0]:
+        for i in np.nonzero(sp > min_speed)[0]:
             x0, y0, x1, y1 = xs0[i], ys0[i], xs1[i], ys1[i]
             if abs(x1 - x0) > w * 0.5:
                 continue                      # 跨 0 度经线: 本段不画
             base = _wind_color(float(sp[i]))
-            draw(surf, (int(base[0] * fade), int(base[1] * fade), int(base[2] * fade)),
-                 (x0, y0), (x1, y1), 1)
+            # AA: 1px 流线走原生 aaline。面是 SRCALPHA(见函数开头) ⇒ 边缘是部分 alpha。
+            _aa_line(surf, (int(base[0] * fade), int(base[1] * fade), int(base[2] * fade)),
+                     (x0, y0), (x1, y1), 1)
         lon, lat = nlon, nlat
+    # 注: `set_colorkey(_FLOW_KEY)` **保留**，但对渲染已经**惰性** ——
+    #   · SRCALPHA 面的背景是 (0,0,0,0)，没有任何像素等于 `(9,8,7)` ⇒ key 不参与判定；
+    #   · 透明改由**逐像素 alpha** 完成（aaline 的边缘本身就是部分 alpha）。
+    # 实测与"不设 key"的方案逐位相同（blit 后 ink=504 / mid_alpha=504），
+    # 因此 `tests/test_simcore_ocean.py:199` 的 `get_colorkey() is not None` 断言
+    # 与既有的缓存/节流语义都不必改 —— 变的只是"透明机制"。
     surf.set_colorkey(_FLOW_KEY)
     return surf
 
 
 def draw_streamlines(surface: pygame.Surface, sim, fx: Callable, fy: Callable,
-                     seeds: int = 260, steps: int = 5, step_h: float = 8.0) -> None:
+                     seeds: int = 260, steps: int = 5, step_h: float = 8.0,
+                     grid=None) -> None:
     """低层环流细流线(参考视频里海面上那种淡流线, 不用云也不用粒子)。
 
     - 积分用 8 小时/步 x 5 步: 10kt 的风约走 900km(地图上 ~25px), 才看得见;
       之前按 10 分钟步长积分只有 0.1 像素, 等于没画。
+    - grid 给出时: 种子撒在**可见窗口**内、数量按屏幕面积定(否则放大后只剩几条)。
     - 整层缓存: 键 = (env 版本, 视口, 尺寸)。env 每 2 模拟小时才变一次, 视图不变
       时每帧只付一次 colorkey blit(约 1ms)。拖动/缩放时键会变, 用 150ms 墙钟限流
       复用上一张, 避免拖动期间每帧重算。
     """
     w, h = surface.get_size()
+    window = None
+    if grid is not None:
+        window = _visible_window(grid, (w, h))
+        # 密度: 每 ~9000 像素一个种子, 60-700 之间(实测 1600x800 视图 → ~140)
+        seeds = max(60, min(700, int((w * h) // 9000)))
     key = (int(sim.get('_envVer', -1)), w, h,
-           int(fx(0.0)), int(fy(0.0)), int(fx(180.0)))
+           int(fx(0.0)), int(fy(0.0)), int(fx(180.0)),
+           None if window is None else tuple(round(v, 1) for v in window))
     s = _flow_cache.get(key)
     if s is None:
-        now = pygame.time.get_ticks()
-        if _flow_last[0] is not None and now - _flow_last[1] < 150:
-            s = _flow_last[0]
-        else:
-            s = _build_streamlines(sim, fx, fy, w, h, seeds, steps, step_h)
+        s = _flow_throttle_get('flow')
+        if s is None:
+            s = _build_streamlines(sim, fx, fy, w, h, seeds, steps, step_h,
+                                   window=window)
             if len(_flow_cache) >= _FLOW_CACHE_MAX:
                 _flow_cache.clear()
             _flow_cache[key] = s
-            _flow_last[:] = [s, now]
+            # ⚠ 时间戳**只能在这里写**(真正重建之后)。
+            # 轮次 153: 曾把它放到内层 if 之外 ⇒ "复用旧图"这条路径也刷新时间戳,
+            # 而新 key 永远进不了 `_flow_cache` ⇒ 下一帧继续 miss、继续复用同一张旧图,
+            # 只要帧间隔 <150ms 就**永久冻结**在旧视图上(拖动/缩放后不再更新)。
+            _flow_throttle_put('flow', s)
     surface.blit(s, (0, 0))
 
 
-def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 5.0) -> None:
-    """风羽(每 step 度一个, kt: 整羽 50kt/半羽 10kt/小羽 5kt)。
+def draw_currents(surface, sim, fx: Callable, fy: Callable,
+                  seeds: int = 220, steps: int = 5, step_h: float = 240.0,
+                  grid=None) -> None:
+    """表层洋流流线(0.5° 逐格流场, 不含台风涡旋)。
 
-    采样一次性批量(wind_at_arr): 原先逐点 wind_at, 1584 个风羽实测 32ms/帧,
-    其中采样占 ~24ms; 绘制仍逐点(风羽形状按速度分档, 无法批量画)。
+    流场来自 ocean_step 存的 ocn['u']/['v'] —— Ekman 漂流(3% 风 + 半球偏转 30 度),
+    24 小时/步 x 5 步约走 1000km, 所以热带西向流、副热带东向流都能看出来。
+    整层缓存, 键 = env 版本 + 视口 + 尺寸。
     """
-    lats = np.arange(-55, 55, step)
-    lons = np.arange(0, 360, step)
+    ocn = sim.get('ocn') or {}
+    if 'u' not in ocn or 'v' not in ocn:
+        return
+    w, h = surface.get_size()
+    window = _visible_window(grid, (w, h)) if grid is not None else None
+    if window is not None:
+        seeds = max(60, min(600, int((w * h) // 11000)))
+    key = ('cur', int(sim.get('_envVer', -1)), w, h,
+           int(fx(0.0)), int(fy(0.0)), int(fx(180.0)),
+           None if window is None else tuple(round(v, 1) for v in window))
+    s = _flow_cache.get(key)
+    if s is None:
+        s = _flow_throttle_get('current')      # 与 'flow' 分开, 不能互相借图
+        if s is None:
+            # 洋流只有 0.2~2 kt(风场的 3%), 阈值和步长都要按洋流量级给:
+            # 10 天/步 x 5 步, 0.3kt 也能走 6 个经度, 才看得见
+            s = _build_streamlines(sim, fx, fy, w, h, seeds, steps, step_h,
+                                   field=(ocn['u'], ocn['v']), min_speed=0.05,
+                                   window=window)
+            if len(_flow_cache) >= _FLOW_CACHE_MAX:
+                _flow_cache.clear()
+            _flow_cache[key] = s
+            _flow_throttle_put('current', s)   # 同 'flow': 只在重建后写时间戳
+    surface.blit(s, (0, 0))
+
+
+def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 0.0,
+               grid=None) -> None:
+    """风羽(kt: 整羽 50kt/半羽 10kt/小羽 5kt)。
+
+    2026-09-19 按用户反馈改三处:
+      · **随缩放变化**: 风羽长度按"屏幕上每度多少像素"缩放(px_per_deg 3→30 时
+        L 由 8 到 22 px), 不再固定 13px;
+      · **间距随缩放**: step 默认按 ~48px 间距反推(放大后不再是 5° 一根的稀疏网,
+        缩小时也不会糊成一片), 并吸附到 0.5° 网格上;
+      · **不闪**: 位置一律走 grid(GridMap 的仿射映射, 不会逐点翻面), 采样格点
+        固定为 0.5° 对齐的规则网格(旧实现按当前视图浮点起算 + 逐点环绕翻面,
+        阈值附近每帧跳一个图宽)。
+    采样一次性批量(wind_at_arr): 绘制仍逐点(风羽形状按速度分档, 无法批量画)。
+    """
+    if grid is not None:
+        window = _visible_window(grid, surface.get_size())
+        ppd = max(0.5, grid.px_per_deg_x())
+        if step <= 0:
+            step = max(0.5, min(10.0, round(48.0 / ppd * 2.0) / 2.0))
+        lon0, lon1, lat0, lat1 = window
+    else:
+        if step <= 0:
+            step = 5.0
+        ppd = 6.0
+        lon0, lon1, lat0, lat1 = 0.0, 360.0, -55.0, 55.0
+    lon0 = max(0.0, min(357.5, math.floor(lon0 / step) * step))
+    lon1 = min(360.0, math.ceil(lon1 / step) * step + step)
+    lat0 = max(-55.0, min(55.0, math.floor(lat0 / step) * step))
+    lat1 = min(55.0, math.ceil(lat1 / step) * step + step)
+    lats = np.arange(lat0, lat1, step)
+    lons = np.arange(lon0, lon1, step)
     if lats.size == 0 or lons.size == 0:
         return
     LO, LA = np.meshgrid(lons, lats)
@@ -560,6 +1258,9 @@ def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 5.0) -> N
     if not keep.any():
         return
     LO, LA, u, v, sp = LO[keep], LA[keep], u[keep], v[keep], sp[keep]
+    # 风羽长度: 随缩放 8-22px(参考 48px 间距的一半以内, 避免互相压线)
+    L = max(7.0, min(22.0, ppd * 1.1))
+    sp_scale = L / 13.0                    # 羽片间隔同比例缩放
     color = _BARB_COLOR
     for i in range(LO.size):
         spi = float(sp[i])
@@ -568,26 +1269,32 @@ def draw_barbs(surface, sim, fx: Callable, fy: Callable, step: float = 5.0) -> N
         ex, ey = math.cos(ang), math.sin(ang)
         px_ = -math.sin(ang)
         py_ = math.cos(ang)
-        L = 13
-        pygame.draw.line(surface, color, (x, y), (x + ex * L, y + ey * L), 1)
+        # AA: 风羽主干是 1px 斜线, 走原生 aaline。
+        _aa_line(surface, color, (x, y), (x + ex * L, y + ey * L), 1)
         rem = spi
         d = 0
         while rem >= 47.5 and d < 3:
-            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-            p1 = (x + ex * (L - d * 5 - 6) + px_ * 6, y + ey * (L - d * 5 - 6) + py_ * 6)
-            pygame.draw.polygon(surface, color, [p0, p1, (x + ex * L, y + ey * L)], 1)
+            p0 = (x + ex * (L - d * 5 * sp_scale), y + ey * (L - d * 5 * sp_scale))
+            p1 = (x + ex * (L - (d * 5 + 6) * sp_scale) + px_ * 6 * sp_scale,
+                  y + ey * (L - (d * 5 + 6) * sp_scale) + py_ * 6 * sp_scale)
+            # AA: 三角旗是**描边**(width=1)不是填充 ⇒ 用原生 aalines 画闭合折线,
+            # 与 pygame.draw.polygon(..., 1) 几何等价。
+            pygame.draw.aalines(surface, color, True,
+                                [p0, p1, (x + ex * L, y + ey * L)])
             d += 1
             rem -= 50
         while rem >= 7.5 and d < 8:
-            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-            p1 = (x + ex * (L - d * 5 - 6) + px_ * 5, y + ey * (L - d * 5 - 6) + py_ * 5)
-            pygame.draw.line(surface, color, p0, p1, 1)
+            p0 = (x + ex * (L - d * 5 * sp_scale), y + ey * (L - d * 5 * sp_scale))
+            p1 = (x + ex * (L - (d * 5 + 6) * sp_scale) + px_ * 5 * sp_scale,
+                  y + ey * (L - (d * 5 + 6) * sp_scale) + py_ * 5 * sp_scale)
+            _aa_line(surface, color, p0, p1, 1)      # AA(原生 aaline)
             d += 1
             rem -= 10
         if rem >= 2.5 and d < 8:
-            p0 = (x + ex * (L - d * 5), y + ey * (L - d * 5))
-            p1 = (x + ex * (L - d * 5 - 4) + px_ * 3, y + ey * (L - d * 5 - 4) + py_ * 3)
-            pygame.draw.line(surface, color, p0, p1, 1)
+            p0 = (x + ex * (L - d * 5 * sp_scale), y + ey * (L - d * 5 * sp_scale))
+            p1 = (x + ex * (L - (d * 5 + 4) * sp_scale) + px_ * 3 * sp_scale,
+                  y + ey * (L - (d * 5 + 4) * sp_scale) + py_ * 3 * sp_scale)
+            _aa_line(surface, color, p0, p1, 1)      # AA(原生 aaline)
 
 
 class Particles:
@@ -632,7 +1339,8 @@ class Particles:
             x0, y0 = fx(self.ol[k]), fy(self.oa[k])
             x1, y1 = fx(self.lon[k]), fy(self.lat[k])
             if abs(x1 - x0) < 60 and abs(y1 - y0) < 60 and sp >= 0.5:
-                pygame.draw.line(surface, _wind_color(sp), (x0, y0), (x1, y1), 1)
+                # AA: 粒子尾迹是 1px 斜线, 走原生 aaline。
+                _aa_line(surface, _wind_color(sp), (x0, y0), (x1, y1), 1)
 
 
 def draw_forecast(surface, sim, sel_tc, fx: Callable, fy: Callable,
@@ -670,26 +1378,32 @@ def draw_forecast(surface, sim, sel_tc, fx: Callable, fy: Callable,
     if len(mean_pts) < 2:
         return
     # 路径线
+    # AA: 预报平均路径是 **2px** 折线, pygame 没有"粗 aaline" ⇒ 逐段走共享底座的
+    # 精灵路径。段数极少(≤13 段, 6h 间隔到 72h) ⇒ 缓存/分配可控(见报告 §3 的确定性代价)。
     pts = [(float(fx(m[0])), float(fy(m[1]))) for m in mean_pts]
-    pygame.draw.lines(surface, (255, 255, 255), False, pts, 2)
+    for _i in range(len(pts) - 1):
+        _aa_line(surface, (255, 255, 255), pts[_i], pts[_i + 1], 2)
     # 误差圈(细线, 半径随预报时长增大)
     for (cx, cy, h), rkm in zip(mean_pts, radii):
         cos_lat = math.cos(cy * V.C['DEG'])
         rxp = rkm / 111.32 / max(1e-6, cos_lat)
         ryp = rkm / 110.57
-        rect = pygame.Rect(float(fx(cx)) - rxp, float(fy(cy)) - ryp,
-                           2 * rxp, 2 * ryp)
-        pygame.draw.ellipse(surface, (140, 195, 255), rect, 1)
+        # AA: 误差圈原本是 pygame.draw.ellipse(..., 1) ⇒ 改参数化 aalines,
+        # 点位落在同一椭圆上(几何等价, 用 ink bbox/IoU 把关)。
+        _aa_ellipse_outline(surface, (140, 195, 255),
+                            (float(fx(cx)), float(fy(cy))), rxp, ryp)
     # 24h 标记
     hollow = (style == 'JMA')
     for (cx, cy, h) in mean_pts:
         if h % 24 != 0:
             continue
         x, y = int(fx(cx)), int(fy(cy))
+        # AA: 24h 标记原为空心/实心圆(pygame.draw.circle 无 AA) ⇒ 走共享底座
+        # 的缓存精灵(半径只有 6/4 两个取值 ⇒ 缓存项 2 个)。
         if hollow:
-            pygame.draw.circle(surface, (255, 255, 255), (x, y), 6, 2)
+            _aa_ring(surface, (255, 255, 255), (x, y), 6, 2)
         else:
-            pygame.draw.circle(surface, (255, 255, 255), (x, y), 4)
+            _aa_disc(surface, (255, 255, 255), (x, y), 4)
         surface.blit(_label(f"{h}h", (255, 255, 255)), (x + 8, y - 8))
 
 
@@ -700,6 +1414,10 @@ def draw_tracks(surface, sim, sel_id, fx: Callable, fy: Callable) -> None:
         sel = tc['id'] == sel_id
         pts = [(fx(q['lon']), fy(q['lat'])) for q in tc['track']]
         if len(pts) > 1:
+            # ⚠ **有证据地不改**：本函数在生产链路上**零调用**（第一轮全仓调用点普查；
+            # 模拟模式的路径本体由 `app/ty_sim_mixins/_draw_path_mixin` 绘制，见
+            # `render_map` 里 'track' 分支的注释）。且它是 2–3px 折线，pygame 没有粗
+            # aaline，逐段精灵在"多台风"下代价高。若将来接线，再按段数决定。
             pygame.draw.lines(surface, grade_kt(tc['vmax'])[2],
                               False, pts, 3 if sel else 2)
 
@@ -731,19 +1449,31 @@ def draw_tc_hud(surface, sim, sel_id, fx: Callable, fy: Callable,
                     ryp = rkm / 110.57
                     _draw_ellipse_dashed(surface, (x, y), rxp, ryp, col, dash)
         # 眼墙
-        pygame.draw.ellipse(surface, (255, 255, 255) if sel else (220, 220, 230),
-                            pygame.Rect(x - tc['rmw'] / 111.32 / cos_lat,
-                                        y - tc['rmw'] / 110.57,
-                                        2 * tc['rmw'] / 111.32 / cos_lat,
-                                        2 * tc['rmw'] / 110.57), 2)
+        # ⚠ 轮次 155: 原来画在 `if show_rings:` **之外** ⇒ 关掉"风圈显示"之后
+        # 34/50/64kt 圈没了、眼墙却还在, 与开关的语义不符。并入同一开关。
+        if show_rings:
+            # ⚠ 眼墙椭圆 **保持 aliased（有证据地不改）**：它是 2px 宽的椭圆轮廓，
+            # 而 `pygame` 没有粗 aaline、`app/paint_aa.py` 也只有"粗圆环"没有"粗椭圆"。
+            # 逐段精灵(约 64 段/台风)与整画布超采样都不划算（见报告 §3.3 的代价对比）。
+            # 若要修，正确做法是给共享底座加 `aa_ellipse_ring`（不在本任务写域）。
+            pygame.draw.ellipse(surface, (255, 255, 255) if sel else (220, 220, 230),
+                                pygame.Rect(x - tc['rmw'] / 111.32 / cos_lat,
+                                            y - tc['rmw'] / 110.57,
+                                            2 * tc['rmw'] / 111.32 / cos_lat,
+                                            2 * tc['rmw'] / 110.57), 2)
         g = grade_kt(v_kt)
         if icon_fn is not None:
             # 由外部(模拟模式 mixin)按 app 图标集渲染台风图标
             icon_fn(surface, tc, x, y, sel)
         else:
-            pygame.draw.circle(surface, g[2], (int(x), int(y)), 7 if sel else 5, 0)
-            pygame.draw.circle(surface, (255, 255, 255), (int(x), int(y)),
-                               7 if sel else 5, 1)
+            # AA: 图标外圈(空心, 白色 ⇒ 可见)走共享底座的缓存精灵。
+            # ⚠ 底盘(`g[2]` = 阈值 int)在**旧代码里就是不可见的**(pygame.draw 把 int 当
+            # 0xAARRGGBB ⇒ alpha=0): 这里**照旧不画**, 只做忠实还原, 外观逐位不变 ——
+            # 该 bug 与它的修法(`[2]`→`[3]`)见 `output/exploration/p2_simcore_aa.md` MAJOR-2。
+            _icon_col = _pygame_draw_rgba(g[2])
+            if _icon_col[3] > 0:
+                _aa_disc(surface, _icon_col[:3], (x, y), 7 if sel else 5)
+            _aa_ring(surface, (255, 255, 255), (x, y), 7 if sel else 5, 1)
         if not show_labels:
             continue
         label = f"{tc['name']} {v_kt:.0f}kt {tc['pmin']:.0f}hPa"
@@ -760,7 +1490,8 @@ def _draw_ellipse_dashed(surface, center, rx, ry, color, dash) -> None:
         a = 2 * math.pi * k / steps
         pts.append((rect.centerx + rx * math.cos(a), rect.centery + ry * math.sin(a)))
     for k in range(0, len(pts) - 1, 2):
-        pygame.draw.line(surface, color, pts[k], pts[k + 1], 1)
+        # AA: 虚线段是 1px 斜线, 走原生 aaline(段数 = steps/2, 24~60 量级)。
+        _aa_line(surface, color, pts[k], pts[k + 1], 1)
 
 
 def _draw_quadrant_ring(surface, tc, x, y, rkm, cos_lat, color) -> None:
@@ -777,58 +1508,84 @@ def _draw_quadrant_ring(surface, tc, x, y, rkm, cos_lat, color) -> None:
         for k in range(13):
             a = a0 + k * (90 * V.C['DEG'] / 12)
             pts.append((x + rxp * math.cos(a), y - ryp * math.sin(a)))
-        pygame.draw.lines(surface, color, False, pts, 1)
+        # AA: 四象限弧是 1px 折线, 走原生 aalines(13 点/弧, 4 弧)。
+        pygame.draw.aalines(surface, color, False, pts)
 
 
-def draw_ridge(surface, sim, fx: Callable, fy: Callable) -> None:
-    """副高: 完整等值线(5880gpm 近似, 以 pEnv≥1016hPa 区域表示) + 内部半透明橙色填充。"""
+#: 上一帧副高图层在**当前视野内**真正画出来的像素数(轮次 151)。
+#: 用途: 默认镜头(西太 107-157E / 10S-13N)下副高主体常在视野外, 打开图层
+#: 地图上什么都不多 —— 用户会以为"这个按钮是假的"。`_sim_toggle_layer` 据此提示。
+RIDGE_VISIBLE_PX = [0]
+
+
+def draw_ridge(surface, sim, fx: Callable, fy: Callable, grid=None) -> None:
+    """副高(西太副高)范围: 半透明橙色填充 + 边界描边 + 数值标注。
+
+    2026-09-19 修: 原来写死 pEnv >= 1016 hPa 当"5880gpm 近似", 但本模式的
+    海平面气压场实测只有 1000.7-1014.1 hPa —— 阈值永远命不中, **整层恒不可见**
+    (实测平均像素差 0.13, 与什么都不画一样)。改成自适应阈值: 取场的高分位
+    (下限 1012 hPa), 保证副高范围永远画得出来, 并把实际阈值写到标注里。
+    贴图走 _blit_layer(与海温同一套可见区裁剪), 不再自己算域宽高。
+    """
     try:
-        p = sim['env']['pEnv']
-        ny, nx = p.shape
-        th = 1016.0
-        mask = p >= th
-        if not mask.any():
-            return
-        # 内部填充(半透明橙色); 经度 0/360 同列, 宽度用 2×(fx(180)-fx(0)) 估算
-        col0 = fx(V.C['LON0'])
-        col1 = col0 + 2.0 * (fx(180.0) - fx(V.C['LON0']))
-        row0 = fy(V.C['LAT1'])
-        row1 = fy(V.C['LAT0'])
-        if col1 - col0 < 4 or row1 - row0 < 4:
-            return
-        small = pygame.Surface((nx, ny), pygame.SRCALPHA)
-        px = np.zeros((ny, nx, 4), dtype=np.uint8)
-        px[..., 0] = 255
-        px[..., 1] = 150
-        px[..., 2] = 40
-        px[..., 3] = np.where(mask, 90, 0).astype(np.uint8)
+        p = np.asarray(sim['env'].get('pDisp', sim['env']['pEnv']))
+        env_ver = int(sim.get('_envVer', -1))
         try:
-            pygame.surfarray.pixels_alpha(small)[:] = px[..., 3]
-            pygame.surfarray.blit_array(small, np.transpose(px[..., :3], (1, 0, 2)))
+            p90 = float(np.percentile(p, 88))
         except Exception:
-            small.set_alpha(90)
-        # 直接贴缩放后的小图: 原实现先 blit 到一张整屏 SRCALPHA 中转面,
-        # 再整屏贴回 —— 多付一次全屏 alpha blit + 一次整屏分配(实测 13.6ms/帧)
-        # 描边: 掩码边界像素画橙色线(粗 2px)
-        edge = np.zeros_like(mask)
-        edge[1:-1, 1:-1] = mask[1:-1, 1:-1] & ~(mask[:-2, 1:-1] & mask[2:, 1:-1]
-                                                & mask[1:-1, :-2] & mask[1:-1, 2:])
-        # 先贴半透明填充再画描边, 否则描边会被填充压暗
-        surface.blit(pygame.transform.smoothscale(
-            small, (max(2, int(col1 - col0)), max(2, int(row1 - row0)))),
-            (int(col0), int(row0)))
-        ys, xs = np.nonzero(edge)
-        for j, i in zip(ys[::2], xs[::2]):
-            lon = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
-            lat = V.C['LAT0'] + (j + 0.5) * V.C['ENVD']
-            pygame.draw.circle(surface, (255, 150, 60), (int(fx(lon)), int(fy(lat))), 2)
-        surface.blit(_label('副高 588', (255, 170, 80)),
-                     (int(fx(120)), int(fy(33))))
+            p90 = 1016.0
+        th = max(1012.0, round(p90, 1))
+        mask = np.flipud(p >= th)              # 网格南在上 -> 贴图前翻正
+        rgba = np.zeros(mask.shape + (4,), dtype=np.uint8)
+        rgba[..., 0] = 255
+        rgba[..., 1] = 150
+        rgba[..., 2] = 40
+        rgba[..., 3] = np.where(mask, 90, 0).astype(np.uint8)
+        # 视野内到底有没有副高格点? (给 UI 反馈用 —— 见 RIDGE_VISIBLE_PX)
+        try:
+            if grid is not None:
+                _vis = grid.visible(surface.get_size())
+                if _vis is None:
+                    RIDGE_VISIBLE_PX[0] = 0
+                else:
+                    _c0, _r0, _c1, _r1, _ = grid.src_window(mask.shape[1],
+                                                            mask.shape[0], _vis)
+                    RIDGE_VISIBLE_PX[0] = int(rgba[_r0:_r1, _c0:_c1, 3].sum())
+            else:
+                RIDGE_VISIBLE_PX[0] = int(rgba[..., 3].sum())
+        except Exception:
+            RIDGE_VISIBLE_PX[0] = 0
+        _blit_layer(surface, rgba, fx, fy, cache_key=('ridge', env_ver, th),
+                    grid=grid)
+        # 边界描边(隔点画, 省一半圆)
+        if mask.shape[0] > 3 and mask.shape[1] > 3:
+            edge = np.zeros_like(mask)
+            edge[1:-1, 1:-1] = mask[1:-1, 1:-1] & ~(
+                mask[:-2, 1:-1] & mask[2:, 1:-1]
+                & mask[1:-1, :-2] & mask[1:-1, 2:])
+            ys, xs = np.nonzero(edge)
+            for j, i in zip(ys[::2], xs[::2]):
+                lon = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
+                lat = V.C['LAT0'] + ((mask.shape[0] - 1 - j) + 0.5) * V.C['ENVD']
+                # AA: 副高边界点是小实心圆(r=2), 走共享底座缓存精灵(单色单半径 ⇒ 1 个缓存项)。
+                _aa_disc(surface, (255, 150, 60), (fx(lon), fy(lat)), 2)
+        # 标注: 写实际用的阈值(副高范围), 位置跟着可见区走
+        if grid is not None:
+            win = _visible_window(grid, surface.get_size())
+            lab = _label('副高 %.0f hPa' % th, (255, 170, 80))
+            lx = int(grid.x(min(max(win[0] + 4.0, win[0]), win[1])))
+            ly = int(grid.y(win[3] - 3.0))
+            surface.blit(lab, (lx + 6, ly - lab.get_height() - 2))
+        else:
+            surface.blit(_label('副高 %.0f hPa' % th, (255, 170, 80)),
+                         (int(fx(120)), int(fy(33))))
     except Exception:
         logger.debug('simcore 图层绘制失败', exc_info=True)
 
 
 def draw_grid(surface, fx: Callable, fy: Callable) -> None:
+    # ⚠ **有证据地不改**：经纬网只有**轴对齐**的竖线/横线, 整数像素边界本来就精确,
+    # 加抗锯齿只会让线变虚并白付代价（用户要的是斜线/曲线的锯齿, 不是这个）。
     for lon in range(0, 360, 20):
         x = fx(lon)
         pygame.draw.line(surface, (255, 255, 255, 26), (x, fy(-60)), (x, fy(60)), 1)
@@ -840,11 +1597,19 @@ def draw_grid(surface, fx: Callable, fy: Callable) -> None:
 def render_map(surface, sim, fx: Callable, fy: Callable,
                layers: set, sel_tc=None, mode: str = 'IR',
                particles: Optional[Particles] = None,
-               icon_fn: Optional[Callable] = None) -> None:
+               icon_fn: Optional[Callable] = None,
+               grid: "GridMap" = None, grid_pad: "GridMap" = None,
+               hud_labels: bool = True) -> None:
     """把 SimCore 各图层叠加绘制到 surface(已有地图底图)上。
 
     fx/fy: 经纬度 → surface 像素(来自项目地图视图, 实现叠加而非覆盖)。
+    grid:  环境格点类图层(海温/热含量/湿度/风切/气压/环流/洋流/风羽)专用的
+           **仿射**映射(见 GridMap)。给 None 时退回 fx/fy —— 那样 sst/ohc 在
+           项目视图下会整层画不出来(fx(0)==fx(360) → 宽度 0), 仅兼容旧调用。
     icon_fn: 可选, callable(surface, tc, x, y, sel) — 台风图标渲染(复用 app 图标集)。"""
+    # 格点类图层统一用仿射映射; 点类(台风/预报圈/信息框)仍用 fx/fy(需要环绕翻面)
+    gx = grid.x if grid is not None else fx
+    gy = grid.y if grid is not None else fy
     # 云图(作为底图背景覆盖计算域, 半透明与地图融合; 仅图层开启时绘制)
     if 'cloud' in layers:
         w = int(fx(V.C['LON1']) - fx(V.C['LON0']))
@@ -856,48 +1621,82 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
     # 海温 / 热含量 / 湿度
     # 环境场只在 env_update 时变化: 缓存键带 _envVer, 图层表面整块复用
     _env_ver = int(sim.get('_envVer', -1))
+    # 色阶类图层用 **±90 的填充版映射**(数组已被 _pad_poles 补到两极)
+    _gpad = grid_pad if grid_pad is not None else grid
     if 'sst' in layers:
         arr = render_env_layer(sim, 'sst')
-        _blit_layer(surface, arr, fx, fy, alpha=210, cache_key=('sst', _env_ver))
+        _blit_layer(surface, arr, fx, fy, alpha=210,
+                    cache_key=('sst', _env_ver), grid=_gpad)
     if 'ohc' in layers:
         arr = render_env_layer(sim, 'ohc')
-        _blit_layer(surface, arr, fx, fy, alpha=190, cache_key=('ohc', _env_ver))
+        _blit_layer(surface, arr, fx, fy, alpha=190,
+                    cache_key=('ohc', _env_ver), grid=_gpad)
     if 'rh' in layers:
         arr = render_env_layer(sim, 'rh')
-        _blit_layer(surface, arr, fx, fy, cache_key=('rh', _env_ver))
+        _blit_layer(surface, arr, fx, fy, cache_key=('rh', _env_ver), grid=_gpad)
     if 'shear' in layers:
-        arr = render_env_layer(sim, 'shear')
-        _blit_layer(surface, arr, fx, fy, alpha=170, cache_key=('shear', _env_ver))
+        # 风切: **默认色阶**(用户 2026-09-19: 默认色阶而不是线); 切到线时用
+        # CIMSS 风格等值线(带数值标注)。
+        try:
+            if sim.get('_shear_fill', True):
+                arr = render_env_layer(sim, 'shear')
+                _blit_layer(surface, arr, fx, fy, alpha=150,
+                            cache_key=('shear', _env_ver), grid=_gpad)
+            else:
+                draw_shear_contours(surface, sim, gx, gy)
+        except Exception:
+            logger.debug('simcore 图层绘制失败', exc_info=True)
     # 气压
     if 'pressure' in layers:
         try:
-            draw_contours(surface, sim, fx, fy)
+            draw_contours(surface, sim, gx, gy)
         except Exception:
             logger.debug('simcore 图层绘制失败', exc_info=True)
     # 环流流线(细线, 参考视频那种"淡流线"表达; 不含云)
     if 'flow' in layers:
         try:
-            draw_streamlines(surface, sim, fx, fy)
+            draw_streamlines(surface, sim, gx, gy, grid=grid)
+        except Exception:
+            logger.debug('simcore 图层绘制失败', exc_info=True)
+    # 洋流(表层流线)
+    if 'current' in layers:
+        try:
+            draw_currents(surface, sim, gx, gy, grid=grid)
         except Exception:
             logger.debug('simcore 图层绘制失败', exc_info=True)
     # 副高 5880 线(近似: pEnv 等值线 + 内部橙色填充)
     if 'ridge' in layers:
         try:
-            draw_ridge(surface, sim, fx, fy)
+            # 轮次 153: 必须传 `grid=grid` —— `draw_ridge` 的"视野内像素"计数
+            # (`RIDGE_VISIBLE_PX`, 供"副高中心不在当前视野"提示)只在拿到 grid 时
+            # 才走 `grid.visible()/src_window()` 那条分支; 漏传则走 else 分支数
+            # **全球**掩码, 恒 > 0 ⇒ 提示永不触发、新功能等于没做。
+            # 同文件 streamlines/currents 都传了 grid, 只有这里漏了。
+            draw_ridge(surface, sim, gx, gy, grid=grid)
         except Exception:
             logger.debug('simcore 图层绘制失败', exc_info=True)
     # 风场
     if 'wind' in layers:
-        if particles is not None:
-            particles.draw(surface, fx, fy)
-        try:
-            if sim.get('_show_barbs', True):
-                draw_barbs(surface, sim, fx, fy)
-        except Exception:
-            logger.debug('simcore 图层绘制失败', exc_info=True)
+        _wmode = str(sim.get('_wind_mode', 'barbs'))
+        if _wmode == 'stream':
+            try:
+                draw_streamlines(surface, sim, gx, gy, grid=grid)
+            except Exception:
+                logger.debug('simcore 图层绘制失败', exc_info=True)
+        else:
+            if _wmode == 'particles' and particles is not None:
+                particles.draw(surface, gx, gy)
+            try:
+                if sim.get('_show_barbs', True):
+                    draw_barbs(surface, sim, gx, gy, grid=grid)
+            except Exception:
+                logger.debug('simcore 图层绘制失败', exc_info=True)
     # 路径 + 预报(误差圈模式, 样式可选 JMA/JTWC)
     # 注意: 台风路径本体由模拟模式 mixin 用其它模式的点阵/渐变线管线绘制,
     # 此处仅画预报误差圈
+    # ⚠⚠ 轮次 155: `draw_tc_hud`(风圈/四象限弧/眼墙/头顶文字)原来**与这个 if 同缩进**,
+    # 也就是在门控**之外** ⇒ 用数字键切到非路径图层后, 路径/图标/名字/信息框都消失了,
+    # 但 34/50/64kt 风圈与眼墙还留在屏幕上(与轮次 151 修掉的"幽灵图标"是同一类漏挂)。
     if 'track' in layers:
         try:
             if sim.get('_show_forecast', True):
@@ -905,42 +1704,87 @@ def render_map(surface, sim, fx: Callable, fy: Callable,
                               style=sim.get('_fcst_style', 'JTWC'))
         except Exception:
             logger.debug('simcore 图层绘制失败', exc_info=True)
-    try:
-        draw_tc_hud(surface, sim, sel_tc['id'] if sel_tc else None, fx, fy,
-                    icon_fn,
-                    quadrant=bool(sim.get('_quad_rings', True)),
-                    show_rings=bool(sim.get('_show_rings', True)),
-                    show_labels=bool(sim.get('_show_labels', True)))
-    except Exception:
-        logger.debug('simcore 图层绘制失败', exc_info=True)
+        try:
+            draw_tc_hud(surface, sim, sel_tc['id'] if sel_tc else None, fx, fy,
+                        icon_fn,
+                        quadrant=bool(sim.get('_quad_rings', True)),
+                        show_rings=bool(sim.get('_show_rings', True)),
+                        # 模拟模式把"名字+强度+气压"统一挪到**头顶**(带字号/距离设置),
+                        # 所以这里不再画图标右侧那一行(否则两处重复)
+                        show_labels=bool(hud_labels))
+        except Exception:
+            logger.debug('simcore 图层绘制失败', exc_info=True)
 
 
 def _blit_layer(surface, rgba: np.ndarray, fx: Callable, fy: Callable,
-                alpha: int = 255, cache_key=None) -> None:
+                alpha: int = 255, cache_key=None, grid=None) -> None:
     """把 (H, W, 4) RGBA 环境层贴到地图。
 
     必须保留逐格 alpha: 原来只取 RGB 再统一 set_alpha, 陆地/缺测格(alpha=0)
     会被整体不透明地画上去, 湿度层也退化成整屏纯色块。
 
-    cache_key: (层名, 版本号) —— 命中时跳过 numpy 拼包 + smoothscale(实测 23ms/层)。
+    grid(GridMap): **推荐路径** —— 只把屏幕可见的那部分格点缩放后贴上,
+      顺带解决"整张域贴图"在放大视图下宽高爆炸的问题(实测 sst 层 1871ms 且
+      不可见)。grid=None 时退回旧的整体贴图(仅兼容旧调用/测试)。
+    cache_key: (层名, 版本号 等) —— 命中时跳过 numpy 拼包 + smoothscale。
     """
+    W, H = surface.get_size()
+    if grid is not None:
+        vis = grid.visible((W, H))
+        if vis is None:
+            return
+        ny, nx = rgba.shape[:2]
+        c0, r0, c1, r1, dst = grid.src_window(nx, ny, vis)
+        sub = rgba[r0:r1, c0:c1]
+        key = ((cache_key, 'g', c0, r0, c1, r1, dst.w, dst.h, int(alpha))
+               if cache_key is not None else None)
+        surf = _layer_surf_cache.get(key) if key is not None else None
+        if surf is None:
+            a = sub[..., 3].astype(np.uint16)
+            if alpha < 255:
+                a = (a * int(alpha)) // 255
+            buf = np.ascontiguousarray(
+                np.dstack([sub[..., :3], a.astype(np.uint8)]))
+            surf = pygame.image.frombuffer(buf.tobytes(),
+                                           (buf.shape[1], buf.shape[0]), 'RGBA')
+            if (surf.get_width(), surf.get_height()) != (dst.w, dst.h):
+                surf = pygame.transform.smoothscale(surf, (dst.w, dst.h))
+            if key is not None:
+                if len(_layer_surf_cache) >= _LAYER_SURF_CACHE_MAX:
+                    _layer_surf_cache.clear()
+                _layer_surf_cache[key] = surf
+        surface.blit(surf, dst.topleft)
+        return
+
+    # **数组覆盖的纬度跨度必须自己推**(用户 2026-09-19: "被压扁了, 纬度越高偏的越多")。
+    # 色阶类图层经 _pad_poles 补到 ±90(行数 ×1.5), 而这里原来写死按内核域 ±60
+    # 算高度 —— 于是 ±90 的场被压进 ±60 的屏幕框, 垂直方向被压扁 2/3, 误差随
+    # 纬度增大(赤道 0、极区最大), 正是用户看到的样子。
+    # 列永远覆盖 360°, 所以 跨度 = 360 × 行数/列数: 240/720→120°(±60)、
+    # 360/720→180°(±90)、1080/2160→180°、ridge 掩码 240/720→120° —— 全部自动正确。
+    _span = 360.0 * float(rgba.shape[0]) / float(max(1, rgba.shape[1]))
+    _lat_hi = _span / 2.0
+    _lat_lo = -_lat_hi
     w = max(1, int(fx(V.C['LON1']) - fx(V.C['LON0'])))
-    h = max(1, int(fy(V.C['LAT0']) - fy(V.C['LAT1'])))
+    h = max(1, int(fy(_lat_lo) - fy(_lat_hi)))
     surf = None
     key = (cache_key, w, h, int(alpha)) if cache_key is not None else None
     if key is not None:
         surf = _layer_surf_cache.get(key)
     if surf is None:
-        rgb = np.transpose(rgba[..., :3], (1, 0, 2))
-        a = np.transpose(rgba[..., 3], (1, 0)).astype(np.uint16)
+        # frombuffer 的 size 是 (宽, 高), 而数组是 (行=高, 列=宽)。原实现把数组
+        # transpose 成 (W,H,4) 又按 (W,H) 声明 —— 行列被转了两次, 整层场被**旋转 90 度**
+        # (纬度的南北梯度跑到屏幕水平方向, 就是"sst/ohc 竖条纹")。
+        # 正确做法: 不 transpose, 直接按 (列数, 行数) 声明。
+        a = rgba[..., 3].astype(np.uint16)
         if alpha < 255:
             a = (a * int(alpha)) // 255
-        buf = np.ascontiguousarray(np.dstack([rgb, a.astype(np.uint8)]))
+        buf = np.ascontiguousarray(np.dstack([rgba[..., :3], a.astype(np.uint8)]))
         surf = pygame.image.frombuffer(buf.tobytes(),
-                                       (buf.shape[0], buf.shape[1]), 'RGBA')
+                                       (buf.shape[1], buf.shape[0]), 'RGBA')
         surf = pygame.transform.smoothscale(surf, (w, h))
         if key is not None:
             if len(_layer_surf_cache) >= _LAYER_SURF_CACHE_MAX:
                 _layer_surf_cache.clear()
             _layer_surf_cache[key] = surf
-    surface.blit(surf, (fx(V.C['LON0']), fy(V.C['LAT1'])))
+    surface.blit(surf, (fx(V.C['LON0']), fy(_lat_hi)))

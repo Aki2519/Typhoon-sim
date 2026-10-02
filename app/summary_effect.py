@@ -15,7 +15,14 @@ _CAT_COLOR = {'DB': DB, 'TD': TD, 'TS': TS, 'STS': STS, 'C1': C1,
               'C4': C4, 'C4-ST': C4_ST, 'C5': C5_L}
 
 from .constants.fonts import _load_font, SmartFont, FONT_FILE
-from .smcy_icon import get_summary_frame, has_summary_video
+# ⚠ 2026-10-02(W1 修复1R): 原来这里是模块级
+#     from .smcy_icon import get_summary_frame, has_summary_video
+#   smcy_icon.py:10 有 `import cv2` ⇒ 而本模块被 app/statistics/summary_list.py:14
+#   模块级导入(→ app/dialog_manager.py → app/ty_sim.py) ⇒ OpenCV 进了启动路径。
+#   两个名字各自只有一个使用点, 已改为**函数内 import**:
+#     has_summary_video → available_for()   (每次创建摘要时一次)
+#     get_summary_frame → draw()            (只有摘要条在动画时才走到;
+#                                            sys.modules 命中后仅一次 dict 查找)
 from .statistics.chart_helpers import _haversine_chain
 from .utils import infer_strength_category, display_category, get_tropical_points
 from .ty_sim_mixins._draw_icon_mixin import _apply_purple_filter, _purple_tier
@@ -174,6 +181,7 @@ class TyphoonSummary:
     @classmethod
     def available_for(cls, ty: Typhoon) -> bool:
         """是否存在对应的摘要视频；没有的等级（如 SD）不做总结。"""
+        from .smcy_icon import has_summary_video     # W1 修复1R: 函数内 import
         hemi = 'S' if ty.v.mirror else 'N'
         return has_summary_video(cls._find_peak(ty), hemi)
 
@@ -246,6 +254,7 @@ class TyphoonSummary:
         bar_w = min(bar_w, surface.get_width() - self.RIGHT_MARGIN - bar_x)
         bar_w = max(4, bar_w)   # 极窄窗口下保持最小宽度,不强制回扩 64(T3-9)
         target_size = (bar_w, self.BAR_H)
+        from .smcy_icon import get_summary_frame     # W1 修复1R: 函数内 import
         frame = get_summary_frame(self._cat, self._hemi, self._frame_idx, target_size)
         # 155+/170+ 紫色滤镜（仅热带 C5 巅峰）; 结果按帧缓存,避免每帧 copy+numpy(法8)
         tier = _purple_tier(self._max_wind) if self._cat == 'C5' else None

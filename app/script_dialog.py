@@ -36,7 +36,9 @@ def _ime_release(owner):
         _ime_owner = None
 
 
-SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'script')
+# script/ 已并入 tests/script/(用户 2026-09-19 精简主目录)
+SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          'tests', 'script')
 
 # 对话框尺寸
 DIALOG_W = 550

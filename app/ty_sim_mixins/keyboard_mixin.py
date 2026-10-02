@@ -353,8 +353,18 @@ class TySimKeyboardMixin:
         return None
 
     def _key_j(self) -> bool:
-        self.script_dialog.activate()
-        return True
+        """J: 打开镜头跟踪(风季/正常模式)。
+
+        轮次 160: 用户要求「**打开镜头跟踪的快捷键改为 j**」。这里直接复用
+        `_btn_track()` 那条既有路径(模式判断在它里面), **不另写一套激活逻辑**。
+
+        ⚠ 这个键**原本已被占用**(`input_ctrl.py:42 pygame.K_j → _key_j` →
+        `script_dialog.activate()`, 剧本对话框, 且未列在快捷键说明表里)。
+        按用户明确要求让给镜头跟踪; 剧本对话框**功能不丢** —— 它仍有按钮入口
+        `_btn_script()`(本文件下方)。若日后要把剧本对话框绑到别的键, 只需在
+        `input_ctrl.py` 的命令表里加一行。
+        """
+        return self._btn_track()
 
     def _key_d(self) -> bool:
         """D: 打开绘画面板(正常/风季/编辑模式)。"""
@@ -367,7 +377,21 @@ class TySimKeyboardMixin:
         if os.name == 'nt':
             try:
                 import win32gui, win32con
-                hwnd = win32gui.FindWindow(None, "台风路径模拟系统")
+                # ⚠⚠ 审查抓到: 这里原来**硬编码**标题 "台风路径模拟系统", 而
+                # (ty_sim.py:679-698)在主循环里**每帧**把
+                # 标题改成 "正常模式 / 风季 · … / 模拟 · 台风数值模拟"。
+                # ⇒ 启动后 FindWindow 永远找不到窗口 ⇒ 返回 False ⇒
+                #   (F12) 不改 cfg、也不提示 ——
+                #   **F12 实际上一直是空按的**; 只有启动那一刻(标题还没被改)
+                #   由  施加才生效, 这正是"置顶看起来只在重启后有效"的原因。
+                # 用**当前真实标题**(与 settings.py 里 actual_client_size/
+                # keep_window_on_screen 的取法一致)。
+                try:
+                    import pygame as _pg
+                    _title = _pg.display.get_caption()[0]
+                except Exception:
+                    _title = "台风路径模拟系统"
+                hwnd = win32gui.FindWindow(None, _title)
                 if hwnd:
                     win32gui.SetWindowPos(hwnd,
                                           win32con.HWND_TOPMOST if state else win32con.HWND_NOTOPMOST,
@@ -389,6 +413,57 @@ class TySimKeyboardMixin:
             self.save_config()
             return True
         return False
+
+    def _apply_panel_height_for_mode(self) -> None:
+        """按模式设定控制面板高度(并把 map_height 同步跟着移动)。
+
+        用户 2026-09-19: "上方的图层显示放到下方功能栏" —— 模拟模式的图层开关
+        当时搬进了功能栏的**第三行**, 而面板只有 100px(两行), 所以模拟模式加高 34px。
+
+        ⚠⚠ 2026-10-01 用户要求改掉: **"功能栏不能抬高高度, 你需要找别的方法放下那些按钮"**
+        ⇒ 图层那一组改成**浮在地图区域内**(见 `ControlPanel._layer_row_y`),
+          功能栏**不再加高**, 所有模式统一 100px。
+          原来这里的 `want = CPH + (34 if sim else 0)` 正是用户说的
+          "模拟模式的各种叠加层会自动拉高功能栏"。
+        """
+        from ..constants import CPH
+        want = CPH
+        # ⚠ 审查抓到(一般): 图层弹层只在 sim 模式的 build() 里重建, 切到
+        # NORMAL/EDIT 后  仍为 True ⇒ draw() 照画、hit_test
+        # 仍返回 layer_*, 会抢走该条带内的地图点击。这里在**切模式时统一收起**。
+        # (弹层本不该跨模式存活, 它是模拟模式专用的。)
+        try:
+            cp = getattr(self, 'control_panel', None)
+            if cp is not None:
+                cp.close_layer_popup()
+        except Exception:
+            pass
+        if getattr(self, 'control_panel_height', None) == want:
+            return
+        self.control_panel_height = want
+        self.map_height = max(120, self.screen_height - want)
+        try:
+            self.view.map_height = self.map_height
+        except Exception:
+            pass
+        mv = getattr(getattr(self, 'map_mgr', None), 'map_view', None)
+        if mv is not None:
+            # 只让"可视高度"生效; **绝对不要**调 update_view() —— 它内部会
+            # _fit_view() 把镜头重新对准配置里的洋区框(mlo/Mlo/mla/Mla), 于是
+            # **每次切换模式视角都被重置**(用户 2026-09-19: "切换到模拟不要自作
+            # 主张地改变其它模式的视角, 继承视角")。MapView.resize 现在会保持
+            # 视野中心, 这里只需把缓存作废让新尺寸重绘。
+            mv.resize(self.screen_width, self.map_height)
+            try:
+                self.map_mgr._cached_map_render = None
+            except Exception:
+                pass
+            self.map_draw_rect = self.map_mgr.get_draw_rect()
+        self._panel = None
+        try:
+            self.update_all_screen_points()
+        except Exception:
+            pass
 
     def switch_mode(self) -> None:
         if hasattr(self, '_panel'):
@@ -466,6 +541,8 @@ class TySimKeyboardMixin:
         else:
             pass
 
+        self._apply_panel_height_for_mode()
+
         self._config_needs_save = True
         self.save_config()
 
@@ -480,6 +557,19 @@ class TySimKeyboardMixin:
         btn_key = cp.hit_test(pos)
         if btn_key is None:
             return False
+        # 功能栏第三行(仅模拟模式): 图层开关 / 环境层三选一 / 样式循环
+        if btn_key.startswith('layer_'):
+            self._sim_toggle_layer(btn_key[len('layer_'):])
+            return True
+        if btn_key.startswith('envlay_'):
+            self._sim_set_env_layer(btn_key[len('envlay_'):])
+            return True
+        if btn_key == 'wind_mode':
+            self._sim_cycle_wind_mode()
+            return True
+        if btn_key == 'shear_style':
+            self._sim_cycle_shear_style()
+            return True
         handler = getattr(self, f"_btn_{btn_key}", None)
         if handler:
             return handler()
@@ -531,22 +621,33 @@ class TySimKeyboardMixin:
 
     # ── 模拟模式按钮 ──
     def _btn_sim_layer(self) -> bool:
+        """「图层:<简称>」按钮: **循环切换独占环境层**(契约不变)。
+
+        ⚠ 2026-10-01 我一度把它改成"开关弹层", 打断了
+        `tests/test_sim_mode.py::test_layer_cycle` 钉住的行为(全量回归抓到) ——
+        这个方法是**被直接调用的语义 API**, 不是纯 UI 钩子, 不能改含义。
+        图层弹层改由**另一个按钮** `_btn_sim_layer_menu` 打开。
+        """
         idx = SIM_LAYER_IDS.index(self.sim_layer)
         self._sim_set_layer(SIM_LAYER_IDS[(idx + 1) % len(SIM_LAYER_IDS)])
         return True
 
+    def _btn_sim_layer_menu(self) -> bool:
+        """打开/收起**图层弹层**(图层开关 + 环境层 + 样式)。
+
+        用户 2026-10-01: "功能栏不能抬高高度" + "我要录视频! 不要把按钮放在界面里!"
+        ⇒ 这些按钮收进**默认不可见**的弹层, 由这个按钮开关。
+        """
+        cp = getattr(self, 'control_panel', None)
+        if cp is None:
+            return False
+        cp.toggle_layer_popup()
+        return True
+
     def _btn_sim_spd(self) -> bool:
-        # 速度档位循环(与全局速度条共用 self.sp, 不依赖档位列表索引)
-        steps = [0.5, 1.0, 2.0, 4.0, 8.0]
-        nxt = steps[0]
-        if self.sp < steps[-1] - 1e-9:
-            for s in steps:
-                if self.sp < s - 1e-9:
-                    nxt = s
-                    break
-                nxt = s
-        self.sp = min(self.mas, max(self.mis, nxt))
-        self._sim_notice(f"速度: {self.sp:g}×")
+        # 速度档位循环: 走 SimModeMixin 的唯一实现(SIM_SPEEDS 表 + cfg 记忆),
+        # 免得这里和面板"模拟速度"行各存一份档位表, 早晚漂开
+        self._sim_cycle_speed()
         return True
 
     def _btn_sim_gen(self) -> bool:
@@ -554,12 +655,8 @@ class TySimKeyboardMixin:
         return True
 
     def _btn_sim_nat(self) -> bool:
-        self.sim_natural_gen = not self.sim_natural_gen
-        # 同步 SimCore 生成开关
-        if self.sim_v4 is not None:
-            self.sim_v4['params']['genesis'] = self.sim_natural_gen
-        self._sim_notice("自然生成: " + ("开" if self.sim_natural_gen else "关"))
-        return True
+        # 走 mixin 的唯一实现(面板与按键共用, 且会镜像到 cfg 记住)
+        return self._sim_toggle_natural_gen()
 
     def _btn_sim_sett(self) -> bool:
         self.dialog_mgr.sim_settings.activate()
@@ -571,6 +668,50 @@ class TySimKeyboardMixin:
             self._sim_notice(f"已导出: {os.path.basename(fn)}")
         except Exception as exc:
             self._sim_notice(f"导出失败: {exc}")
+        return True
+
+    def _btn_sim_move_bdeck(self) -> bool:
+        """把 ./sim_typhoon 里的实时记录**移动到** typhoon/sim/ (用户手动触发)。
+
+        设计(用户 2026-09-20):
+          * 模拟期间的 b-deck **实时记录到 ./sim_typhoon**, **不写 typhoon/**;
+          * 目录**分年份、分洋区**(与 G:\\气象\\数据\\自评 一样):
+            `sim_typhoon/<年>/<年><洋区>/<洋区><NN><年>.dat`;
+          * 看完觉得可以了, 再点这个按钮把整棵树搬进 `typhoon/sim/<年>/<年><洋区>/`,
+            搬完清空源目录(真正的"移动")。
+        """
+        import re as _re
+        import shutil as _sh
+        # 本文件是 app/ty_sim_mixins/keyboard_mixin.py → 上三级才是**仓库根**
+        # (原来少了一级, 结果把文件搬进了 app/typhoon/ ✗ 实测踩过)
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        src = os.path.join(root, 'sim_typhoon')
+        if not os.path.isdir(src):
+            self._sim_notice('没有 sim_typhoon 目录(还没跑过实时记录)')
+            return True
+        n, years, basins = 0, set(), set()
+        for yr in sorted(os.listdir(src)):
+            ydir = os.path.join(src, yr)
+            if not (os.path.isdir(ydir) and _re.fullmatch(r'20\d\d', yr)):
+                continue
+            for sub in sorted(os.listdir(ydir)):
+                sdir = os.path.join(ydir, sub)
+                if not os.path.isdir(sdir):
+                    continue
+                dst_dir = os.path.join(root, 'typhoon', 'sim', yr, sub)
+                os.makedirs(dst_dir, exist_ok=True)
+                for f in sorted(os.listdir(sdir)):
+                    if not f.endswith('.dat'):
+                        continue
+                    _sh.move(os.path.join(sdir, f), os.path.join(dst_dir, f))
+                    n += 1
+                    years.add(yr)
+                    basins.add(sub)
+        if not n:
+            self._sim_notice('sim_typhoon 里没有 b-deck 文件')
+            return True
+        self._sim_notice('已移入 typhoon/sim/%s: %d 个 (%s)'
+                         % ('+'.join(sorted(years)), n, '+'.join(sorted(basins))))
         return True
 
     def _btn_new_typhoon(self) -> bool:
@@ -623,6 +764,16 @@ class TySimKeyboardMixin:
     def _btn_script(self) -> bool:
         self.script_dialog.activate()
         return True
+
+    def _key_u(self) -> bool:
+        """U: 打开剧本对话框。
+
+        轮次 160(用户裁决): 它原来是 `J` 的隐藏快捷键, 而 `J` 让给了"镜头跟踪"
+        (`_key_j`), 剧本对话框改绑到空闲的 `U`。直接复用既有入口 `_btn_script()`,
+        不另写激活逻辑; **模式限制跟着它** —— `_btn_script` 没有任何模式判断,
+        所以 U 在**所有模式**下都能打开剧本对话框(与 J 只在风季/正常不同)。
+        """
+        return self._btn_script()
 
     def _btn_paint(self) -> bool:
         self.dialog_mgr.paint_dialog.activate()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pygame
 import logging
 from pygame_textinput import TextInputManager
-from .constants import f_s, TXT, BUTTON_BORDER
+from .constants import f_s, TXT, BUTTON_BORDER, rt
 from typing import Optional, Callable, Tuple, Union
 
 logger = logging.getLogger(__name__)
@@ -535,7 +535,8 @@ class InputField:
 
         r = self.rect.move(0, y_offset)
         if self.label:
-            label_surf = self.font.render(self.label, True, tc)
+            # 走 rt()(复用 fonts.rt 的字节预算缓存); 返回面只读(blit), 未就地修改。
+            label_surf = rt(self.font, self.label, tc)
             surface.blit(label_surf, (r.x, r.y - 20))
 
         pygame.draw.rect(surface, bg, r, 0, 3)
@@ -572,7 +573,8 @@ class InputField:
                         self._sel_hl_cache[hl_key] = hl_surf
                     surface.blit(hl_surf, (x_start, text_y))
 
-            text_surf = self.font.render(val, True, tc)
+            # 走 rt(); 返回面只读(blit), 未就地修改。
+            text_surf = rt(self.font, val, tc)
             surface.blit(text_surf, (text_x, text_y))
 
         if self.active and (pygame.time.get_ticks() % 1000 < 500):

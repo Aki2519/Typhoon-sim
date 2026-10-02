@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import math
 import os
+import sys
 from typing import List, Optional, Tuple
 
 import pygame
@@ -26,6 +27,10 @@ import pygame
 from .constants.colors import (
     WIKI_SCALE, COLOR_2023_SCALE,
 )
+#: 抗锯齿原语（共享底座，**只读使用**；见 app/paint_aa.py 与本报告 §A）。
+#: pygame 基础图元(circle/polygon/rect/line)完全无抗锯齿 —— 用户点名的"定点太像素化"
+#: 根因就在这里。统一改走超采样精灵。
+from . import paint_aa
 from .data_repo import DataRepository
 from .utils import infer_strength_category
 
@@ -152,6 +157,34 @@ def compute_track_stats(tys):
     return out
 
 
+#: 支持的投影名 —— 与 P4 的 `paint_projection.PROJECTIONS` / P5 的 `cfg["projection"]` 同名。
+_PROJECTIONS = ("equirect", "conic")
+
+#: ⚠ 这里曾有一个调用侧上限 `_AA_LINE_MAX_PX = 96`（长段回落 aliased 直绘），
+#: 2026-10-02 **已删除**：`paint_aa` 内部现在有 `_AA_LINE_CHUNK_PX` 等长分块 + 接缝补偿
+#: （单次分配 64.7 MB → 665 KB），调用侧再留阈值只会让长段白白失去 AA。
+#: **内存边界归底座，取景/几何归渲染器** —— 别在两个地方各放一个阈值。
+
+#: Ty4 精确模式的 px/°：底图原生 10800×5400 / 360°×180° = **30 px/°**（TY4_SPEC §0-1）。
+_TY4_PX_PER_DEG = 30.0
+
+#: P4 的 `app/paint_projection.py`。**契约（已冻结）**：
+#:   `make_ctx(name, bounds, size, pad=0, **over) -> ctx`（自动装箱+居中；传 scale/ox/oy 可跳过）
+#:   `project(name, lon, lat, ctx) -> (x, y)`（**画布内容区相对**像素 ⇒ 调用方要加 `inner.x/y`）
+#: 每类 warning **只打一次**（避免一万个点打一万条日志）。
+_proj_warned_keys: set = set()
+
+
+def _proj_warn(key: str, msg: str) -> None:
+    if key in _proj_warned_keys:
+        return
+    _proj_warned_keys.add(key)
+    try:
+        print(f"[paint_render] {msg}", file=sys.stderr)
+    except Exception:
+        pass
+
+
 class TrackMapRenderer:
     """把一组路径点渲染为 Track Map Surface。"""
 
@@ -174,7 +207,9 @@ class TrackMapRenderer:
         self.all_points = bool(o.get("all_points", True))
         self.grid = bool(o.get("grid", False))
         self.draw_rad = o.get("draw_rad", "none")         # none/all/last/tropical
-        self.multireset = o.get("multireset", "none")     # 保留(兼容)
+        # `multireset`（多文件重置）**死参数已删除**：Ty4 的 `MultipleFile` 只实现了 `==2`
+        # （§11.2，`1` 无任何代码），而我们本就"逐台风独立画路径"、不存在跨文件连线需要
+        # 重置 ⇒ 该选项在语义上是空的。旧调用方仍可传该键（`o.get` 不报错），只是不再读取。
         self.legend_pos = o.get("legend_pos", "auto")
         self.legend_entries = o.get("legend_entries", None)
         self.legend_bg = bool(o.get("legend_bg", False))  # 图例半透明底框, 默认不画
@@ -183,6 +218,25 @@ class TrackMapRenderer:
         self.labels = bool(o.get("labels", False))
         self.font = o.get("font", None)
         self.output_size = o.get("output_size", None)
+        #: 投影名。与 P4/P5 约定同名（`cfg["projection"]`，字符串）：
+        #: `"equirect"`（等距圆柱，默认/缺省/非法值一律回落它）/ `"conic"`（圆锥，P4 交付）。
+        #: ⚠ P4 的 `app/paint_projection.py` 尚不存在 ⇒ 现在 `"conic"` 会**回落等距圆柱**并
+        #: 打一条 warning（每进程一次），等 P4 落地后自动接线，P3 不需要再改。
+        _pj = o.get("projection") or "equirect"
+        self.projection = _pj if _pj in _PROJECTIONS else "equirect"
+        #: 画布模式。**默认 `"fit"` = 现状**（按跨度纵横比 + min_w/min_h 反推 px/°），
+        #: 保证老调用方/老测试零改动；`"ty4"` = **Typhoon4 精确模式**（TY4_SPEC §0-2/§14）：
+        #: px/° 恒为 `ty4_px_per_deg`(=30，即底图原生 10800×5400/360×180)、
+        #: `W = max(min_w, ceil(bbox_w_px) + 2×WidthSpace_px)`、底图 **1:1 裁剪不缩放**、
+        #: 轨迹严格居中，且 `margin_w/margin_h` 按**像素**解释（不是 deg 模式里的"度"）。
+        _cm = o.get("canvas_mode") or "fit"
+        self.canvas_mode = "ty4" if _cm == "ty4" else "fit"
+        #: ty4 模式的 px/°。默认 30；若换底图可按 `底图宽/360` 传进来。
+        self.ty4_px_per_deg = float(o.get("px_per_deg", _TY4_PX_PER_DEG))
+        #: 本次渲染实际生效的投影（ty4 模式下会被钉成 `"equirect"`，见 `render()`）
+        self._pj_active = self.projection
+        #: P4 `ctx` 的缓存槽 `(key, ctx)` —— 见 `_projection_ctx()`
+        self._pj_ctx_cache = None
 
     # ── 投影: 相对内容区(内容区 = 去掉留边后的矩形) ──
 
@@ -192,38 +246,165 @@ class TrackMapRenderer:
         span_lat = lat_max - lat_min
         if span_lon <= 0 or span_lat <= 0 or inner.w <= 0 or inner.h <= 0:
             return None
+        if self._pj_active != "equirect":
+            pt = self._proj_via_p4(lo, la, bounds, inner)
+            if pt is not None:
+                return pt
+            # P4 不可用 ⇒ 回落（warning 已打过一次），继续走下面的等距圆柱
         x = inner.x + (lo - lon_min) / span_lon * inner.w
         y = inner.y + (lat_max - la) / span_lat * inner.h
         return (int(x), int(y))
+
+    def _projection_ctx(self, bounds, inner: pygame.Rect):
+        """构造并**缓存** P4 的 `ctx`。
+
+        `make_ctx` 要采样一圈边界求投影包围盒（不便宜）⇒ **一帧只建一次**；
+        以 `(投影名, bounds, inner 宽高)` 为键失效（同一渲染器换台风/换窗口才重建）。
+        """
+        key = (self._pj_active, tuple(float(v) for v in bounds), inner.w, inner.h)
+        if self._pj_ctx_cache is not None and self._pj_ctx_cache[0] == key:
+            return self._pj_ctx_cache[1]
+        ctx = None
+        try:
+            from . import paint_projection as PJ
+            ctx = PJ.make_ctx(self._pj_active, bounds, (inner.w, inner.h))
+        except Exception as e:
+            _proj_warn("fail:" + str(self._pj_active),
+                       f"投影 '{self._pj_active}' 不可用({e})：本次回落等距圆柱。")
+        self._pj_ctx_cache = (key, ctx)
+        return ctx
+
+    def _proj_via_p4(self, lo: float, la: float, bounds, inner: pygame.Rect):
+        """走 P4：`ctx`（含自动装箱/居中）→ `project` → **补 `inner` 偏移**。"""
+        ctx = self._projection_ctx(bounds, inner)
+        if ctx is None:
+            return None
+        try:
+            from . import paint_projection as PJ
+            x, y = PJ.project(self._pj_active, lo, la, ctx)
+            # ⚠ P4 返回的是**内容区相对**坐标（原点在内容区左上角）⇒ 必须加 inner 偏移
+            return (int(x) + inner.x, int(y) + inner.y)
+        except Exception as e:
+            _proj_warn("fail:" + str(self._pj_active),
+                       f"投影 '{self._pj_active}' 调用失败({e})：本次回落等距圆柱。")
+            return None
+
+    # ── Ty4 线宽 / 点径（TY4_SPEC §7.1 的两分支） ──
+
+    def _px_track(self) -> int:
+        """线宽(px)。`px` 单位 ⇒ `round(Track)`；`deg` 单位 ⇒ `round(track_deg×k)`。"""
+        if self.coord_unit == "px":
+            return max(1, int(round(self.path_width)))
+        return max(1, int(round(self.track_deg * self._k)))
+
+    def _px_point_radius(self) -> float:
+        """**点半径**(px，浮点，不取整)。
+
+        Ty4: `px_point = max(1.0, Point×px_per_deg/2)`（§7.1「除 2 = 半径」）；
+        `px` 单位下 `Point` 直接当像素用 ⇒ 半径 = `point_size/2`。
+        """
+        if self.coord_unit == "px":
+            return max(1.0, self.point_size / 2.0)
+        return max(2.0, self.point_deg * self._k * 0.5)
+
+    # ── Ty4 精确模式画布（TY4_SPEC §0-2 / §14） ──
+
+    def _ty4_canvas(self, tys):
+        """按 Typhoon4 公式算 `(bounds, out_w, out_h)`。
+
+        ```
+        tw = (lon1-lon0)*30 ; th = (lat1-lat0)*30
+        W  = max(min_w, ceil(tw) + 2*WidthSpace_px)
+        H  = max(min_h, ceil(th) + 2*HeightSpace_px)
+        x0 = round(cx_px - W/2) ; y0 = round(cy_px - H/2)      # 轨迹严格居中
+        bounds = (x0/30, (x0+W)/30, 90-(y0+H)/30, 90-y0/30)    # 1:1 裁剪窗口
+        ```
+        `bounds` 是"以画布中心为轨迹 bbox 中心"的经纬窗口 ⇒ 调用方按 `k=30` 投影即得
+        **1:1 裁剪**。`margin_w/margin_h` 在这里按**像素**用（与 deg 模式的"度"区分）。
+        """
+        ppd = self.ty4_px_per_deg
+        lons, lats = [], []
+        for ty in tys:
+            pts = ty.pts if hasattr(ty, 'pts') else ty
+            for p in pts:
+                if self.skip_invest and _skip_invest_point(p):
+                    continue
+                try:
+                    lons.append(float(p.get('lo', 0) or 0))
+                    lats.append(float(p.get('la', 0) or 0))
+                except (TypeError, ValueError):
+                    continue
+        if not lons or not lats:
+            lons, lats = [90.0, 180.0], [0.0, 40.0]
+        lon0, lon1 = min(lons), max(lons)
+        lat0, lat1 = min(lats), max(lats)
+        # ⚠ 这里**故意不 `ceil`**：规格书 §14 是 `W = max(W_MIN, tw + 2*HALF_W)`（`tw` 为浮点），
+        # 随后交给 PIL `crop` 取整；用 `ceil` 会让"跨度 ×30 恰好是整数、但浮点略大一点"
+        # 的情况多出 1 px（实测 sinlaku: 67.4000001° ⇒ ceil 给 2743，基准图是 2742）。
+        # 截断与原来"用浮点再裁剪"的语义一致。
+        out_w = int(max(self.min_w, (lon1 - lon0) * ppd + 2 * int(self.margin_w)))
+        out_h = int(max(self.min_h, (lat1 - lat0) * ppd + 2 * int(self.margin_h)))
+        # 轨迹严格居中（取整到整像素 ⇒ 中心偏差 ≤0.5 px，规格书容差 ≤1 px）
+        cx_px = (lon0 + lon1) / 2.0 * ppd
+        cy_px = (90.0 - (lat0 + lat1) / 2.0) * ppd
+        x0 = round(cx_px - out_w / 2.0)
+        y0 = round(cy_px - out_h / 2.0)
+        bounds = (x0 / ppd, (x0 + out_w) / ppd,
+                  90.0 - (y0 + out_h) / ppd, 90.0 - y0 / ppd)
+        return bounds, out_w, out_h
 
     # ── 主入口 ──
 
     def render(self, tys, mode: str = "normal", region=None,
                map_surface: Optional[pygame.Surface] = None):
         """返回 (Surface, stats)。stats = compute_track_stats 结果。"""
-        bounds = resolve_bounds(tys, mode, region, self.margin_w, self.margin_h,
-                                include_invest=not self.skip_invest)
-        # 内容区尺寸(保持经纬纵横比)
-        content_w, content_h = self._auto_output_size(bounds)
-        # 输出尺寸 + 内容区偏移
-        if self.output_size:
-            out_w, out_h = self.output_size
+        # Ty4 精确模式：画布与窗口由 §0-2 公式直接给出（`output_size` 仍可由调用方强压）。
+        _ty4 = (self.canvas_mode == "ty4" and mode == "normal" and not self.output_size)
+        if _ty4:
+            bounds, out_w, out_h = self._ty4_canvas(tys)
             inner = pygame.Rect(0, 0, out_w, out_h)
-        elif self.coord_unit == "px" and (self.margin_w or self.margin_h):
-            out_w = int(content_w + 2 * self.margin_w)
-            out_h = int(content_h + 2 * self.margin_h)
-            inner = pygame.Rect(int(self.margin_w), int(self.margin_h),
-                                content_w, content_h)
         else:
-            out_w, out_h = content_w, content_h
-            inner = pygame.Rect(0, 0, out_w, out_h)
+            bounds = resolve_bounds(tys, mode, region, self.margin_w, self.margin_h,
+                                    include_invest=not self.skip_invest)
+            # 内容区尺寸(保持经纬纵横比)
+            content_w, content_h = self._auto_output_size(bounds)
+            # 输出尺寸 + 内容区偏移
+            if self.output_size:
+                out_w, out_h = self.output_size
+                inner = pygame.Rect(0, 0, out_w, out_h)
+            elif self.coord_unit == "px" and (self.margin_w or self.margin_h):
+                out_w = int(content_w + 2 * self.margin_w)
+                out_h = int(content_h + 2 * self.margin_h)
+                inner = pygame.Rect(int(self.margin_w), int(self.margin_h),
+                                    content_w, content_h)
+            else:
+                out_w, out_h = content_w, content_h
+                inner = pygame.Rect(0, 0, out_w, out_h)
         out_w, out_h = max(320, out_w), max(240, out_h)
 
         self._point_density = self._compute_point_density(tys, bounds, inner)
 
-        # 角度制尺寸换算: 每度像素 k = 内容区宽/经度跨度(与纬度等比例, 保持正形)
-        span_lon = max(1e-6, bounds[1] - bounds[0])
-        self._k = inner.w / span_lon
+        if _ty4:
+            # px/° **恒为 30**（不由画布反推）⇒ 点径/线宽与台风 bbox 无关，与 Ty4 一致。
+            self._k = self.ty4_px_per_deg
+        else:
+            # 角度制尺寸换算: 每度像素 k = 内容区宽/经度跨度(与纬度等比例, 保持正形)
+            span_lon = max(1e-6, bounds[1] - bounds[0])
+            self._k = inner.w / span_lon
+
+        # 投影开关 × 画布模式的相容性（Lead 提问的那条，实测见报告 §3.4）：
+        # `make_ctx` 的自动装箱会把 scale 设成 `min(W/bw, H/bh)`（实测 conic=3.006、
+        # equirect=66.258），**不是** Ty4 的 30 px/°，且会重算 ox/oy 居中 ⇒ 会把
+        # "px/° 恒 30 + 1:1 裁剪"整条破坏。更根本的是：ty4 模式下垫在下面的底图就是
+        # 等距圆柱栅格（网格/标签都烘焙在其中），在其上画圆锥轨迹本身就不自洽。
+        # ⇒ ty4 模式**钉死 equirect**（要 conic 请用 canvas_mode="fit"），并明确告警。
+        self._pj_active = self.projection
+        if _ty4 and self.projection != "equirect":
+            self._pj_active = "equirect"
+            _proj_warn("ty4-pin",
+                       f"canvas_mode='ty4' 固定等距圆柱（底图是 1:1 裁剪的等距圆柱栅格，"
+                       f"网格/标签已烘焙在其中）；投影 '{self.projection}' 需要 "
+                       f"canvas_mode='fit'。本次按 equirect 渲染。")
 
         surf = pygame.Surface((out_w, out_h), pygame.SRCALPHA)
         self._draw_background(surf, bounds, inner, map_surface, out_w, out_h)
@@ -315,10 +496,19 @@ class TrackMapRenderer:
                 t2 = pygame.transform.smoothscale(c2, (d2_w, inner.h))
                 surf.blit(t2, (inner.x + d1_w, inner.y))
         else:
-            crop_rect = (sx, sy, max(1, min(sw, mw - sx)), sh)
-            crop = map_img.subsurface(crop_rect)
-            scaled = pygame.transform.smoothscale(crop, (inner.w, inner.h))
-            surf.blit(scaled, (inner.x, inner.y))
+            cw = max(1, min(sw, mw - sx))
+            # **1:1 像素直搬**（Ty4 精确模式的"底图不缩放"靠这里）：
+            # bounds 由 k=30 的整数窗口算出 ⇒ 裁剪尺寸恰好等于内容区尺寸；此时再
+            # smoothscale 只是白付一次重采样（并引入亚像素柔化）。允许 ±1 px 的
+            # 浮点/取整误差，超出才回落到缩放（`fit` 模式尺寸差很大，永远走缩放）。
+            if (abs(cw - inner.w) <= 1 and abs(sh - inner.h) <= 1
+                    and sx + inner.w <= mw and sy + inner.h <= mh):
+                crop = map_img.subsurface((sx, sy, inner.w, inner.h))
+                surf.blit(crop, (inner.x, inner.y))
+            else:
+                crop = map_img.subsurface((sx, sy, cw, sh))
+                scaled = pygame.transform.smoothscale(crop, (inner.w, inner.h))
+                surf.blit(scaled, (inner.x, inner.y))
 
     def _draw_grid(self, surf, bounds, inner):
         step = 10.0
@@ -379,7 +569,7 @@ class TrackMapRenderer:
         """
         if len(pts) < 2:
             return
-        line_w = max(1, int(round(self.track_deg * self._k)))
+        line_w = self._px_track()
         prev = None
         for p in pts:
             c = self._proj(float(p.get('lo', 0)), float(p.get('la', 0)), bounds, inner)
@@ -399,7 +589,16 @@ class TrackMapRenderer:
                 # 解包目标点经度到与上一束同轴的连续值, 使线段沿最短方向绘制
                 c2 = self._proj(lo1 + dlon, float(p.get('la', 0)), bounds, inner)
                 if c2 is not None:
-                    pygame.draw.line(surf, (255, 255, 255), (x1, y1), c2, line_w)
+                    # 抗锯齿：**所有段都走 `paint_aa.aa_line`**。
+                    # ⚠ 历史：这里曾有一个调用侧上限 `_AA_LINE_MAX_PX = 96`，超过就 aliased 直绘
+                    # （当时的理由：aa_line 的精灵尺寸 ∝ 段长，长跳段会造成大额临时分配）。
+                    # 2026-10-02 Lead 把守卫做进了 `paint_aa` 内部（`_AA_LINE_CHUNK_PX=96`
+                    # 等长分块 + 接缝补偿；实测单次分配 64.7 MB → 665 KB / 97×，沿线
+                    # 201 点采样 `zero_alpha_gaps: 0`）⇒ 这个上限**从保护变成了有害**：
+                    # 它让 >96px 的长段（全屏级路径/长跳段）**彻底失去 AA**。
+                    # 分块后内存边界由模块内负责 ⇒ 调用侧不该再留第二个阈值
+                    # （两个真相源会随底座改动悄悄失配）。故**删除**该上限。
+                    paint_aa.aa_line(surf, (255, 255, 255), (x1, y1), c2, line_w)
             prev = (c, p)
 
     # ── Ty4 原版定点点型规则 ──
@@ -447,14 +646,17 @@ class TrackMapRenderer:
         return ("circle", scheme_color(self.scheme, _eff_category(p)))
 
     def _draw_shape(self, surf, shape, color, cx, cy, r):
+        """画定点/原点。**全部走 `paint_aa`**（pygame 基础图元无抗锯齿 —— 用户点名的
+        "定点太像素化"根因）。`r` 允许浮点；`aa_disc/aa_rect` 收浮点半径。
+        """
         if shape == "square":
-            pygame.draw.rect(surf, color, (cx - r, cy - r, r * 2, r * 2))
+            paint_aa.aa_rect(surf, color, cx, cy, r)
         elif shape == "triangle":
             h = r * 1.6
             pts3 = [(cx, cy - h * 0.62), (cx - r, cy + h * 0.38), (cx + r, cy + h * 0.38)]
-            pygame.draw.polygon(surf, color, pts3)
+            paint_aa.aa_poly(surf, color, pts3)
         else:
-            pygame.draw.circle(surf, color, (cx, cy), r)
+            paint_aa.aa_disc(surf, color, (cx, cy), r)
 
     @staticmethod
     def _is_official(p) -> bool:
@@ -464,16 +666,22 @@ class TrackMapRenderer:
         return bool(hh) and hh in ("00", "06", "12", "18")
 
     def _draw_ty_points(self, surf, pts, bounds, inner):
-        r = max(2, int(round(self.point_deg * self._k * 0.5)))
+        # 半径**不取整**（原来 `int(round(...))` 会放大锯齿）；`px` 单位走 Ty4 的
+        # `Point/2` 分支（见 `_px_point_radius`）。
+        r = self._px_point_radius()
         if self.draw_rad != "none":
             self._draw_radii(surf, pts, bounds, inner)
-        pool = pts if self.all_points else pts[-1:]
+        # §11.2 `AllPoints`: **0 ⇒ 只画线不画点**（Ty4 `t4_render.py:365`）。
+        # ⚠ 原实现是 `pts[-1:]`（只画最后一个定位点）—— 那**不是** Ty4 的语义，
+        # 且与 UI 上"是否显示所有定位点"的开关含义不符 ⇒ 改为空池（一个点都不画）。
+        # 默认 `all_points=True` ⇒ 默认输出不变。
+        pool = pts if self.all_points else []
         for p in pool:
             c = self._proj(float(p.get('lo', 0)), float(p.get('la', 0)), bounds, inner)
             if c is None:
                 continue
             shape, color = self._point_style(p)
-            rr = r if self._is_official(p) else max(1, r // 2)
+            rr = r if self._is_official(p) else max(1.0, r * 0.5)
             self._draw_shape(surf, shape, color, c[0], c[1], rr)
 
     def _draw_radii(self, surf, pts, bounds, inner):
@@ -489,50 +697,78 @@ class TrackMapRenderer:
             if c is None:
                 continue
             wind = int(p.get('w', 0) or 0)
-            rad34 = int(p.get('r34', 0) or max(0, int(wind * 0.5)))
-            pygame.draw.circle(line_surf, ring_color, c, max(4, rad34 + self.point_size), 1)
+            # ⚠ 2026-10-02（Lead 裁定）：**不再用 `wind×0.5` 编造半径**。
+            # Ty4 的风圈来自 ATCF 的 `RAD/BP/TK` 行（§8：r34/r50/r64，单位海里，`/60` 转度，
+            # 画 45° 灰色扇形）。本机数据里**没有** RAD 行 ⇒ 原来那个 `wind×0.5` 是**假数据**，
+            # 用它画得再像 Ty4 也是"画了一个不存在的气旋尺度"，属用保真外衣掩盖数据造假。
+            # ⇒ **无真实 r34 就不画**（并在 UI/报告里说明）。真实数据到位后按 §8 实现。
+            rad34 = int(p.get('r34', 0) or 0)
+            if rad34 <= 0:
+                _proj_warn("rad-no-data",
+                           f"风圈：本机数据无 RAD 行（该点无真实 r34，wind={wind}kt）⇒ 不画风圈。"
+                           f"（旧实现用 wind×0.5 编造半径；§8 的 r34/r50/r64 扇形需真实 RAD 数据）")
+                continue
+            # 风圈同样无抗锯齿 ⇒ 改走 aa_ring（超采样圆环）
+            paint_aa.aa_ring(line_surf, ring_color, c, max(4, rad34 + self.point_size), 1)
         surf.blit(line_surf, (0, 0))
 
     def _draw_legend(self, surf):
+        """图例。几何按 **TY4_SPEC §5.1/§5.2** —— 随**画布高度**缩放。
+
+        megi 1920×1080 实测(§5.1)：7 行、**行距 27 px**、**色点 ⌀11**、色点右缘距画布右边
+        **6 px**、内容下缘距底 **8 px**、**文字与圆点同色 + 右对齐 + 无底框无描边**。
+        sinlaku H=2312 实测行距 58.0 ⇒ 58/27 = 2.148 ≈ 2312/1080 = 2.141
+        ⇒ **尺寸 ∝ 画布高**（`row = 27·H/1080`、`dot = 11·H/1080`、`pad ≈ dot/2`）。
+        ⚠ `Typhoon4Py` 的模型是"∝ px/°"（`dot = round(py_per_deg*0.8)`）⇒ 在 30 px/° 下
+        给出 dot 24 / row 59，是实测值的两倍 —— 那个模型是错的（§5.3），不要照它。
+        """
         entries = self.legend_entries or _default_entries()
         w, h = surf.get_size()
-        item_h = 26
-        pad = 12
+        s = h / 1080.0
+        row = 27.0 * s                    # 行距
+        dot = 11.0 * s                    # 色点**直径**
+        pad = dot / 2.0                   # §5.2: pad ≈ dot/2
+        n = max(1, len(entries))
+        block_h = row * n
         label_w = 0
         if self.font is not None:
-            label_w = max((self.font.size(lb)[0] for lb, _ in entries), default=0) + 30
-        lw = max(170, label_w + 32)
-        lh = len(entries) * item_h + pad * 2
+            label_w = max((self.font.size(lb)[0] for lb, _ in entries), default=0)
+        box_w = dot + 6.0 + label_w
         pos = self.legend_pos
         if pos == "auto":
-            pos = _auto_legend_corner(entries, lw, lh, w, h, self._point_density)
-        if pos == "tl":
-            x0, y0 = pad, pad
-        elif pos == "tr":
-            x0, y0 = w - lw - pad, pad
-        elif pos == "br":
-            x0, y0 = w - lw - pad, h - lh - pad
-        else:
-            x0, y0 = pad, h - lh - pad
-        panel = pygame.Surface((lw, lh), pygame.SRCALPHA)
+            pos = _auto_legend_corner(entries, int(box_w), int(block_h + pad), w, h,
+                                      self._point_density)
+        right = pos in ("tr", "br")
+        top = pos in ("tl", "tr")
+        # 圆点列：右侧锚点 ⇒ 圆点**右缘**距画布边 pad；左侧锚点做镜像。
+        # （Ty4 源码对左侧锚点用 `x_dot = pad` + `anchor="rm"` 会把文字推到画布外，
+        #  属其自身缺陷；我们镜像成"点在左、字在右"，见报告 §1 说明。）
+        x_dot_left = (w - pad - dot) if right else pad
+        y0 = pad if top else (h - block_h - pad)
         if self.legend_bg:
-            # 半透明深色底框(可选, 默认不画)
+            # 可选半透明底框（**我们的**功能，默认关；Ty4 参考图无底框）
+            bw, bh = int(box_w + pad * 2), int(block_h + pad * 2)
+            bx = (w - bw) if right else 0
+            by = 0 if top else (h - bh)
+            panel = pygame.Surface((bw, bh), pygame.SRCALPHA)
             pygame.draw.rect(panel, (15, 18, 25, 235), panel.get_rect(), border_radius=8)
             pygame.draw.rect(panel, (200, 210, 230, 90), panel.get_rect(), 1, border_radius=8)
-        y = pad
-        for label, cat in entries:
+            surf.blit(panel, (bx, by))
+            x_dot_left += (bw - int(box_w)) if right else 0
+        cx = x_dot_left + dot / 2.0
+        for i, (label, cat) in enumerate(entries):
+            cy = y0 + i * row + row / 2.0
             color = scheme_color(self.scheme, cat)
-            pygame.draw.circle(panel, color, (pad + 8, y + 13), 8)
+            # 色点是**圆** ⇒ 走抗锯齿底座
+            paint_aa.aa_disc(surf, color, (cx, cy), dot / 2.0)
             if self.font is not None:
-                ts = self.font.render(label, True, (240, 243, 250))
-                # 无底框时给文字加描边保证可读性
-                if not self.legend_bg:
-                    sh = self.font.render(label, True, (10, 12, 18))
-                    for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                        panel.blit(sh, (pad + 26 + ox, y + (item_h - ts.get_height()) // 2 + 1 + oy))
-                panel.blit(ts, (pad + 26, y + (item_h - ts.get_height()) // 2 + 1))
-            y += item_h
-        surf.blit(panel, (x0, y0))
+                # §5.1: 文字**与圆点同色**、**右对齐**、**无描边**（原实现是白字+4 向描边）
+                ts = self.font.render(label, True, tuple(color[:3]))
+                ty = int(round(cy - ts.get_height() / 2.0))
+                if right:
+                    surf.blit(ts, (int(round(x_dot_left - 6 - ts.get_width())), ty))
+                else:
+                    surf.blit(ts, (int(round(x_dot_left + dot + 6)), ty))
 
     def _draw_labels(self, surf, tys, bounds, inner):
         if self.font is None:

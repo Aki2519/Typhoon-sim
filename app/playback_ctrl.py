@@ -7,7 +7,16 @@ from typing import List, Optional, TYPE_CHECKING
 
 from .typhoon import Typhoon
 from .landfall_effect import LandfallEffect, LandfallEffectSMCY, LandedEffect
-from .particle_effect import RIEffect, TSNoteEffect, play_eri_sound, play_note_ts_sound
+# ⚠ 2026-10-02(W1 修复1R): 原来这里是模块级
+#     from .particle_effect import RIEffect, TSNoteEffect, play_eri_sound, play_note_ts_sound
+#   particle_effect.py:8,10 有 `import cv2` / `from PIL import Image` ⇒ 这一行把
+#   OpenCV + Pillow 拖进**启动路径**(本模块被 app/ty_sim.py 模块级导入)。
+#   四个名字各自的使用点只有一处, 已改为**函数内 import**:
+#     TSNoteEffect / play_note_ts_sound → _check_ts_note()
+#     RIEffect / play_eri_sound         → _check_ri_effect()
+#   两者都只在"越过一个报点"时被 _check_particle_effects 调用(见 :146/:172 的
+#   `if typhoon.ci != prev_ci`), 不在逐帧路径上 ⇒ 首次 import 的成本只付一次。
+#   本文件 :184 早就有同样的函数内 import 写法(TyphoonSummary), 风格一致。
 from .ace_engine import _ace_eligible
 from .utils import get_tropical_points, play_sound, landfall_volume_gain_db
 from .constants import FADE_DURATION, FADE_DURATION_QUICK, ICON_SET_SMCY, MODE_NORMAL, MODE_SEASON, MODE_EDIT
@@ -120,14 +129,20 @@ class PlaybackController:
             if typhoon.fin and ct - typhoon.ft >= FADE_COOLDOWN_MS:
                 typhoon.fin = False
                 typhoon._single_fin_done = True
-                if self.cfg.ac and self.repo.tys:
+                if self.cfg.ac and self.repo.tys and not paused:
                     self.repo.cti = (self.repo.cti + 1) % len(self.repo.tys)
                     if self.repo.current_typhoon():
                         self.repo.current_typhoon().rst()
         elif typhoon.fin:
             if ct - typhoon.ft >= FADE_COOLDOWN_MS:
                 typhoon.fin = False
-                if self.cfg.ac and self.repo.tys:
+                # ⚠⚠ 审查抓到(严重): 这里原来**不看 paused** ⇒ 用户说"跟踪完停下来",
+                # 而暂停后约 500ms(FADE_COOLDOWN_MS)这个分支就把 cti+1 切到下一个台风,
+                # 把"停下 -> 缩放到整条路径 -> 闪 2s -> 慢慢淡出"整套序列打断。
+                # (自动继续)默认 True, 所以这是默认路径上的必然行为。
+                # 暂停时不推进, 但要**保留 **(淡出已完成),
+                # 这样恢复播放后不会重复触发。
+                if self.cfg.ac and self.repo.tys and not paused:
                     self.repo.cti = (self.repo.cti + 1) % len(self.repo.tys)
                     if self.repo.current_typhoon():
                         self.repo.current_typhoon().rst()
@@ -424,6 +439,8 @@ class PlaybackController:
 
     def _check_ts_note(self, typhoon: Typhoon, prev_ci: int, ct: float) -> None:
         """检测从不可计算 ACE 的类型加强为 TS，在台风位置播放 note_ts 特效。"""
+        # W1 修复1R: 函数内 import(把 cv2/PIL 移出启动路径); 只在越过报点时执行
+        from .particle_effect import TSNoteEffect, play_note_ts_sound
         pts = typhoon.pts
         new_ci = typhoon.ci
         if new_ci <= prev_ci or len(pts) < 2:
@@ -440,6 +457,8 @@ class PlaybackController:
     def _check_ri_effect(self, typhoon: Typhoon, prev_ci: int, ct: float) -> None:
         """检测 RI 事件：越过的官方报相对之前 ≤4 个官方报增幅 ≥60kt 时触发。
         一个巅峰只触发一次：触发后需等风速回落（越过巅峰）才重新武装。"""
+        # W1 修复1R: 函数内 import(把 cv2/PIL 移出启动路径); 只在越过报点时执行
+        from .particle_effect import RIEffect, play_eri_sound
         if not self.cfg.show_ri_effect:
             return
         pts = typhoon.pts

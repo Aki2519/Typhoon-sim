@@ -26,7 +26,7 @@ import pygame
 
 from .constants import (SUCAI_DIR, AREA_OCEAN_FILE, f_s, f_m, rt, TXT,
                         SETTINGS_TEXT_LIGHT)
-from .render_geom import clip_segment, normalize_chain
+from .render_geom import clip_segment, normalize_chain, draw_snap_grid
 
 logger = logging.getLogger(__name__)
 
@@ -569,57 +569,12 @@ class OceanEditMode:
         return self._status
 
     def _draw_snap_grid(self, surface, step: float, sw: int, sh: int) -> None:
-        """可视化吸附网格: 按 step(默认0.1°)画细线, 每 1° 画一条稍粗线。
+        """可视化吸附网格(与报点编辑模式共用 render_geom.draw_snap_grid)。
 
-        线画在洋区边界之下(先画), 半透明深色, 淡色图上也可辨。
-        经纬网格按屏幕经纬度逐条投影(等距圆柱), 跨缝经度自动环绕。
+        步长 = 「设置 → 编辑吸附」(默认 0.1°): step 细线 + 每 1° 一条粗线;
+        先于洋区边界绘制, 半透明深色, 淡色图上也可辨。
         """
-        if not (step > 0.0) or step < 0.01:
-            # 0 = 设置里"关"; 负值会让下面的 while 永不终止;
-            # 过小(手改 config.json, 配置仅钳 0~10)会让每帧画几十万条线 → 卡死
-            return
-        sim = self.sim
         try:
-            line_surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
-            dark = getattr(sim, 'dark_mode', False)
-            fine = (60, 70, 90, 60) if dark else (90, 110, 140, 55)
-            major = (255, 255, 255, 90) if dark else (0, 0, 0, 70)
-            # 视野经纬范围
-            lo_min = float(sim.mlo)
-            lo_max = float(sim.Mlo)
-            la_min = float(sim.mla)
-            la_max = float(sim.Mla)
-            if lo_max <= lo_min:
-                lo_max += 360.0
-            # 经线
-            lon0 = math.floor(lo_min / step) * step
-            lon = lon0
-            while lon <= lo_max + 1e-9:
-                nl = ((lon % 360.0) + 360.0) % 360.0
-                try:
-                    x, _y = sim.latlon_to_screen(la_max, nl)
-                except Exception:
-                    lon += step
-                    continue
-                if 0 <= x <= sw:
-                    is_major = abs((lon % 1.0)) < 1e-9
-                    pygame.draw.line(line_surf, major if is_major else fine,
-                                     (int(x), 0), (int(x), sh), 2 if is_major else 1)
-                lon += step
-            # 纬线
-            lat0 = math.floor(la_min / step) * step
-            lat = lat0
-            while lat <= la_max + 1e-9:
-                is_major = abs((lat % 1.0)) < 1e-9
-                try:
-                    _x, y = sim.latlon_to_screen(lat, lo_min)
-                except Exception:
-                    lat += step
-                    continue
-                if 0 <= y <= sh:
-                    pygame.draw.line(line_surf, major if is_major else fine,
-                                     (0, int(y)), (sw, int(y)), 2 if is_major else 1)
-                lat += step
-            surface.blit(line_surf, (0, 0))
+            draw_snap_grid(surface, self.sim, step, sw=sw, sh=sh)
         except Exception as ex:
             logger.warning(f"洋区编辑网格绘制失败: {ex}")

@@ -7,6 +7,8 @@ from typing import Tuple, Dict
 from functools import lru_cache
 from collections import OrderedDict
 
+from ..cache_store import SurfaceCache
+
 _FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'font')
 
 FONT_FILE = 'MapleMono-NF-CN-Medium.ttf'
@@ -158,9 +160,74 @@ f_15 = SmartFont(font_en_15, font_zh_15)
 f_19 = SmartFont(font_en_19, font_zh_19)
 
 
+# ── rt() 默认分支的文本表面缓存(2026-10-02) ────────────────────────────────
+# **问题不是"没有缓存", 而是"条数上限太小且是 FIFO"**:
+#   `rt(f, text, color)`(三参、无 max_width)先前直连 `f.render`。而 `f` 是 SmartFont,
+#   它**自带**一个 128 条的 FIFO 缓存(见本文件 `SmartFont.__init__` 的 maxsize=128
+#   与 `SmartFont.render` 的 pop(next(iter)))。实测 `PaintDialog` 稳态在 `f_s` 上就有
+#   **139 个**不同 (text, color, antialias) 键 > 128 ⇒ 缓存每帧被自己冲掉, 实测每帧
+#   **139–140 次真实字形光栅化**(其中 134–135 次经 rt() 调用, 5 次是 dialog_base /
+#   input_field 直连 `f.render` 绕过了 rt, 不归本缓存管)。
+#
+# 因此这里在 rt() 的默认分支**前置**一层"字节预算 + 真 LRU"的缓存:
+#   · **预算 8 MiB**: 实测 `PaintDialog` 稳态工作集只有 **0.64 MiB / 146 键**
+#     (单张最大 21 KB) ⇒ 12 倍余量, 稳态 `evictions` 恒为 0。
+#     不用条数封顶 —— 本批已两次踩到这个坑(`_name_shadow_cache` 256 条导致每帧自噬;
+#     `_landfall_cache` 只按 24 条封顶导致最坏 1.37–5.5 GB)。
+#   · 直接用 `app.cache_store.SurfaceCache`(自带 hits/misses/evictions/total_bytes),
+#     不手写 OrderedDict。
+#   · `_rt_font_refs` **钉住字体对象**: 键里含 `id(f)`, 而 `_draw_icon_mixin` 的
+#     `_info_box_font` / `_sized_font` 会在**超过 24 个字号**时淘汰 SmartFont 实例
+#     ⇒ 被淘汰对象被 GC 后其 `id` 可能被新建对象复用, 造成**串味**。持强引用后
+#     `id` 在缓存有效期内不可能被复用(全 app 的 SmartFont 实例是常数级, 代价可忽略)。
+#     ⚠ 既有的 max_width 缓存也用 `id(f)` 且**没有**这层保护 —— 那是既有问题,
+#       本次按"只改默认分支"的约束不动它。
+#   · `RT_TEXT_CACHE_BYTES <= 0` ⇒ 每次调用直接 `f.render`, 完全回到旧行为(回退开关;
+#     运行时改这个模块级常量即刻生效, 不必重建缓存对象)。
+RT_TEXT_CACHE_BYTES = 8 * 1024 * 1024
+
+_rt_cache = SurfaceCache("font_rt_text", RT_TEXT_CACHE_BYTES) if RT_TEXT_CACHE_BYTES > 0 else None
+#: id(f) → f 的强引用。唯一作用: 让缓存键里的 id() 不会被复用。
+_rt_font_refs: dict = {}
+
+
+def rt_cache_stats():
+    """文本缓存统计(hits/misses/evictions/bytes + 钉住的字体数)。"""
+    if _rt_cache is None:
+        return {"name": "font_rt_text", "enabled": RT_TEXT_CACHE_BYTES > 0,
+                "items": 0, "bytes": 0, "max_bytes": RT_TEXT_CACHE_BYTES,
+                "hits": 0, "misses": 0, "evictions": 0, "fonts_pinned": 0}
+    d = _rt_cache.stats()
+    d["enabled"] = RT_TEXT_CACHE_BYTES > 0
+    d["fonts_pinned"] = len(_rt_font_refs)
+    return d
+
+
+def rt_cache_clear():
+    """清空文本缓存(改字号/换字体/测试隔离用)。"""
+    if _rt_cache is not None:
+        _rt_cache.clear()
+    _rt_font_refs.clear()
+
+
 def rt(f, text, color, max_width=None, smooth=True):
     if max_width is None or max_width <= 0:
-        return f.render(text, smooth, color)
+        if _rt_cache is None or RT_TEXT_CACHE_BYTES <= 0:
+            return f.render(text, smooth, color)
+        try:
+            key = (id(f), text, color, bool(smooth))
+            hash(key)
+        except TypeError:
+            return f.render(text, smooth, color)      # color 不可哈希 → 不缓存
+        surf = _rt_cache.get(key)
+        if surf is not None:
+            return surf
+        surf = f.render(text, smooth, color)
+        # 先钉住字体再写缓存: 保证键里的 id(f) 在存活期内唯一
+        if id(f) not in _rt_font_refs:
+            _rt_font_refs[id(f)] = f
+        _rt_cache.put(key, surf)
+        return surf
     if not hasattr(rt, "_cache"):
         rt._cache = OrderedDict()
     cache = rt._cache

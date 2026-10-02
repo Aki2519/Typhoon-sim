@@ -32,9 +32,17 @@ from .ty_sim_mixins import (
 )
 from .ty_sim_mixins.keyboard_mixin import TySimKeyboardMixin
 from .ty_sim_mixins.sim_mode_mixin import SimModeMixin
+# 轮次 158: 单步(15min) / 骰子种子。独立 mixin ⇒ 不必改 SimModeMixin 正文。
+from .ty_sim_mixins.sim_step_control import TySimStepControlMixin
 from .script_engine import ScriptEngine
 from .script_dialog import ScriptDialog
-from .particle_effect import preload_particles
+# ⚠ 2026-10-02(W1 修复1): 原来这里有一行
+#     from .particle_effect import preload_particles
+#   它**全仓零调用**(真正用的是下面 _warmup_jobs 里的
+#   `from .particle_effect import iter_preload_particles`), 却因为
+#   particle_effect.py:8,10 的 `import cv2` / `from PIL import Image`
+#   把 OpenCV + Pillow 拖进了**启动路径**。删掉这一行即可,
+#   粒子预热的惰性 import(app/ty_sim.py:_warmup_jobs)保持不动。
 from .input_handler import InputHandler
 from .dialog_manager import DialogManager
 from .ty_sim_mixins.track_mixin import TySimTrackMixin
@@ -58,7 +66,13 @@ class _ConfigProperty:
 
     def __set__(self, obj: TySim, value) -> None:
         setattr(obj.cfg, self._name, value)
-        obj._config_needs_save = True
+        # ⚠ 2026-10-01 重写保存链路: **运行时状态**不置脏。
+        #  会被  按"系统实际给的尺寸"频繁改写;
+        # 若它置脏, 用户设的 2560x1540 就会被"实际值 1498"持久化覆盖,
+        # 表现为"改了不生效 / config 里还是旧值"。这类字段由  排除。
+        from .config_store import RUNTIME_FIELDS
+        if self._name not in RUNTIME_FIELDS:
+            obj._config_needs_save = True
         if self._name == 'icon_set':
             obj.res_mgr.icon_set = value
             obj._clear_icon_scale_caches()
@@ -94,7 +108,7 @@ class _RepoProperty:
 
 class TySim(TySimUtilsMixin,
             TySimDrawMixin, TySimEventMixin, TySimKeyboardMixin,
-            TySimTrackMixin, SimModeMixin):
+            TySimTrackMixin, SimModeMixin, TySimStepControlMixin):
 
     MODE_NORMAL = MODE_NORMAL
     MODE_SEASON = MODE_SEASON
@@ -160,6 +174,9 @@ class TySim(TySimUtilsMixin,
         self.control_panel_height = CPH
 
         self.cfg = cfg if cfg is not None else AppConfig.load(CONFIG_FILE)
+        # ⚠ 2026-10-01 重写保存链路: 唯一的持久化入口(备份 + 读回校验 + 运行时字段不落盘)。
+        from .config_store import ConfigStore
+        self.config_store = ConfigStore(CONFIG_FILE)
 
         self._init_attributes()
         self._init_sim_mode()
@@ -375,7 +392,12 @@ class TySim(TySimUtilsMixin,
         self.ocean_edit = OceanEditMode(self)
 
     def _init_resource_managers(self) -> None:
-        self.res_mgr = ResourceManager()
+        # 轮次 160(启动优化): 把目标图标集**在构造时**就传进去 —— 否则 ResourceManager
+        # 会先按 ICON_SET_DEFAULT 加载整套图标, 下一行 `icon_set = cfg.icon_set` 又把
+        # 它整个 `images.clear()` 掉重载(实测白干 ~800 ms)。下面这行赋值保留:
+        # 值已相同 ⇒ setter 直接 return, 不再触发 _reload_icons; 同时它仍是
+        # "配置改动 → 重载图标" 的正式入口。
+        self.res_mgr = ResourceManager(self.cfg.icon_set)
         self.res_mgr.icon_set = self.cfg.icon_set
         self.map_mgr = MapManager(self)
         self.map_mgr.cmp = self.cfg.cmp
@@ -416,14 +438,32 @@ class TySim(TySimUtilsMixin,
         self.mode_desc_season = rt(f_s, "模式: 风季", TXT)
         self.mode_desc_edit = rt(f_s, "模式: 编辑", TXT)
 
-    def save_config(self, force: bool = False) -> bool:
-        """保存配置。返回是否成功; 失败时保留脏标记以便下次重试。"""
-        if not force and not self._config_needs_save:
+    def save_config(self, force: bool = False, reason: str = '') -> bool:
+        """保存配置 —— **委托给 (保存链路的唯一入口)**。
+
+        ⚠ 2026-10-01 重写: 原来是"没脏就静默 return True + 直接 os.replace 覆盖 +
+        失败只记日志"。现在:
+          *  写入前**备份**、写入后**读回校验**,
+            失败时**原文件一字节不动**;
+          *  这类**运行时状态不持久化**
+            (见 );
+          * 失败原因可从  取, 由界面提示用户
+            (不再"用户以为存了其实没存")。
+        签名保持兼容, 11 个既有调用点无需改动。
+        """
+        if not hasattr(self, 'config_store') or self.config_store is None:
+            # 极端情况下(构造期)没有 store: 退回旧路径, 但不静默
+            if not force and not self._config_needs_save:
+                return True
+            if not self.cfg.save(CONFIG_FILE):
+                return False
+            self._config_needs_save = False
             return True
-        if not self.cfg.save(CONFIG_FILE):
-            return False
-        self._config_needs_save = False
-        return True
+        ok = self.config_store.commit(self.cfg, force=force or self._config_needs_save,
+                                      reason=reason)
+        if ok:
+            self._config_needs_save = False
+        return ok
 
     def _refresh_ace_data(self, ty=None) -> None:
         # 法4: 点编辑传受影响台风,只重算该台风涉及的年份
@@ -529,20 +569,25 @@ class TySim(TySimUtilsMixin,
         # 调整后的窗口大小持久化到 config.json,重启仍保持(此前 save_config 空转)
         self.cfg.screen_width = width
         self.cfg.screen_height = height
-        self._config_needs_save = True
+        # ⚠⚠ 2026-10-01 重写保存链路(B18 的原始意图已废弃):
+        # 原来这里 `self._config_needs_save = True`, 于是**每一次窗口尺寸变化**
+        # (拖动、最大化、系统钳制、启动对账)都把尺寸标成"要保存",
+        # 结果用户设的 2560x1540 被"系统实际给的 1498"持久化覆盖 ——
+        # 用户报的"改了不生效 / config 里还是 1498"就是这个。
+        # 现在 `screen_width/height` 属于 `config_store.RUNTIME_FIELDS`:
+        # **运行时状态不持久化**。用户想要的尺寸由设置面板的输入框决定
+        # (它走 `_CFG_MIRROR` 正常同步), 不由"窗口当前多高"决定。
+        #
+        # ⚠ 这里**不要**再置 `_config_needs_save` —— 本函数只改运行时状态。
         self.view.screen_width = width
         self.view.screen_height = height
         self.view.map_height = height - CPH
         self.control_panel_height = CPH
         mv = self.map_mgr.map_view
         if mv is not None:
-            # 同步 MapView 尺寸/缩放极限并复位渲染缓存（B4）
-            mv.screen_width = width
-            mv.screen_height = self.map_height
-            mv.min_scale = max(width / mv.img_w, self.map_height / mv.img_h)
-            mv._cached_scale = -1.0
-            mv._cached_sw = -1
-            mv._pan_cache_key = None
+            # 同步 MapView 尺寸/缩放极限并复位渲染缓存（B4）; 同时把 scale
+            # 重夹到新的 min_scale, 否则放大窗口/进全屏后地图铺不满屏幕
+            mv.resize(width, self.map_height)
         self.map_mgr.update_view()
         self.map_draw_rect = self.map_mgr.get_draw_rect()
         self.update_all_screen_points()

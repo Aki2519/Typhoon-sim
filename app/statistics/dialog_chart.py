@@ -26,8 +26,10 @@ from .season_stats import calculate_season_stats
 
 _font_ace_title = None
 
+# 截图统一进 output/(用户 2026-09-19 精简主目录)
 _PICTURE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'picture')
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'output', 'picture')
 
 def _get_ace_title_font():
     global _font_ace_title

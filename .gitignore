@@ -51,3 +51,22 @@ map/map_legacy.png
 
 # 视频逐帧分析/临时脚本目录
 tools/__pycache__/
+
+# ── 2026-10-02 (Lead) 补充: 把「生成物 / 大数据」挡在库外 ──────────────────
+# 政策与上面既有条目一致(max_legacy / simulator/env/* 都是"大数据不入库")。
+# 起因: 工作区当时有 706MB(train_cache) + 154MB(output) + 83MB(env/model)
+#        + 108MB(map 生成图) 处于**未跟踪**状态, 一旦 `git add -A` 会全部入库。
+# 说明: 逐条写具体路径, 不用宽泛通配, 避免误伤源码与报告。
+simulator/env/train_cache/
+simulator/env/model/
+sim_typhoon/
+output/sim/
+# (output/exploration/ 保留入库 —— 本轮验收报告与对比图是证据)
+
+# 由 tools/make_heightmap.py / 底图生成脚本产出的中间大图
+map/heightmap.png
+map/land2.png
+
+# 测试/隔离产生的配置副本(不是源码)
+config.json.bak
+assets/Area_ocean.json.bak

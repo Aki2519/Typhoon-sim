@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import math
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 import pygame
 
@@ -22,20 +22,33 @@ logger = logging.getLogger(__name__)
 class ResourceManager:
     _instance = None
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
+        # 轮次 160: 必须吞掉构造参数 —— `ResourceManager(icon_set)` 也要能走通
+        # (单例本身只建一次, 参数交给 __init__ 用)。
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, icon_set: Optional[str] = None):
+        """`icon_set`: 启动时**直接**加载要用的图标集。
+
+        轮次 160(启动优化): 原来这里固定加载 `ICON_SET_DEFAULT`, 调用方
+        (`ty_sim._init_resource_managers`) 紧接着 `res_mgr.icon_set = cfg.icon_set`,
+        而那会触发 `_reload_icons()` → `images.clear()` + 再跑一遍 `_load_all` ——
+        即**整套默认图标集加载完立刻丢掉重载**。实测本机默认集那趟白干
+        ~800 ms(63 次 image.load + 重着色/成环 + 目录查找)。
+        这里直接按目标集加载一次: 最终 `images`/`sounds` 与改前**逐项相同**
+        (改前最终留下的本来就只有目标集 + 那趟加载的音效), 只是不再做无用功。
+        `icon_set=None` 时行为与改前完全一致(退回 `ICON_SET_DEFAULT`)。
+        """
         if self._initialized:
             return
         self._initialized = True
         self.images: Dict[str, pygame.Surface] = {}
         self.sounds: Dict[str, pygame.mixer.Sound] = {}
         self.ocean_areas = OceanAreaManager()
-        self._icon_set = ICON_SET_DEFAULT
+        self._icon_set = icon_set or ICON_SET_DEFAULT
         self._load_all()
 
     @property

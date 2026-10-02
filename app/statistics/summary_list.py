@@ -10,7 +10,9 @@ from ..cache_store import SurfaceCache
 from ..constants import rt
 from ..constants.fonts import _load_font, SmartFont, FONT_FILE
 from ..dialog_base import Dialog
-from ..smcy_icon import get_summary_frame
+# ⚠ W2(2026-10-02): 这里**不要**再写模块级 `from ..smcy_icon import get_summary_frame`
+# —— `smcy_icon.py` 顶层 `import cv2`, 模块级导入会让每个用户启动就加载 OpenCV。
+# 改为在 `_draw_row` 内 import(只在真正要取视频帧时才付这个成本)。
 from ..summary_effect import TyphoonSummary, _CAT_COLOR
 from ..statistics.chart_helpers import _haversine_chain
 from ..statistics.season_stats import calculate_season_stats
@@ -406,6 +408,7 @@ class SummaryListDialog(Dialog):
                 self._pending = None
 
     def _draw_row(self, surface, row, rect, now, phase2, row_idx=0):
+        from ..smcy_icon import get_summary_frame   # 函数内 import: 避免启动期拖入 cv2
         # 深色背板（视频黑色部分为透明，白底上需要垫底）
         pygame.draw.rect(surface, (16, 19, 28), rect)
         # 视频帧按 ~15fps 节流 + 各行错峰,避免 3 行同时解码造成卡顿

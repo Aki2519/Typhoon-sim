@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class OceanArea:
-    def __init__(self, code, name_cn, name_full, hemisphere, avg_ace, vertices, is_merged=False):
+    def __init__(self, code, name_cn, name_full, hemisphere, avg_ace, vertices,
+                 is_merged=False, members=None):
         self.code = code
         self.name_cn = name_cn
         self.name_full = name_full
@@ -22,6 +23,12 @@ class OceanArea:
         self.avg_ace = avg_ace
         self.vertices = vertices
         self.is_merged = is_merged
+        # ⚠ 2026-10-01 用户设计: **整个由若干洋区拼成的合并区不该自带多边形** ——
+        # 直接用成员的并集(ECP = CP + EP 的全部)。只有"**拼凑几个洋区的一部分**"
+        # 的合并区才需要自己的 `c` 多边形。故 `members` 非空且 `vertices` 为空时,
+        # `contains` 走成员并集分支(见下方)。
+        self.members: List[str] = list(members) if members else []
+        self.member_areas: List['OceanArea'] = []   # 加载后按 code 解析挂接
         self._proc_vertices: List[Tuple[float, float]] = []
         self._proc_lon_center: float = 0.0
         self._edges: list = []
@@ -30,6 +37,22 @@ class OceanArea:
         self._is_hemisphere = self._detect_hemisphere()
         if not self._is_hemisphere:
             self._preprocess()
+
+    @property
+    def is_aggregate(self) -> bool:
+        """聚合区 = 真合并区 ∪ 半球区。
+
+        ⚠⚠ 2026-10-01 用户澄清: **/ 不是合并洋区, 是北半球/南半球**
+        (North/South Earth) —— 它们的 ACE(605.79 / 284.95)是整半球的总和, 不是
+        某几个洋区相加。原文件给它们挂 , 那是**借用**这个标志来表达
+        "聚合区: 不参与单点归属、也不计入全局 ACE(否则重复计)" —— **行为对、名字错**。
+        现在:
+          * 半球区由  **按几何自动识别**(2 顶点 + 同子午线 +
+            一端赤道一端极点), 不需要任何标志;
+          *  只表示**真合并区**(如 ECP = CP + EP);
+          * 两者合称"聚合区", 统一用于  的候选过滤与  的去重。
+        """
+        return self.is_merged or self._is_hemisphere
 
     def _detect_hemisphere(self):
         if len(self.vertices) != 2:
@@ -84,6 +107,11 @@ class OceanArea:
         self._bbox = (min(lats), max(lats), min(lons2), max(lons2))
 
     def contains(self, lat, lon):
+        # ⚠ 2026-10-01: 合并区若**没有自己的多边形**(整并由成员拼成, 如 ECP=CP+EP),
+        # 就按**成员并集**判定 —— 用户的设计是"整个拼成的合并区直接用成员并集,
+        # 只有拼凑各洋区一部分的合并区才需要自带的 `c`"。
+        if self.is_merged and not self.vertices and self.member_areas:
+            return any(m.contains(lat, lon) for m in self.member_areas)
         if self._is_hemisphere:
             return lat >= 0 if self._hemisphere_north else lat < 0
         if len(self._proc_vertices) < 3:
@@ -103,6 +131,54 @@ class OceanArea:
                 if test_lon < dx * (lat - yi) / dy + xi:
                     inside = not inside
         return inside
+
+    def on_boundary(self, lat, lon, eps=1e-6):
+        """点是否**正好压在边界线**上(压线归属判定用)。
+
+        算法与工具 `tools/ocean_area_tool/ocean_line_tool.py::point_on_boundary`
+        逐行一致(点到每条边的距离 <= eps 度); 只是复用本类**已经预处理过**的
+        `_proc_vertices` / `_proc_lon_center`(与 `contains` 同一个坐标系), 避免
+        再写一遍经度展开逻辑。
+
+        ⚠ 新增方法, 不改 `contains`: 后者被 data_repo / season_stats / ace_engine
+        等大量调用, 语义必须保持"半开区间"(竖边归东、横边归北)。
+        """
+        if self._is_hemisphere:
+            return False                    # 2 顶点半球区没有边界折线
+        verts = self._proc_vertices
+        n = len(verts)
+        if n < 2:
+            return False
+        lats = [v[0] for v in verts]
+        if lat < min(lats) - eps or lat > max(lats) + eps:
+            return False
+        t = lon
+        while t - self._proc_lon_center > 180: t -= 360
+        while t - self._proc_lon_center < -180: t += 360
+        for i in range(n):
+            y0, x0 = verts[i]
+            y1, x1 = verts[(i + 1) % n]
+            dx, dy = x1 - x0, y1 - y0
+            l2 = dx * dx + dy * dy
+            if l2 <= 0.0:
+                if abs(t - x0) <= eps and abs(lat - y0) <= eps:
+                    return True
+                continue
+            u = ((t - x0) * dx + (lat - y0) * dy) / l2
+            if u < -1e-9 or u > 1.0 + 1e-9:
+                continue
+            if abs(t - (x0 + u * dx)) <= eps and abs(lat - (y0 + u * dy)) <= eps:
+                return True
+        return False
+
+    def claims(self, lat, lon):
+        """**含压线**命中 —— 与工具 `point_claims` 同一语义(内部 或 正好压边)。
+
+        为什么需要它: 坐标取整后相邻洋区的公共分界线**精确重合**, 半开的
+        `contains` 只会认一侧, 于是"取 ACE 最高"这条规则永远走不到。工具那边
+        用 `point_in_area or point_on_boundary` 收集候选, 这里对齐它。
+        """
+        return self.contains(lat, lon) or self.on_boundary(lat, lon)
 
 
 class OceanSubArea:
@@ -166,7 +242,7 @@ class OceanAreaManager:
 
     @property
     def total_avg_ace(self):
-        return sum(a.avg_ace for a in self.areas if not a.is_merged)
+        return sum(a.avg_ace for a in self.areas if not a.is_aggregate)
 
     def _load(self):
         geojson_path = os.path.join(SUCAI_DIR, "Area_ocean.geojson")
@@ -205,9 +281,17 @@ class OceanAreaManager:
             return
         for obj in data:
             try:
-                if not isinstance(obj, dict) or not isinstance(obj.get('c'), list):
-                    raise ValueError("缺少坐标列表")
-                verts = [(float(lat), float(lon)) for lon, lat in obj['c']]
+                is_merged = bool(obj.get('merged', False))
+                members = obj.get('members') or []
+                # ⚠ 2026-10-01: **合并区允许没有自己的 `c`** —— 整并由成员拼成的
+                # 合并区(ECP=CP+EP)只用 `members`, 不该再维护一份多边形(会漂移)。
+                # 非合并区仍必须有 `c`, 否则视为坏条目跳过。
+                if not isinstance(obj.get('c'), list):
+                    if not (is_merged and members):
+                        raise ValueError("缺少坐标列表")
+                    verts = []
+                else:
+                    verts = [(float(lat), float(lon)) for lon, lat in obj['c']]
                 try:
                     avg_ace = float(obj.get('ace', 0))
                 except (TypeError, ValueError):
@@ -219,7 +303,8 @@ class OceanAreaManager:
                     hemisphere=obj.get('h', 'N'),
                     avg_ace=avg_ace,
                     vertices=verts,
-                    is_merged=bool(obj.get('merged', False)),
+                    is_merged=is_merged,
+                    members=members,
                 )
                 self.areas.append(area)
             except (KeyError, TypeError, ValueError) as e:
@@ -292,13 +377,45 @@ class OceanAreaManager:
         return v
 
     def find_area(self, lat, lon):
-        for area in self.areas:
-            if area.contains(lat, lon):
-                return area
-        return None
+        """返回该报点所属洋区；不属于任何洋区返回 None。
+
+        ⚠⚠ 2026-10-01 用户规则 —— **与工具 tools/ocean_area_tool 的 `owner_of`
+        逐字一致**(用户先在工具里定了这条规则, 又要求引擎对齐; 两边用
+        `ocean_line_tool.py --gridcheck` 逐点核对过, 5 度网格 + 全部顶点/边中点
+        共 2804 个点判定完全一致):
+          ① 候选 = **非合并区** 且 顶点>=3 且 **含压线命中**(`claims` =
+             `contains` 或 `on_boundary`) —— 共享分界线**两侧都进候选**,
+             所以边界上的报点由 ACE 决定, 而不是由半开区间单独决定;
+          ② 多个候选 ⇒ 取 `avg_ace` **最高**;
+          ③ ACE 并列(含都没填) ⇒ 回到几何: 取**半开区间**为真的那些
+             (`contains`, 竖边归东、横边归北), 仍并列按列表顺序;
+          ④ **合并区一律不参与, 且没有回退** —— 只被合并区覆盖时返回 None。
+        旧实现三处不同(本次修正): `contains` 是半开谓词 ⇒ 压线点只有一侧命中
+        ⇒ `len(hits)==1` 直接返回, **ACE 从不参与**; `len(hits)==1` 分支在合并区
+        过滤**之前** ⇒ 只被合并区覆盖时返回了合并区(如 100E/66.5N 判给 NE);
+        `cand = [...] or hits` 回退 ⇒ 命中全是合并区时又返回合并区。
+        """
+        cands = [a for a in self.areas
+                 if (not a.is_aggregate) and len(a.vertices) >= 3
+                 and a.claims(lat, lon)]
+        if not cands:
+            return None
+        if len(cands) == 1:
+            return cands[0]
+        best = max(a.avg_ace for a in cands)
+        top = [a for a in cands if abs(a.avg_ace - best) < 1e-9]
+        if len(top) == 1:
+            return top[0]
+        half = [a for a in top if a.contains(lat, lon)]
+        return (half or top)[0]
 
     def _rebuild_by_code(self):
         self._by_code = {a.code: a for a in self.areas}
+        # ⚠ 2026-10-01: 合并区的成员挂接(供"无自带多边形的合并区"走并集判定)。
+        for a in self.areas:
+            if a.members:
+                a.member_areas = [self._by_code[m] for m in a.members
+                                  if m in self._by_code]
 
     def get_by_code(self, code):
         """O(1) 字典查(由 _rebuild_by_code 在加载时构建,无需运行时回退)。

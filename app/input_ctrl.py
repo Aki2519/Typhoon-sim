@@ -40,6 +40,9 @@ class InputController:
             pygame.K_r:             sim._key_r,
             pygame.K_p:             sim._key_p,
             pygame.K_j:             sim._key_j,
+            # 轮次 160(用户裁决): J 让给"镜头跟踪", 剧本对话框改绑 U。
+            # U 原先全仓无任何 `K_u` 引用(已核 command 表 + 全仓 grep)。
+            pygame.K_u:             sim._key_u,
         }
 
     def handle_keydown(self, e: pygame.event.Event) -> bool:

@@ -39,6 +39,11 @@ _FRAME_INTERVAL_MS = int(1000.0 / _FPS)
 _VIDEO_EXT = '.mp4'
 _CACHE_MAX = 240
 _CACHE_BYTES_PER_STREAM = 48 * 1024 * 1024   # 单流帧缓存内存上限（大图标时自动降帧数）
+#: 轮次 160 拆分(见 `_VideoStream._ncache`): 表面缓存(随尺寸)与原生帧缓存(尺寸无关)
+#: 各给一份**明确**的字节预算。25+16=41 MB < 原来的 48 MB ⇒ 单流内存上限**不升反降**
+#: (原来最坏就是 48 MB/流, `_MAX_STREAMS=20` 时 ~960 MB; 现在 ~820 MB)。
+_SURF_BYTES_PER_STREAM = 16 * 1024 * 1024
+_NATIVE_BYTES_PER_STREAM = 24 * 1024 * 1024
 _DECODE_BUDGET_PER_WIN = 6      # 每流每 ~16ms 窗口最多解码帧数（防多台风随机 seek 卡顿）
 _MAX_CURSORS = 4                # 每流最多解码游标数（多台风共享同类别视频时避免来回 seek）
 _SEQ_WINDOW = 45                # 游标允许 grab 快进的最大帧距
@@ -76,6 +81,16 @@ class _VideoStream:
         self._scale_size: Optional[Tuple[int, int]] = None
         self._decode_win: int = -1
         self._decode_n: int = 0
+        #: ── 轮次 160: **与尺寸无关**的原生 BGRA 帧缓存 ──────────────────────
+        #: 实测(本机, 400×400 源): 一帧的成本几乎全在 `_read_at` 的 seek/read
+        #: (随机 seek 40.7 ms), 而 `cv2.resize` + `frombuffer` 只要 0.2–0.3 ms。
+        #: 但图标尺寸随缩放**连续**变(4px 量化台阶), 每换一档 `get_frame` 就把
+        #: 帧表整表清空(实测 80→200px 的 31 个台阶 **31/31 全部清表**) ⇒ 每个
+        #: 台阶都要重新 seek 解码几十毫秒 = 缩放时的卡顿。
+        #: 这里把**贵的**原生帧按 idx 缓存在尺寸之外; 换尺寸只需重做
+        #: resize+frombuffer(0.3 ms)。**输出逐位不变**: 同一 (idx, ts) 走的仍是
+        #: 同一条 `cv2.resize(原生BGRA) → frombuffer` 路径, 只是不必重新解码。
+        self._ncache: "OrderedDict[int, np.ndarray]" = OrderedDict()
         if self._cap.isOpened():
             self._orig_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             self._orig_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -102,7 +117,31 @@ class _VideoStream:
         if not self._scale_size:
             return _CACHE_MAX
         px = self._scale_size[0] * self._scale_size[1] * 4
-        return max(16, min(_CACHE_MAX, _CACHE_BYTES_PER_STREAM // max(1, px)))
+        return max(16, min(_CACHE_MAX, _SURF_BYTES_PER_STREAM // max(1, px)))
+
+    def _native_cap(self) -> int:
+        """原生帧缓存的帧数上限 —— 独立的字节预算(轮次 160)。
+
+        原生帧比缩放后的 surface 大得多, 所以帧数更少(400×400 源时 24 MB≈39 帧);
+        但每一帧都能服务**任意**尺寸, 换档不再需要重新 seek。
+        预算见 `_NATIVE_BYTES_PER_STREAM`; 它与 `_SURF_BYTES_PER_STREAM` 之和
+        **小于**原来的单流上限 `_CACHE_BYTES_PER_STREAM`(48 MB)。
+        """
+        px = max(1, self._orig_w * self._orig_h * 4)
+        return max(8, _NATIVE_BYTES_PER_STREAM // px)
+
+    def _native_get(self, idx: int) -> Optional[np.ndarray]:
+        a = self._ncache.get(idx)
+        if a is not None:
+            self._ncache.move_to_end(idx)
+        return a
+
+    def _native_put(self, idx: int, arr: np.ndarray) -> None:
+        self._ncache[idx] = arr
+        self._ncache.move_to_end(idx)
+        cap = self._native_cap()
+        while len(self._ncache) > cap:
+            self._ncache.popitem(last=False)
 
     def _read_at(self, idx: int):
         """用最合适的游标读取指定帧：可快进则 grab+read，否则 seek（新开/复用游标）。"""
@@ -188,11 +227,17 @@ class _VideoStream:
             return self._cache[nearest]
         self._decode_n += 1
 
-        ret, frame_bgr = self._read_at(idx)
-        if not ret:
-            return None
-        # 原生分辨率合成 alpha（像素少），再一次性缩放 BGRA
-        frame_bgra = _compose_bgra(frame_bgr)
+        # 轮次 160: 贵的那一步(seek + read + 合成 alpha, 实测 ~40ms)按 idx 缓存在
+        # **尺寸之外**; 换图标尺寸时只重做下面的 resize(0.2-0.3ms)。
+        # 同一 (idx, ts) 仍走同一条 resize→frombuffer 路径 ⇒ 输出逐位不变。
+        frame_bgra = self._native_get(idx)
+        if frame_bgra is None:
+            ret, frame_bgr = self._read_at(idx)
+            if not ret:
+                return None
+            # 原生分辨率合成 alpha（像素少），再一次性缩放 BGRA
+            frame_bgra = _compose_bgra(frame_bgr)
+            self._native_put(idx, frame_bgra)
         if self._scale_size:
             frame_bgra = cv2.resize(frame_bgra, self._scale_size, interpolation=cv2.INTER_LINEAR)
         surf = pygame.image.frombuffer(frame_bgra.tobytes(), frame_bgra.shape[1::-1], 'BGRA')
@@ -220,9 +265,25 @@ class _VideoStream:
         self._cursors = [{'cap': self._cap, 'pos': None, 'use': 0}]
         self._cache.clear()
         self._sorted_keys.clear()
+        self._ncache.clear()          # 轮次 160: 原生帧缓存一并释放
 
 
-_MAX_STREAMS = 20   # (类别×南北半球) 组合数上限；过小会导致 LRU 反复驱逐重开视频
+#: (类别×南北半球) 组合数上限 = **同时打开的 mp4 流数**上限。
+#: 过小会导致 LRU 反复驱逐重开视频(见下), 过大则内存无界 —— 这是一个**权衡**。
+#:
+#: 2026-10-02 内存诊断(受控扫描: 只 import 本模块, 不建 TySim、不渲染):
+#:   · 每流账面 34.1 MB(缩放帧走 `_SURF_BYTES_PER_STREAM`、原生帧走
+#:     `_NATIVE_BYTES_PER_STREAM` 两张预算), 20 流 = 682 MB 账面;
+#:   · **实测 RSS 20 流 = 800 MB**(70.6 MB/流, 约为账面的 2 倍: 解码器上下文 +
+#:     `_compose_bgra` 中间帧 + 每流最多 4 个 cv2 游标); 即旧值 20 的"最坏 800 MB"
+#:     是**真的**。`release()` + gc 后 RSS 回落 800 → 35 MB ⇒ **没有泄漏**。
+#:   · 当前数据(206 台风 / 8491 报点)实测**最多 12 个台风同时存活**(2028-09-11),
+#:     而一个台风同一时刻只占 1 个 (类别,半球) 组合 ⇒ **12 就是真实工作集大小**。
+#: 故取 12: 最坏上界 800 → ~480 MB(按实测每流 70.6 MB 线性外推, 待复测),
+#: 代价是"一个会话内触碰过 >12 个不同组合"时开始驱逐(重开视频 ~ms + 重新解码)。
+#: 12 落在实测工作集上, 所以**当前数据不会触发驱逐**; 若将来最大同时存活数上升,
+#: 应当同步抬高这个值, 而不是让它长期处于驱逐状态。
+_MAX_STREAMS = 12
 
 
 def _is_ex_category(cat: str) -> bool:
@@ -435,6 +496,34 @@ _LANDFALL_MAP = {
 
 _landfall_cache: Dict[Tuple[str, int, int], list] = {}
 _LANDFALL_CACHE_MAX = 24        # 不同尺寸组合上限（缩放/图标尺寸变化时旧条目淘汰）
+#: 帧表的**字节**上限（2026-10-02 内存诊断新增）。
+#: 原实现只按**条数**封顶，而每条的字节数 = 帧数 × 目标宽 × 目标高 × 4，
+#: 随**效果尺寸的平方**增长 —— 条数上限在尺寸变大时完全失去意义：
+#:   · 实测（`_LANDFALL_MAP` 的 9 个不同 name，全部 60 帧）：104px 时 2.5 MB/条，
+#:     24 条 = 60 MB，正常；
+#:   · 尺寸来自 `playback_ctrl.py:357` 的
+#:     `lf_size = max(20, 4 * round(70 * icon_factor * 1.5 / 4))`，而 `icon_factor`
+#:     在开启"固定点/图标大小"时按 `scale / (min_scale * 2.5)` 放大
+#:     （`_draw_path_mixin.py:182-185`，scale 上限 8.0，1600x900 下 min_scale≈0.167）
+#:     ⇒ lf_size 可达 ~500–2000 px ⇒ 单条 61 MB ~ 976 MB，24 条就是 GB 级。
+#: 取 64 MB：默认尺寸量级（104px ≈2.5 MB/条，9 个 name 全开 = 22 MB）下，
+#: 即使凑到 24 条（≈60 MB，需要 2–3 个尺寸档）也基本不会被这个预算裁掉
+#: ⇒ 常用路径行为不变；它主要在尺寸变大、条数上限失去意义时兜底。
+#: 单条超预算的直接**不缓存**（与 `app/cache_store.SurfaceCache.put` 同一策略），
+#: 杜绝"一条吃满"；代价是那些尺寸下次用到要重新解码一次（≈100–160ms，已有预载路径）。
+_LANDFALL_CACHE_BYTES = 64 * 1024 * 1024
+_landfall_cache_bytes = 0       # 与 `_landfall_cache` 同步维护的总字节
+
+
+def _frames_bytes(frames: list) -> int:
+    """一帧表的字节数（宽×高×4 求和；取不到尺寸的按 0 计）。"""
+    n = 0
+    for s in frames:
+        try:
+            n += int(s.get_width()) * int(s.get_height()) * 4
+        except Exception:
+            pass
+    return n
 
 
 def get_landfall_frames(category: str, target_w: int = 0, target_h: int = 0) -> Optional[list]:
@@ -460,9 +549,20 @@ def get_landfall_frames(category: str, target_w: int = 0, target_h: int = 0) -> 
             frame_bgr = cv2.resize(frame_bgr, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
         frames.append(_frame_to_surface(frame_bgr))
     cap.release()
-    if len(_landfall_cache) >= _LANDFALL_CACHE_MAX:
-        _landfall_cache.pop(next(iter(_landfall_cache)))
+    global _landfall_cache_bytes
+    nbytes = _frames_bytes(frames)
+    if nbytes > _LANDFALL_CACHE_BYTES:
+        # 单条就超预算: 不缓存(仍把帧表返回给调用者, 由特效对象自己持有)
+        logger.info("SMCY 登陆特效: %s (%d 帧, %dx%d, %.1f MB) 超单条预算, 不缓存"
+                    % (name, len(frames), target_w, target_h, nbytes / 1048576.0))
+        return frames
+    # 条数 + 字节双约束, 都比上限严时淘汰最旧的尺寸档
+    while _landfall_cache and (
+            len(_landfall_cache) >= _LANDFALL_CACHE_MAX
+            or _landfall_cache_bytes + nbytes > _LANDFALL_CACHE_BYTES):
+        _landfall_cache_bytes -= _frames_bytes(_landfall_cache.pop(next(iter(_landfall_cache))))
     _landfall_cache[cache_key] = frames
+    _landfall_cache_bytes += nbytes
     logger.info(f"SMCY 登陆特效: 加载 {name}.mp4 ({len(frames)} 帧, {target_w}x{target_h})")
     return frames
 

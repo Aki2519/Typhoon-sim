@@ -17,6 +17,37 @@ logger = logging.getLogger(__name__)
 _PARTICLE_DIR = os.path.join(SUCAI_DIR, ICON_SET_SMCY, 'particle')
 
 
+def _round_screen_proj(typhoon):
+    """**跟随台风的移动特效**统一用的屏幕投影 `(la, lo) -> (x, y)`; 拿不到返回 None。
+
+    为什么特效必须走这条(2026-10-01 实测): 特效每帧用 `typhoon.cpos()` 现算位置,
+    而旧回调 `view.latlon_to_screen` 是"两段式取整" `int(px*s)-int(view*s)` ——
+    台风自己的取整与相机的取整在**不同帧**跨整数边界 ⇒ 特效在台风周围 ±1px 来回跳。
+    探针 `G:/tmp/probe_particle_effects.py`: 399 帧 x 方向翻转 **146**(改前) → **0**(改后)。
+
+    ⚠ 解析链**不依赖 MRO**: 本模块的 `RIEffect`/`TSNoteEffect` 不是 TySim 的 mixin
+    (`self` 是特效对象)。链: `typhoon.sim._icon_live_screen`(TySim 上, 内部已含
+    map_view 为空时的回退) → `typhoon.sim.map_mgr.map_view.geo_to_screen_round` → None。
+    `typhoon.sim` 由 `data_repo.py:212` / `new_typhoon_dialog.py:148` /
+    `sim_mode_mixin._sim_sync_path_ty` 设置, 真实流程里都在。
+    """
+    try:
+        sim = getattr(typhoon, 'sim', None)
+        if sim is None:
+            return None
+        fn = getattr(sim, '_icon_live_screen', None)
+        if fn is not None:
+            return fn
+        mv = getattr(getattr(sim, 'map_mgr', None), 'map_view', None)
+        if mv is not None and hasattr(mv, 'geo_to_screen_round'):
+            def _proj(la, lo, _mv=mv):
+                return _mv.geo_to_screen_round(lo, la)
+            return _proj
+    except Exception:
+        logger.debug('粒子特效取整投影解析失败', exc_info=True)
+    return None
+
+
 # ── 缓存 ──
 _eri_frames: Optional[List[pygame.Surface]] = None
 _eri_sound: Optional[pygame.mixer.Sound] = None
@@ -111,6 +142,24 @@ def play_note_ts_sound(volume: float = 0.6) -> None:
         play_sound(snd, volume)
 
 
+def _effect_xy(effect, la, lo):
+    """移动特效每帧的屏幕坐标: 优先取整投影, 拿不到则回退构造时传入的旧回调。
+
+    `_round_proj` 在构造时解析一次; 若当时 `typhoon.sim` 还没挂上(测试/预览),
+    这里每帧会重试一次(只是两次属性查找, 不产生分配), 一旦挂上就自动切过来。
+    """
+    proj = getattr(effect, '_round_proj', None)
+    if proj is None:
+        proj = _round_screen_proj(getattr(effect, 'typhoon', None))
+        try:
+            effect._round_proj = proj
+        except Exception:
+            pass
+    if proj is not None:
+        return proj(la, lo)
+    return effect.latlon_to_screen(la, lo)
+
+
 class RIEffect:
     """快速增强（RI）粒子特效，跟随台风移动。
     按真实时间播放（约 0.9s），避免高倍速下瞬间结束而看不到。"""
@@ -126,6 +175,8 @@ class RIEffect:
         self.typhoon = typhoon
         self.start_time = start_time
         self.latlon_to_screen = latlon_to_screen_func
+        # 移动特效统一取整投影(见 _round_screen_proj); 解析不到时回退旧回调
+        self._round_proj = _round_screen_proj(typhoon)
         self.icon_factor = icon_factor
         self.frames = _load_eri_gif()
         self._frame_count = len(self.frames)
@@ -146,7 +197,7 @@ class RIEffect:
         pos = self.typhoon.cpos()
         if not pos:
             return
-        x, y = self.latlon_to_screen(pos['la'], pos['lo'])
+        x, y = _effect_xy(self, pos['la'], pos['lo'])
         frame = self.frames[self._cur_idx]
         size = max(40, int(100 * self.icon_factor))
         scale640 = size / 640.0
@@ -213,6 +264,8 @@ class TSNoteEffect:
         self.typhoon = typhoon
         self.start_time = start_time
         self.latlon_to_screen = latlon_to_screen_func
+        # 移动特效统一取整投影(见 _round_screen_proj); 解析不到时回退旧回调
+        self._round_proj = _round_screen_proj(typhoon)
         self._icon_factor_func = icon_factor_func
         self.frames = _load_note_ts_frames()
         self._frame_count = len(self.frames)
@@ -256,7 +309,7 @@ class TSNoteEffect:
         pos = self.typhoon.cpos()
         if not pos:
             return
-        x, y = self.latlon_to_screen(pos['la'], pos['lo'])
+        x, y = _effect_xy(self, pos['la'], pos['lo'])
         icon_factor = self._icon_factor_func()
         icon_target = max(20, int(70 * icon_factor * 1.5))
         size = max(1, int(round(icon_target * self._SCALE_FIX)))

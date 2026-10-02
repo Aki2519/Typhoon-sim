@@ -96,7 +96,11 @@ class SurfaceCache:
         return self._bytes
 
     def _trim(self) -> None:
-        while self._d and (self._bytes > self.max_bytes
+        # ⚠ `max_bytes <= 0` = **不限字节**(见类 docstring), 必须与 `put` 的守卫
+        # (`if self.max_bytes > 0 and n > self.max_bytes`) 一致。原先这里没加 `> 0`,
+        # 于是 `max_bytes=0` 时条件恒为 `self._bytes > 0` ⇒ **一 put 就把自己逐出**
+        # (实测: 741 次 put ⇒ items=0 / evictions=741, 缓存完全失效)。
+        while self._d and ((self.max_bytes > 0 and self._bytes > self.max_bytes)
                            or (self.max_items is not None
                                and len(self._d) > self.max_items)):
             _k, v = self._d.popitem(last=False)

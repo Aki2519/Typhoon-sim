@@ -27,6 +27,9 @@ from .statistics.intensity_comparison import IntensityComparisonDialog
 from .statistics.summary_list import SummaryListDialog
 from .statistics.multi_year_chart import MultiYearDialog
 from .sim_settings_dialog import SimSettingsDialog
+from .sim_time_dialog import SimTimeDialog
+from .sim_mode_dialog import SimModeDialog
+from .sim_value_dialog import SimValueDialog
 from .paint_dialog import PaintDialog
 
 
@@ -50,6 +53,9 @@ class DialogManager:
         self.summary_list = SummaryListDialog(sim)
         self.multi_year = MultiYearDialog(sim)
         self.sim_settings = SimSettingsDialog(sim)
+        self.sim_time = SimTimeDialog(sim)
+        self.sim_mode = SimModeDialog(sim)
+        self.sim_value = SimValueDialog(sim)
         self.paint_dialog = PaintDialog(sim)
         self._active_count: Optional[int] = None
 
@@ -98,6 +104,6 @@ class DialogManager:
             self.intensity_chart, self.path_comparison, self.heatmap,
             self.path_length_viewer, self.season_stats, self.intensity_comparison,
             self.summary_list, self.multi_year, self.sim_settings,
-            self.paint_dialog,
+            self.sim_time, self.sim_mode, self.sim_value, self.paint_dialog,
             getattr(self.sim, 'script_dialog', None),
         ) if d is not None)

@@ -21,9 +21,12 @@ from .constants import (
     DIALOG_CORNER_RADIUS, DIALOG_TITLE_BAR_HEIGHT,
     ICON_SET_SIMPLE, ICON_SET_SMCY, ICON_SET_NAMES
 )
+from .config import TRACK_FIELD_RANGES
 from .input_field import InputField
 from .dialog_base import DraggableDialog
 from .utils import lon_to_display, lat_to_display
+from .window_util import (actual_client_size,
+                          keep_window_on_screen)   # 窗口尺寸/位置与系统对账
 from typing import List, Optional, Tuple
 
 ACE_LIMIT_NONE = "none"
@@ -57,6 +60,18 @@ class Settings(DraggableDialog):
         'ace_min_lon': 'mlo_label', 'ace_max_lon': 'Mlo_label',
         'ace_min_lat': 'mla_label', 'ace_max_lat': 'Mla_label',
         'smooth_path_segments': 'smooth_segments_text',
+        # 镜头跟踪(用户 2026-10-01: 收进显示 tab 的子类)
+        'track_view_pad_pct': 'tk_pad_label',
+        'track_settle_ms': 'tk_settle_label',
+        'track_hl_in_ms': 'tk_hlin_label',
+        'track_hl_hold_ms': 'tk_hlhold_label',
+        'track_hl_out_ms': 'tk_hlout_label',
+        'track_pan_min_ms': 'tk_panmin_label',
+        'track_pan_ms_per_1k_px': 'tk_panper_label',
+        'track_pan_max_ms': 'tk_panmax_label',
+        'track_pan_max_step_px': 'tk_step_label',
+        'track_jump_px': 'tk_jump_label',
+        'track_glide_exit_px': 'tk_glide_label',
     }
     # checkbox attr → 预渲染标签属性
     _CHECK_LABELS = {
@@ -64,10 +79,12 @@ class Settings(DraggableDialog):
         'show_info_box_normal': 'normal_info_text', 'show_info_box_season': 'season_info_text',
         'fade_typhoon': 'fade_typhoon_text', 'smooth_path': 'smooth_path_text',
         'ace_interpolated': 'ace_interp_text', 'show_fps': 'fps_text',
-        'show_motion_vector': 'motion_vec_text', 'show_track_stats': 'track_stats_text',
         'monthly_summary': 'monthly_summary_text', 'fade_path': 'fade_path_text',
         'show_ri_effect': 'show_ri_text', 'show_future_path': 'future_path_text',
         'fix_icon_point_size': 'fix_icon_point_text',
+        'window_topmost': 'topmost_text',
+        'start_maximized': 'start_max_text',
+        'show_summary': 'show_summary_text',
         'show_ace_bar': 'ace_show_label', 'show_ace_total': 'ace_total_label',
         'point_name_mode': 'point_name_text', 'basin_filter_enabled': 'basin_filter_text',
         'show_edit_point_labels': 'edit_point_labels_text',
@@ -136,6 +153,33 @@ class Settings(DraggableDialog):
                 ('checkbox', 'landfall_vol_scale'),
                 ('section', '旋转'), ('field', 'main_rot_speed'), ('field', 'level3_rot_speed'),
                 ('section', '窗口'), ('field', 'screen_width'), ('field', 'screen_height'),
+                # 用户 2026-10-01 要求"看看设置里缺少了什么…加上"。
+                # 审计(tools/_audit_settings_coverage.py)发现 window_topmost / fullscreen
+                # **有实现、但没有入口**。其中:
+                #   window_topmost(启动时应用) → **补控件**(下面这行)
+                #   fullscreen(原仅 F11 可切)  → **故意不补控件**(理由见下)
+                ('checkbox', 'window_topmost'),
+                # ⚠ 「全屏」**故意不做成复选框**(2026-10-01 去掉, 用户要求"要么实现、要么不加"):
+                #   `cfg.fullscreen` 是**运行时状态**(当前窗口是不是全屏), 不是"用户意图" ——
+                #   它唯一的写入者是 `keyboard_mixin.toggle_fullscreen()`(F11), 而那个函数
+                #   把该 flag 当**当前状态**用来判方向(`if not self.fullscreen:` 才进全屏)。
+                #   做成"期望值"复选框后: ① 勾选只写 cfg、窗口不动("点了没反应");
+                #   ② 下一次按 F11 会读到 True 而走 else 分支**切回窗口化**(方向反了)。
+                #   与 `window_topmost` 的区别: 后者有 `set_window_topmost(state)`
+                #   这种"施加上去"的入口(见 apply_settings 里的立即施加), fullscreen
+                #   只有 toggle、没有 setter ⇒ 语义上就不该有"期望值"控件。
+                #   **字段与 F11 都保留不变**, 只是没有 UI 入口(记账, 与 summary_transparent 同类)。
+                # ⚠ start_maximized **是实现了的** —— 在 main.py:110(启动即最大化,
+                #   并把最大化后的客户区尺寸写回 cfg.screen_width/height)。
+                #   它开着的时候, 下面 screen_width/screen_height 的修改**每次启动都会被覆盖**
+                #   ⇒ 用户 2026-10-01: "为什么在设置里修改窗口长宽不管用"。
+                #   (我此前的审计误判为"零引用死字段": 那个脚本只遍历 app/, 漏了根目录 main.py。)
+                ('checkbox', 'start_maximized'),
+                ('section', '总结面板'), ('checkbox', 'show_summary'),
+                # ⚠ 这里**故意没有** summary_transparent 的复选框: 审计发现这个 cfg 字段
+                #   **全仓零引用**(根本没实现)。给它加控件 = "点了没反应"的**安慰剂** ——
+                #   本项目明令禁止。要么先实现、要么不加; 现在是"不加 + 记账"。
+                #   (注: start_maximized 与此不同 —— 它是实现了的, 控件在上方已加。)
                 ('note', 'window_note'),
             ]
         if self.tab_index == 1:  # 显示
@@ -151,7 +195,24 @@ class Settings(DraggableDialog):
                 ('checkbox', 'show_coord_hud'),
                 ('checkbox', 'show_track_label'),
                 ('button', '信息框自定义'),
+                # 用户 2026-10-01: "名字太右上角了。加一个可视化界面可以自行调整吧"
+                # ⇒ 行描述第 3 个元素 = **回调**(不传则沿用「信息框自定义」的老行为)
+                ('button', '调整名字位置…', self._open_name_pos_dialog),
                 ('note', 'theme_note'),
+                # 用户 2026-10-01: "给跟踪镜头开一个显示tab里的子类, 收一下相关的设置"
+                ('section', '跟踪镜头'),
+                ('field', 'track_view_pad_pct'),
+                ('field', 'track_settle_ms'),
+                ('field', 'track_hl_in_ms'),
+                ('field', 'track_hl_hold_ms'),
+                ('field', 'track_hl_out_ms'),
+                ('field', 'track_pan_min_ms'),
+                ('field', 'track_pan_ms_per_1k_px'),
+                ('field', 'track_pan_max_ms'),
+                ('field', 'track_pan_max_step_px'),
+                ('field', 'track_jump_px'),
+                ('field', 'track_glide_exit_px'),
+                ('note', 'track_note'),
             ]
         if self.tab_index == 2:  # 地图
             if self._map_range_mode == 0:
@@ -212,8 +273,9 @@ class Settings(DraggableDialog):
                 ('toggle', 'path_mode', [(s, v) for s, v in zip(self.path_mode_modes, ("markers", "line"))],
                  90, None, 'path_mode_text'),
                 ('checkbox', 'show_future_path'),
-                ('checkbox', 'show_motion_vector'),
-                ('checkbox', 'show_track_stats'),
+                # 用户 2026-10-01: 「运动矢量箭头」与「路径质量面板」两项**去掉**
+                # (路径质量面板"莫名其妙"; 红色箭头也不需要)。界面入口、_sync、
+                # _init_data、标签全部移除; 绘制代码也一并删掉。
                 ('section', '效果'),
                 ('checkbox', 'show_ri_effect'),
                 ('section', '帧率'),
@@ -339,65 +401,137 @@ class Settings(DraggableDialog):
         return settings_accent(self.dark_mode, self.sim.color_scheme)
 
     def _init_data(self):
-        self.ac = True
-        self.mis = 0.1
-        self.mas = 10.0
-        self.mlo = 100
-        self.Mlo = 180
-        self.mla = 0
-        self.Mla = 50
-        self.show_info_box_normal = True
-        self.show_info_box_season = True
-        self.show_legend = False
-        self.show_graticule = False
-        self.show_ocean_areas = False
-        self.show_coord_hud = True
-        self.show_track_label = True
-        self.normal_other_display = "translucent"
-        self.screen_width = self.sim.screen_width
-        self.screen_height = self.sim.screen_height
-        self.ace_display_mode = "progress_bar"
-        self.main_rot_speed = 1.0
-        self.level3_rot_speed = 1.5
-        self.volume = 0.6
-        self.landfall_vol_scale = True
-        self.name_display_mode = 0
-        self.point_name_mode = False
-        self.ace_geo_limit_enabled = False
-        self.ace_limit_mode = ACE_LIMIT_NONE
-        self.ace_limit_basin = ""
-        self.ace_min_lon = 100
-        self.ace_max_lon = 180
-        self.ace_min_lat = 0
-        self.ace_max_lat = 90
-        self.hemisphere = HEMISPHERE_NORTH
-        self._map_range_mode = 1 if getattr(self.sim, 'map_corner_mode', False) else 0
-        self.point_size = 150
-        self.icon_size = 100
-        self.name_size = 100
-        self.peak_label_size = 100
-        self.info_box_scale = 1.2
-        self.disable_dpi_scaling = False
-        self.fade_typhoon = True
-        self.fade_path = True
-        self.fade_path_mode = "fade"
-        self.smooth_path = False
-        self.smooth_path_mode = "monotone"
-        self.smooth_path_segments = 10
-        self.edit_snap_step = 0.1
-        self.show_edit_point_labels = False
-        self.path_mode = "markers"
-        self.ace_interpolated = False
-        self.show_fps = False
-        self.fps_cap = 60
-        self.show_ri_effect = True
-        self.show_future_path = True
-        self.show_ace_bar = True
-        self.show_ace_total = True
-        self.monthly_summary = True
-        self.basin_filter_enabled = True
-        self.icon_set = ICON_SET_SIMPLE
-        self.color_scheme = 1
+        """从当前 cfg 读入所有镜像字段(与  共用 )。
+
+        ⚠⚠ 2026-10-01 重构: 原来是 **63 行手写字面量**, 而  只刷新其中一部分
+        => 剩下的永远是硬编码默认值 => 打开设置看到默认值、点确定就把默认值推回 cfg
+        => **用户设置被静默改回默认**(用户报的"为什么设置天天被改回默认")。
+        """
+        cfg = getattr(self.sim, "cfg", None)
+        for local, cfg_name in self._CFG_MIRROR.items():
+            fallback = getattr(self, local, None)
+            setattr(self, local,
+                    getattr(cfg, cfg_name, fallback) if cfg is not None else fallback)
+
+    # ⚠⚠ 2026-10-01 重构: Settings 属性 -> AppConfig 字段 的 **唯一真相**。
+    #
+    # 原来这份映射被**手写了两份**:  里 63 行字面量、 里 61 个
+    # 名字。两份不同步 => 那 20 个只出现在前者里的字段, 在"打开设置点确定"时会被
+    # **静默改回默认**(用户报的"设置天天被改回默认")。
+    # 现在两处**都从这一份取**, 结构上不可能再分叉。
+    #
+    # 键 = Settings 上的属性名; 值 = AppConfig 字段名(同名时二者相同)。
+    _CFG_MIRROR = {
+        'ac': 'ac',
+        'mis': 'mis',
+        'mas': 'mas',
+        'mlo': 'mlo',
+        'Mlo': 'Mlo',
+        'mla': 'mla',
+        'Mla': 'Mla',
+        'show_info_box_normal': 'show_info_box_normal',
+        'show_info_box_season': 'show_info_box_season',
+        'show_legend': 'show_legend',
+        'show_graticule': 'show_graticule',
+        'show_ocean_areas': 'show_ocean_areas',
+        'show_coord_hud': 'show_coord_hud',
+        'show_track_label': 'show_track_label',
+        'normal_other_display': 'normal_other_display',
+        'screen_width': 'screen_width',
+        'screen_height': 'screen_height',
+        'ace_display_mode': 'ace_display_mode',
+        'main_rot_speed': 'main_rotation_speed',
+        'level3_rot_speed': 'level3_rotation_speed',
+        'volume': 'volume',
+        'landfall_vol_scale': 'landfall_vol_scale',
+        'name_display_mode': 'name_display_mode',
+        'point_name_mode': 'point_name_mode',
+        'ace_geo_limit_enabled': 'ace_geo_limit_enabled',
+        'ace_limit_mode': 'ace_limit_mode',
+        'ace_limit_basin': 'ace_limit_basin',
+        'ace_min_lon': 'ace_min_lon',
+        'ace_max_lon': 'ace_max_lon',
+        'ace_min_lat': 'ace_min_lat',
+        'ace_max_lat': 'ace_max_lat',
+        'hemisphere': 'hemisphere',
+        '_map_range_mode': 'map_corner_mode',
+        'point_size': 'point_size',
+        'icon_size': 'icon_size',
+        'name_size': 'name_size',
+        'peak_label_size': 'peak_label_size',
+        'info_box_scale': 'info_box_scale',
+        'disable_dpi_scaling': 'disable_dpi_scaling',
+        'fade_typhoon': 'fade_typhoon',
+        'fade_path': 'fade_path',
+        'fade_path_mode': 'fade_path_mode',
+        'smooth_path': 'smooth_path',
+        'smooth_path_mode': 'smooth_path_mode',
+        'smooth_path_segments': 'smooth_path_segments',
+        'edit_snap_step': 'edit_snap_step',
+        'show_edit_point_labels': 'show_edit_point_labels',
+        'path_mode': 'path_mode',
+        'ace_interpolated': 'ace_interpolated',
+        'show_fps': 'show_fps',
+        'fps_cap': 'fps_cap',
+        'fix_icon_point_size': 'fix_icon_point_size',
+        'window_topmost': 'window_topmost',
+        'show_summary': 'show_summary',
+        'start_maximized': 'start_maximized',
+        'show_ri_effect': 'show_ri_effect',
+        'show_future_path': 'show_future_path',
+        'show_ace_bar': 'show_ace_bar',
+        'show_ace_total': 'show_ace_total',
+        'monthly_summary': 'monthly_summary',
+        'basin_filter_enabled': 'basin_filter_enabled',
+        'icon_set': 'icon_set',
+        'color_scheme': 'color_scheme',
+        # ── 镜头跟踪收尾时序(用户 2026-10-01 要求收进显示 tab) ──
+        'track_view_pad_pct': 'track_view_pad_pct',
+        'track_settle_ms': 'track_settle_ms',
+        'track_hl_in_ms': 'track_hl_in_ms',
+        'track_hl_hold_ms': 'track_hl_hold_ms',
+        'track_hl_out_ms': 'track_hl_out_ms',
+        'track_pan_min_ms': 'track_pan_min_ms',
+        'track_pan_ms_per_1k_px': 'track_pan_ms_per_1k_px',
+        'track_pan_max_ms': 'track_pan_max_ms',
+        'track_pan_max_step_px': 'track_pan_max_step_px',
+        'track_jump_px': 'track_jump_px',
+        'track_glide_exit_px': 'track_glide_exit_px',
+    }
+    # 只从 cfg 读、**不回写**的字段:
+    #   ace_geo_limit_enabled —— 仅由 _apply_filter_now 维护, 回写会造成 ACE 口径分裂(见 _sync 处 N3 注释);
+    #   map_corner_mode       —— 由 _map_range_mode 经专门分支处理, 不走通用 _sync。
+    _CFG_SYNC_SKIP = ("ace_geo_limit_enabled", "map_corner_mode")
+
+    #: `apply_basin_filter()` 的输入字段（W2 修复 5 的守卫依据）。逐个对照源码:
+    #:   · basin_filter_enabled         data_repo.py:367 判据
+    #:   · ace_limit_mode               data_repo.py:368; ace_engine.point_in_limit(mode='latlon')
+    #:   · ace_limit_basin              data_repo.py:369; point_in_limit(mode='basin')
+    #:   · ace_min_lon/ace_max_lon/ace_min_lat/ace_max_lat   point_in_limit(mode='latlon', ace_engine.py:86-87)
+    #:   · hemisphere                   refresh_all→fill_point_ace_years→ACEEngine.ace_year(ace_engine.py:70-73)
+    #: **不在**此列的字段确认与过滤结果无关: `name_display_mode` 看似影响排序, 但
+    #: `DataRepository._sort_by_basin` 走 `repo.get_display_name(ty)` →
+    #: `TySim.get_display_name(ty, mode=None)` 只走"短名"分支(typhoon.sname/cust/编号),
+    #: 与显示模式无关(ty_sim.py:499-510); 数据量变化则另有 reload/new 路径各自刷新。
+    _FILTER_SIGNATURE_FIELDS = (
+        'basin_filter_enabled', 'ace_limit_mode', 'ace_limit_basin',
+        'ace_min_lon', 'ace_max_lon', 'ace_min_lat', 'ace_max_lat',
+        'hemisphere',
+    )
+
+    def _filter_signature(self):
+        """`apply_basin_filter()` 的输入签名（保守: 取不到任何一项即强制"不相等"）。
+
+        为什么用 `object()` 兜底而不是 `None`: 签名只用于"两次读取是否相等"的比较。
+        若某个字段取不到, 返回**每次调用都唯一**的对象 ⇒ 比较必然不等 ⇒ 调用方
+        永不跳过(宁可多算一次, 也好过"改了设置却不生效")。
+        """
+        vals = []
+        for name in self._FILTER_SIGNATURE_FIELDS:
+            if not hasattr(self.sim, name):
+                return object()
+            vals.append(getattr(self.sim, name))
+        return tuple(vals)
 
     @staticmethod
     def _parse_lon(text: str) -> Optional[float]:
@@ -516,8 +650,6 @@ class Settings(DraggableDialog):
         self.path_mode_modes = [rt(f_m, "点阵", (255, 255, 255)), rt(f_m, "渐变线", (255, 255, 255))]
         self.ace_interp_text = rt(f_m, "连续 ACE:", TX)
         self.fps_text = rt(f_m, "显示 FPS:", TX)
-        self.motion_vec_text = rt(f_m, "运动矢量箭头:", TX)
-        self.track_stats_text = rt(f_m, "路径质量面板:", TX)
         self.fps_cap_text = rt(f_m, "帧率上限:", TX)
         self.fps_cap_modes = [rt(f_m, "60", (255, 255, 255)),
                               rt(f_m, "120", (255, 255, 255)),
@@ -526,6 +658,9 @@ class Settings(DraggableDialog):
         self.future_path_text = rt(f_m, "显示未经过的路径:", TX)
         self.monthly_summary_text = rt(f_m, "月度 ACE 总结弹窗:", TX)
         self.fix_icon_point_text = rt(f_m, "固定图标与路径点大小:", TX)
+        self.topmost_text = rt(f_m, "窗口置顶:", TX)
+        self.start_max_text = rt(f_m, "启动即最大化:", TX)
+        self.show_summary_text = rt(f_m, "总结面板:", TX)
         self.legend_text = rt(f_m, "显示强度图例:", TX)
         self.graticule_text = rt(f_m, "显示经纬网格:", TX)
         self.ocean_areas_text = rt(f_m, "显示洋区边界:", TX)
@@ -561,7 +696,21 @@ class Settings(DraggableDialog):
         self.basin_filter_note = None
         # F3: 新增说明文字与分组标题缓存
         self.window_note = rt(f_s, "窗口尺寸修改后立即重排窗口", TD, 400)
+        # 镜头跟踪子类的行标签(单位写进标签, 免得用户猜)
+        self.tk_pad_label = rt(f_m, "收尾边距(%):", TX)
+        self.tk_settle_label = rt(f_m, "到位静置(ms):", TX)
+        self.tk_hlin_label = rt(f_m, "高亮渐入(ms):", TX)
+        self.tk_hlhold_label = rt(f_m, "高亮保持(ms):", TX)
+        self.tk_hlout_label = rt(f_m, "高亮渐出(ms):", TX)
+        self.tk_panmin_label = rt(f_m, "推镜最短(ms):", TX)
+        self.tk_panper_label = rt(f_m, "推镜每千px(ms):", TX)
+        self.tk_panmax_label = rt(f_m, "推镜最长(ms):", TX)
+        self.tk_step_label = rt(f_m, "摇镜单帧上限(px):", TX)
+        self.tk_jump_label = rt(f_m, "瞬移判定(px):", TX)
+        self.tk_glide_label = rt(f_m, "摇镜交回平滑(px):", TX)
         self.theme_note = rt(f_s, "主题配色即时生效；固定图标与路径点大小需重载数据生效", TD, 400)
+        self.track_note = rt(f_s, "跟踪镜头: 边距% / 静置ms / 高亮渐入·保持·渐出ms / "
+                            "推镜ms(最短·每千像素·上限) / 摇镜(单帧上限·瞬移判定·退出)px", TD, 520)
         self.dm_label = rt(f_m, "主题配色:", TX)
         self._section_title_cache = {}
 
@@ -640,6 +789,14 @@ class Settings(DraggableDialog):
         self.color_scheme = getattr(self.sim, 'color_scheme', 1)
         if not hasattr(self, 'tab_index') or self.tab_index < 0:
             self.tab_index = 0
+        # ⚠ 用户 2026-10-01: "退出设置后返回自动回到退出时的 tab 及滚动到的位置"。
+        # 原来这里**无条件**把 `_content_scroll_y` 清零 ⇒ 每次打开都滚回顶部。
+        # 改用既有的 `sim.dialog_page_cache`(ty_list / point_list 也用它) 记住上次的位置;
+        # tab 本来就持久(上面那两行只在非法时归零), 一并存进去让意图明确、
+        # 且**跨重载**也在(用户改 config 后重载不会跳回第一个 tab)。
+        _cache = getattr(self.sim, 'dialog_page_cache', None) or {}
+        self.tab_index = int(_cache.get('settings_tab', self.tab_index) or 0)
+        self._content_scroll_y = int(_cache.get('settings_scroll', 0) or 0)
         self.show_shortcuts = False
         self.show_info_box_editor = False
         self._needs_save = False
@@ -649,7 +806,6 @@ class Settings(DraggableDialog):
         self._basin_dropdown_open = False
         self._basin_scroll_offset = 0
         self._error_fields = []
-        self._content_scroll_y = 0
         self._content_scroll_max = 0
         # 搜索框(P2-18): 跨 tab 匹配 section 名
         from .input_field import InputField
@@ -665,16 +821,46 @@ class Settings(DraggableDialog):
 
     def _build_basin_list(self):
         areas = self.sim.res_mgr.ocean_areas.areas
-        # 合并非合并洋区先，合并洋区（自动生成）在后
-        manual = [(a.code, a.name_cn) for a in areas if not a.is_merged]
-        merged = [(a.code, a.name_cn) for a in areas if a.is_merged]
-        self._basin_list = manual + merged
+        # ⚠ 2026-10-01: 分组判据由 `is_merged` 改成 **`is_aggregate`**(= 真合并区 ∪
+        # 半球区)。原因: `NE`/`SE` 是**南北半球**(不是合并区), 它们靠几何自动识别为
+        # 半球区、`is_merged` 为假 —— 若还按 `is_merged` 分组, 它们会被当成**普通洋区**
+        # 排到前面(而它们不可当作单点归属、也不该被当成普通洋区对待)。
+        # 顺序: 普通洋区 -> 合并区 -> 半球区(后者放最后, 语义上最"聚合")。
+        manual = [(a.code, a.name_cn) for a in areas
+                  if not a.is_merged and not a._is_hemisphere]
+        merged = [(a.code, a.name_cn) for a in areas
+                  if a.is_merged and not a._is_hemisphere]
+        hemi = [(a.code, a.name_cn) for a in areas if a._is_hemisphere]
+        self._basin_list = manual + merged + hemi
         self._basin_items = {
             code: (rt(f_s, f"{code} {name_cn}", SETTINGS_TEXT_LIGHT),
                    rt(f_s, f"{code} {name_cn}", TXT))
             for code, name_cn in self._basin_list}
 
+    def _remember_view_state(self) -> None:
+        """记住退出时的 tab 与滚动位置, 下次打开回到原处(activate() 里恢复)。
+
+        ⚠ 2026-10-01 修: 原来这段只写在 `deactivate()` 里, 但「确认」(`_on_ok`) 与
+        「关闭」(`_on_close`) 两条**主路径**直接调 `super().deactivate()`
+        (DraggableDialog.deactivate), 绕过了本类重写的 `deactivate()` ⇒
+        缓存**从来没被写过**, "记住位置"等于没做。现在三条路径都调用本方法。
+        """
+        cache = getattr(self.sim, 'dialog_page_cache', None)
+        if cache is None:
+            return
+        # ⚠ D2 已知风险(2026-10-01 只记不改): 这里按**像素**存滚动位置。
+        #   切到行数更少的 tab 时, 恢复出来的像素值可能超过新页的 `_content_scroll_max`
+        #   —— `draw()` 会夹取(`_content_scroll_y = min(..., _content_scroll_max)`,
+        #   且夹取后才会取局部 `scroll`), 所以**不会画错**, 但"回到原处"在跨 tab
+        #   场景下并不精确。若将来 tab 布局再变, 建议改存**行号或比例**而不是像素。
+        cache['settings_tab'] = int(self.tab_index)
+        cache['settings_scroll'] = int(self._content_scroll_y)
+
     def deactivate(self) -> bool:
+        # 名字位置子对话框: 设置关了它也一起关(未确定则它自己回滚)
+        _dlg = getattr(self, '_name_pos_dlg', None)
+        if _dlg is not None and _dlg.active:
+            _dlg.deactivate()
         if self._needs_save:
             if not self.apply_settings():
                 return False
@@ -685,6 +871,9 @@ class Settings(DraggableDialog):
         self._basin_dropdown_open = False
         self._error_fields = []
         self._close_confirm = False
+        # 用户 2026-10-01: 记住退出时的 tab 与滚动位置, 下次打开回到原处
+        # (activate() 里从同一份缓存恢复; 与 ty_list/point_list 用同一个机制)。
+        self._remember_view_state()
         return True
 
     def _update_bg_rect(self):
@@ -773,6 +962,15 @@ class Settings(DraggableDialog):
                     parsed = self._parse_lat(val)
                     if parsed is not None:
                         setattr(self, key, parsed)
+                elif key in TRACK_FIELD_RANGES:
+                    lo, hi = TRACK_FIELD_RANGES[key]
+                    v = float(val) if isinstance(hi, float) else int(val)
+                    if not (lo <= v <= hi):
+                        self._error_fields.append(field)
+                        self.sim.show_error(
+                            '跟踪镜头 %s 需在 %g~%g 之间' % (key, lo, hi))
+                        return False
+                    validated[key] = v
                 elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed', 'info_box_scale'):
                     setattr(self, key, float(val))
                 elif key == 'smooth_path_segments':
@@ -902,6 +1100,12 @@ class Settings(DraggableDialog):
                 val, vd = lat_to_display(self.mla), lat_val
             elif key == 'span':
                 val, vd = f"{self.Mlo - self.mlo:.1f}", float_val
+            elif key in TRACK_FIELD_RANGES:
+                cur = getattr(self, key, None)
+                if isinstance(cur, float):
+                    val, vd = ('%g' % cur), float_val
+                else:
+                    val, vd = str(cur), int_val
             else:
                 continue
             out.append((key, val, (dialog_x + self.LAYOUT_CTRL_X, base,
@@ -1002,7 +1206,6 @@ class Settings(DraggableDialog):
         content_top = tab_y + tab_area_h + 8
         content_bottom = dy + dh - 40
         content_h = content_bottom - content_top
-        scroll = self._content_scroll_y
 
         layout = self._tab_layout()
         ys, total_h = self._tab_rows_y()
@@ -1010,6 +1213,10 @@ class Settings(DraggableDialog):
         # F3: 滚动上限由布局总高一次算得(不再从 _targets 反推)
         self._content_scroll_max = max(0, total_h - content_h)
         self._content_scroll_y = min(self._content_scroll_y, self._content_scroll_max)
+        # ⚠ 夹取**之后**再取局部量: 原来 `scroll = self._content_scroll_y` 写在夹取
+        # 之前, 于是"切到更短的 tab / 恢复持久化的滚动位置"那一帧, 内容按**旧的过大**
+        # 偏移绘制, 而滚动条 thumb 用的是夹取后的值 —— 两者对不上(内容会闪一帧错位)。
+        scroll = self._content_scroll_y
 
         old_clip = surface.get_clip()
         surface.set_clip(pygame.Rect(dx + 4, content_top, dw - 8, content_h))
@@ -1018,16 +1225,22 @@ class Settings(DraggableDialog):
         # 静态层内部坐标以 dx 为基准,故 blit 到 (dx, ...),与动态层绝对坐标一致
         static = self._tab_static_surface(dx, dw, layout, ys, total_h)
         surface.blit(static, (dx, content_top - scroll))
-        self._draw_tab_rows(surface, dx, dw, dy, content_top, scroll, mx, my)
+        # S3: 把内容区高度传下去, 让行内控件只在可见范围内注册点击目标
+        self._draw_tab_rows(surface, dx, dw, dy, content_top, scroll, mx, my, content_h)
 
-        surface.set_clip(old_clip)
-
+        # ⚠⚠ 字段必须在**内容区裁剪之内**绘制。
+        # 原来 `surface.set_clip(old_clip)` 写在这个循环**之前** ⇒ 字段在无裁剪状态下
+        # 绘制, 滚出内容区(例如"平滑路径段数")时会**直接画到设置窗口外面**、
+        # **始终可见** —— 用户 2026-10-01: "设置里平滑路径段数的框会超出设置, 始终显示"。
+        # 修法: 把恢复裁剪挪到字段循环之后。
         # 字段随内容区滚动绘制（点击判定同步加回滚动偏移）
         for field in self.fields:
             field.draw(surface, y_offset=-scroll)
         for field in self._error_fields:
             er = field.rect.move(0, -scroll)
             pygame.draw.rect(surface, (230, 60, 60), er, 2, 3)
+
+        surface.set_clip(old_clip)
 
         # 滚动条（内容超出视口时显示，可拖动）
         self._sb_track_rect = None
@@ -1125,6 +1338,7 @@ class Settings(DraggableDialog):
             self._immediate_snapshot = None
             self._deactivate_fields()
             super().deactivate()
+            self._remember_view_state()      # 点确定也要记住 tab/滚动位置
             self.dragging = False
             self._basin_dropdown_open = False
             self._error_fields = []
@@ -1138,6 +1352,7 @@ class Settings(DraggableDialog):
         self._restore_immediate_applied()
         self._deactivate_fields()
         super().deactivate()
+        self._remember_view_state()          # 关闭(丢弃更改)也要记住位置
         self.dragging = False
         self._basin_dropdown_open = False
         self._error_fields = []
@@ -1209,6 +1424,14 @@ class Settings(DraggableDialog):
             name = fld.name
             if name in self.__dict__:
                 setattr(self, name, getattr(d, name))
+        # 名字偏移(name_dx/name_dy)不在 `_sync` 列表里(由「调整名字位置」对话框
+        # 直写 cfg, 避免设置 OK 时用陈旧本地值把它覆盖回去) ⇒ 这里显式回默认,
+        # 否则"恢复默认"会留着用户调过的名字位置。
+        try:
+            self.sim.name_dx = d.name_dx
+            self.sim.name_dy = d.name_dy
+        except Exception:
+            pass
         self._map_range_mode = 0
         self.tab_index = 0
         self._needs_save = True
@@ -1335,14 +1558,38 @@ class Settings(DraggableDialog):
             self._tab_static_cache.pop(next(iter(self._tab_static_cache)))
         return surf
 
-    def _draw_tab_rows(self, surface, dx, dw, dy, content_top, scroll, mx, my):
+    def _draw_tab_rows(self, surface, dx, dw, dy, content_top, scroll, mx, my,
+                       content_h=0):
         """动态层:开关 on/hover、checkbox 勾选、目标注册、洋区下拉。
-        下拉列表最后绘制,避免被后续行的选中态遮挡(F3 修复)。"""
+        下拉列表最后绘制,避免被后续行的选中态遮挡(F3 修复)。
+
+        ⚠ S3(2026-10-01): 本函数注册的点击目标**必须裁到内容视口内**。
+        绘制早就 `set_clip` 了(见 `draw`), 但 `_add_target` 注册的是**未裁剪**的
+        绝对坐标 —— 行滚出可视区后它的矩形会移进 Tab 栏/字段区, 而 `handle_event`
+        在处理 Tab 栏点击**之前**就派发了 `_targets`
+        (见 handle_event 里"统一派发其他点击目标"之前那个循环) ⇒
+        隐形控件**抢走** Tab 栏的点击。实测: tab 3 下滚 144px 后点「数据」标签会
+        静默翻转「自动继续」(ac) 而不是切页; 全 tab 扫描共 55 个相交位置。
+        """
         layout = self._tab_layout()
         ys, total_h = self._tab_rows_y()
         dark = self.dark_mode
         _lh = self._lh
         dropdown_rect = None
+        # 与 draw() 里 set_clip 的矩形逐字一致(dx+4, content_top, dw-8, content_h)
+        clip = pygame.Rect(dx + 4, content_top, dw - 8, max(0, content_h))
+
+        def add_visible(rect, cb):
+            """只注册**与内容区相交**的点击目标, 并把矩形裁到内容区内。
+
+            完全滚出可视区的行不再产生任何点击目标 ⇒ Tab 栏/字段的点击
+            不会被隐形控件吃掉。返回是否注册。
+            """
+            if clip.h <= 0 or not rect.colliderect(clip):
+                return False
+            self._add_target(rect.clip(clip), cb)
+            return True
+
         for row, y in zip(layout, ys):
             yy = content_top + y - scroll
             t = row[0]
@@ -1351,17 +1598,18 @@ class Settings(DraggableDialog):
                 cbx = dx + dw - 50
                 r = pygame.Rect(cbx, yy, 16, 16)
                 if attr == 'show_ace_total' and not self.show_ace_bar:
-                    # 依赖置灰:show_ace_bar 关闭时不可点(保持原行为)
-                    self._add_target(r, lambda: None)
+                    # 依赖置灰:show_ace_bar 关闭时不可点(保持原行为: 吃掉这次点击),
+                    # 但同样只在**可见**时注册, 免得滚出视口后挡住别的控件(D3)
+                    add_visible(r, lambda: None)
                     surface.blit(self._gray16(), (cbx, yy))
                     continue
                 if t == 'checkbox_now':
-                    self._add_target(r, lambda a=attr: (
+                    add_visible(r, lambda a=attr: (
                         setattr(self, a, not getattr(self, a)),
                         setattr(self, '_needs_save', True),
                         self._apply_filter_now()))
                 else:
-                    self._add_target(r, lambda a=attr: (
+                    add_visible(r, lambda a=attr: (
                         setattr(self, a, not getattr(self, a)),
                         setattr(self, '_needs_save', True)))
                 checked = getattr(self, attr)
@@ -1384,10 +1632,10 @@ class Settings(DraggableDialog):
                         pygame.draw.rect(surface, SETTINGS_TOGGLE_ON if dark else (160, 175, 200),
                                          rect, border_radius=6)
                     if cb is not None:
-                        self._add_target(rect, (lambda v=val, c=cb: (
+                        add_visible(rect, (lambda v=val, c=cb: (
                             c(v), setattr(self, '_needs_save', True))))
                     else:
-                        self._add_target(rect, (lambda v=val, a=attr: (
+                        add_visible(rect, (lambda v=val, a=attr: (
                             setattr(self, a, v), setattr(self, '_needs_save', True))))
                     if isinstance(lbl, str):
                         ts = rt(f_m, lbl, (25, 32, 45) if on else (255, 255, 255))
@@ -1396,16 +1644,20 @@ class Settings(DraggableDialog):
                     surface.blit(ts, (rect.x + (rect.w - ts.get_width()) // 2,
                                       rect.y + (rect.h - ts.get_height()) // 2 - 1))
             elif t == 'button':
-                # 显示 tab 内可点击按钮(如「信息框自定义」)
+                # 显示 tab 内可点击按钮(如「信息框自定义」)。
+                # ⚠ 行描述可带**第 3 个元素 = 回调**; 不传则沿用旧行为(信息框自定义),
+                #   这样既有布局一行都不用改。
                 _, label = row[0], row[1]
+                cb = (row[2] if len(row) > 2 and callable(row[2])
+                      else self._open_info_box_editor)
                 b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 180, self.LAYOUT_BTN_H)
-                self._add_target(b, self._open_info_box_editor)
+                add_visible(b, cb)
                 self._draw_modern_button(surface, b, label,
                                          hover=b.collidepoint(mx, my), accent=False, dark=dark)
             elif t == 'btn_ocean_edit':
                 # ACE tab: 「洋区编辑」→ 进入主地图洋区编辑模式(仅此入口)
                 b = pygame.Rect(dx + self.LAYOUT_BTN_X, yy, 180, self.LAYOUT_BTN_H)
-                self._add_target(b, self._enter_ocean_edit)
+                add_visible(b, self._enter_ocean_edit)
                 self._draw_modern_button(surface, b, rt(f_m, "洋区编辑", (255, 255, 255)),
                                          hover=b.collidepoint(mx, my), accent=True, dark=dark)
             elif t == 'dropdown':
@@ -1413,8 +1665,8 @@ class Settings(DraggableDialog):
                 current_basin = self.ace_limit_basin
                 area = self.sim.res_mgr.ocean_areas.get_by_code(current_basin) if current_basin else None
                 display = area.name_cn if area else (current_basin or "选择洋区")
-                self._add_target(b, lambda: (setattr(self, '_basin_dropdown_open', True),
-                                             setattr(self, '_basin_scroll_offset', 0)))
+                add_visible(b, lambda: (setattr(self, '_basin_dropdown_open', True),
+                                        setattr(self, '_basin_scroll_offset', 0)))
                 text_color = SETTINGS_TEXT_LIGHT if dark else (60, 70, 90)
                 text_surface = rt(f_s, display, text_color)
                 surface.blit(text_surface, (b.x + 5, b.y + (b.h - text_surface.get_height()) // 2))
@@ -1440,12 +1692,15 @@ class Settings(DraggableDialog):
                 if item_rect.collidepoint(mx, my):
                     hover_c = SETTINGS_ACCENT if dark else (180, 220, 255)
                     pygame.draw.rect(surface, hover_c, item_rect)
-                self._dropdown_targets.append((item_rect, lambda cd=code: (
-                    setattr(self, 'ace_limit_basin', cd),
-                    setattr(self, '_ace_changed', True),
-                    setattr(self, '_needs_save', True),
-                    setattr(self, '_basin_dropdown_open', False),
-                    self._apply_filter_now())))
+                # S3: 下拉项同样只在可见时注册(按钮行可能已被滚出视口)
+                if clip.h > 0 and item_rect.colliderect(clip):
+                    self._dropdown_targets.append((item_rect.clip(clip),
+                                                   lambda cd=code: (
+                        setattr(self, 'ace_limit_basin', cd),
+                        setattr(self, '_ace_changed', True),
+                        setattr(self, '_needs_save', True),
+                        setattr(self, '_basin_dropdown_open', False),
+                        self._apply_filter_now())))
                 item_surfs = self._basin_items.get(code)
                 it = item_surfs[0] if dark else item_surfs[1]
                 surface.blit(it, (item_rect.x + 5, item_rect.y + 3))
@@ -1472,6 +1727,7 @@ class Settings(DraggableDialog):
             ("]",         "下一个台风"),
             ("I",         "新建台风 (编辑模式)"),
             ("T",         "时间跳转 (风季模式)"),
+            ("J",         "镜头跟踪 (风季 / 正常)"),
         ]),
         ("📊  面板 / 工具", (140, 100, 200), [
             ("O",         "台风列表"),
@@ -1479,6 +1735,7 @@ class Settings(DraggableDialog):
             ("G",         "点列表 (编辑模式可编辑)"),
             ("K",         "台风详情 (正常/编辑) / ACE统计 (风季)"),
             ("D",         "打开绘画面板 (正常 / 风季 / 编辑)"),
+            ("U",         "剧本对话框 (所有模式)"),
         ]),
         ("✎  编辑操作", (200, 60, 60), [
             ("Ctrl + Z",  "撤销"),
@@ -1493,7 +1750,7 @@ class Settings(DraggableDialog):
     ]
 
     _IB_ROW_NAMES = {'name': '台风名', 'time': '时间', 'pos': '位置', 'wind': '风速',
-                     'cat': '等级+气压', 'speed': '移速', 'peak': '巅峰',
+                     'pres': '气压', 'cat': '等级', 'speed': '移速', 'peak': '巅峰',
                      'tace': '总ACE', 'cace': '当前ACE'}
 
     def _open_info_box_editor(self):
@@ -1503,6 +1760,23 @@ class Settings(DraggableDialog):
         w, h = 560, 500
         self._ib_editor_rect = pygame.Rect(
             (self.sim.screen_width - w) // 2, (self.sim.screen_height - h) // 2, w, h)
+
+    def _open_name_pos_dialog(self):
+        """「调整名字位置…」→ 打开可视化对话框(懒创建, 之后复用同一实例)。
+
+        事件转发见 `handle_event` 顶部(子对话框激活时**独吞**事件 ⇒ 模态感);
+        绘制**不用管** —— 它 `activate()` 时进了 `sim._dialog_stack`,
+        `DialogManager.draw` 会按栈序画, 正好压在设置面板之上。
+        """
+        self._deactivate_fields()
+        self.show_shortcuts = False
+        self.show_info_box_editor = False
+        dlg = getattr(self, '_name_pos_dlg', None)
+        if dlg is None:
+            from .name_pos_dialog import NamePosDialog
+            dlg = NamePosDialog(self.sim)
+            self._name_pos_dlg = dlg
+        dlg.activate()
 
     def _enter_ocean_edit(self):
         """「洋区编辑」按钮: 关闭设置对话框并进入主地图洋区编辑模式。
@@ -1519,7 +1793,15 @@ class Settings(DraggableDialog):
         self.show_info_box_editor = False
 
     def _ib_rows(self):
-        return self.sim.info_box_rows or []
+        """编辑器读到的行表(永远含 `pres` 行)。
+
+        ⚠ 用户 2026-10-01: 旧配置里气压并进 `cat` 行、没有 `pres` —— 编辑器若照原样
+        显示, 用户就**看不到也拖不到**这个新行(与"设置里要能看到并拖动"冲突)。
+        这里调 config 的迁移函数(幂等), 返回**新的列表**(不改 cfg; 真正的持久化由
+        用户下一次点「显示/隐藏/上移/下移」时经 `_ib_set_rows` 落盘)。
+        """
+        from .config import migrate_info_box_rows
+        return migrate_info_box_rows(self.sim.info_box_rows or [])
 
     def _ib_set_rows(self, rows):
         self.sim.info_box_rows = rows
@@ -1880,6 +2162,16 @@ class Settings(DraggableDialog):
         if not self.active:
             return False
 
+        # ── 名字位置子对话框: 激活时**独吞**所有事件(模态感) ──
+        # 它不在 DialogManager._all() 里(那是登记表, 本文件没有写权限),
+        # 靠这里转发事件; 绘制走 `sim._dialog_stack`(见 _open_name_pos_dialog)。
+        # ⚠ 必须 `return True`(而不是返回它自己的结果): 否则未消费的滚轮/移动事件
+        #   会落到下面的设置滚动逻辑上, 变成"拖动对话框时后面的设置面板在滚"。
+        _dlg = getattr(self, '_name_pos_dlg', None)
+        if _dlg is not None and getattr(_dlg, 'active', False):
+            _dlg.handle_event(e)
+            return True
+
         # ── 快捷键面板：拦截所有事件 ──
         if self.show_shortcuts:
             return self._handle_shortcuts_event(e)
@@ -2204,30 +2496,39 @@ class Settings(DraggableDialog):
         old_future = getattr(self.sim, 'show_future_path', True)
         old_icon_set = self.sim.icon_set
         old_icon_size = self.sim.icon_size
-        for name in ('ac', 'mis', 'mas', 'mlo', 'Mlo', 'mla', 'Mla',
-                     'show_info_box_normal', 'show_info_box_season',
-                     'ace_display_mode', 'volume', 'name_display_mode', 'point_name_mode',
-                     'ace_limit_mode', 'ace_limit_basin',
-                     'ace_min_lon', 'ace_max_lon', 'ace_min_lat', 'ace_max_lat',
-                     'hemisphere', 'point_size', 'icon_size', 'name_size',
-                     'peak_label_size', 'info_box_scale', 'fix_icon_point_size', 'disable_dpi_scaling',
-                     'fade_typhoon', 'fade_path', 'fade_path_mode', 'smooth_path',
-                     'smooth_path_mode', 'smooth_path_segments', 'path_mode', 'ace_interpolated', 'show_fps',
-                     'show_motion_vector', 'show_track_stats',
-                     'edit_snap_step', 'show_edit_point_labels',
-                     'fps_cap', 'show_ri_effect', 'show_future_path', 'monthly_summary',
-                     'icon_set', 'color_scheme', 'show_ace_bar', 'show_ace_total',
-                     'basin_filter_enabled', 'screen_width', 'screen_height',
-                     'landfall_vol_scale', 'show_legend', 'show_graticule',
-                     'show_ocean_areas', 'show_coord_hud', 'show_track_label',
-                     'normal_other_display'):
-            self._sync(name)
+        # W2(2026-10-02) 修复 5: `apply_basin_filter()` 只在**它的输入字段**变化时
+        # 才需要重算(实测一次全量 = 25,473 次 point_in_limit + 16,982 次 _parse_dt
+        # + 6 年时间轴/台风榜重建)。必须在 `_CFG_MIRROR` 同步**之前**取签名。
+        old_filter_sig = self._filter_signature()
+        # G1(2026-10-01): 置顶要在 sync **之前**记当前状态, 用来判断"用户是否改了意图"
+        old_topmost = getattr(self.sim, 'window_topmost', None)
+        # ⚠ 2026-10-01 重构: 名单改由  驱动 —— 与  同一份,
+        # 不可能再出现"面板初始化了、同步名单漏了"这类分叉(那正是 20 个设置被改回默认的根因)。
+        for local, cfg_name in self._CFG_MIRROR.items():
+            if cfg_name in self._CFG_SYNC_SKIP:
+                continue
+            self._sync(cfg_name, local if local != cfg_name else None)
         # N3: ace_geo_limit_enabled 仅由 _apply_filter_now 维护,不在 _sync 列表,
         # 防陈旧本地值覆盖 sim 值造成 ACE 口径分裂
         self.sim.ace_geo_limit_enabled = (self.ace_limit_mode != ACE_LIMIT_NONE)
         self.ace_geo_limit_enabled = self.sim.ace_geo_limit_enabled
-        self._sync('main_rotation_speed', 'main_rot_speed')
         self._sync('level3_rotation_speed', 'level3_rot_speed')
+        # ── G1(2026-10-01): 窗口置顶 —— sync 只写了"意图", 这里把它**施加**到窗口上 ──
+        # 为什么必须施加: `cfg.window_topmost` 同时被两处当**当前状态**用 ——
+        #   · `keyboard_mixin.toggle_window_topmost()`(F12) 用 `not self.window_topmost`
+        #     判方向; · `ty_sim.py:209` 启动时用它决定要不要置顶。
+        # 只写 cfg 不施加 ⇒ 勾选后窗口毫无变化, 而下一次 F12 会读到 True 从而**切回非置顶**
+        # (方向反了)。这里用的就是 ty_sim 启动时的同一个入口 `set_window_topmost(意图)`。
+        # 失败时**保留意图**(下次启动由 ty_sim.py:209 施加)并明确告知, 不回滚 ——
+        # 回滚会让"置顶"永远无法从设置打开(运行时施加不可用时连意图都留不下)。
+        # ⚠ 已知运行时失败原因(**不在本文件**, 只报告不改): `keyboard_mixin.set_window_topmost`
+        #   用 `FindWindow(None, "台风路径模拟系统")` 找窗口, 而窗口标题在首帧就被
+        #   `_update_window_title()` 改成"正常模式"/"模拟 · 台风数值模拟"等 ⇒ 运行时找不到窗口。
+        #   该函数改用 `pygame.display.get_caption()[0]` 后, 这里无需改动就会变成"立即生效"。
+        if getattr(self.sim, 'window_topmost', None) != old_topmost:
+            _set_top = getattr(self.sim, 'set_window_topmost', None)
+            if _set_top is None or not _set_top(self.sim.window_topmost):
+                self.sim.show_toast("窗口置顶将在下次启动生效(当前无法立即切换)", 'warning')
         self.sim.map_corner_mode = (self._map_range_mode == 1)
         if (old_smooth != self.sim.smooth_path
                 or old_smooth_mode != self.sim.smooth_path_mode
@@ -2248,7 +2549,15 @@ class Settings(DraggableDialog):
                 pass
             self.sim.show_toast("图标设置已保存 — 建议重载数据以应用图标效果", 'success')
 
-        self.sim._apply_basin_filter()
+        # W2(2026-10-02) 修复 5: 仅在过滤/ACE 的**输入字段**真的变了才全量重算。
+        # 改前这里是无条件调用 ⇒ 仅仅改个"显示 FPS"也会付 25,473 次 point_in_limit
+        # + 16,982 次 _parse_dt + 6 年时间轴/台风榜重建。
+        # 安全性依据: 两个签名读取点之间只发生 `_CFG_MIRROR` 同步, 而
+        # `_FILTER_SIGNATURE_FIELDS` 覆盖了 `apply_basin_filter()` 及其下游
+        # (`_sort_by_basin` / `_refresh_ace`→`refresh_all` / `_fill_point_categories`)
+        # 实际读取的**全部**设置字段; 任何一个取不到就返回唯一对象 ⇒ 必然不等 ⇒ 不跳过。
+        if self._filter_signature() != old_filter_sig:
+            self.sim._apply_basin_filter()
 
         # ACE 去重：即时应用路径(_cb_ace_limit/盆域下拉→_apply_filter_now)
         # 已就地 recalc_all_ace,不置 _ace_recalc_dirty;仅其他 ACE 相关改动
@@ -2274,6 +2583,50 @@ class Settings(DraggableDialog):
                 pygame.display.set_mode(new_size, pygame.RESIZABLE)
             except Exception:
                 pass
+            #  只改大小、**不动位置** ⇒ 窗口往右下长, 超出屏幕的部分
+            # 用户根本看不到(实测: 客户区 1540 时窗口底边到 1902, 屏幕只有 1600
+            # => 底部 300px 在屏外, 于是"改了好像没变")。这里挪回屏内。
+            keep_window_on_screen(pygame.display.get_caption()[0])
+            # ── 与系统对账(用户 2026-10-01: "改窗口长宽完全不变") ──────────────
+            #  对**放不下**的尺寸**不报错**, 只是默默给个小窗口。
+            # 不对账的话: 应用以为自己 2560x1540 => map_height=1440,
+            # 而屏幕上只有约 1495 => **地图底部被切掉、功能栏露一半**, 且毫无提示。
+            # 实测根因: 屏幕 2560x1600, 工作区仅 2560x1530(任务栏 70px),
+            # 客户区 1540 + 标题栏/边框(35) = 1575 > 1530 => Windows 钳制。
+            # ⚠⚠ 用户 2026-10-01 追问: "设置成 2560x1540 但 config 里还是 1498"。
+            # 根因: **「启动即最大化」开着时, 尺寸设置必然被覆盖** ——
+            #   启动 →  撑成最大化客户区(2560x1498) →
+            #    把实际尺寸写回 cfg → save_config 存 1498。
+            # 两者**互斥**(最大化必然改变尺寸, 而尺寸一变就走 handle_resize 写 cfg)。
+            # 这里给出**明确提示**, 不让它继续静默失效。
+            if getattr(self.sim.cfg, 'start_maximized', False):
+                self.sim.show_error(
+                    "「启动即最大化」已开启 —— 它会在每次启动时把窗口撑成最大化尺寸, "
+                    "从而**覆盖**这里设置的 %dx%d。要固定这个尺寸, 请先取消勾选"
+                    "「启动即最大化」并重启。" % new_size)
+            real = actual_client_size(pygame.display.get_caption()[0])
+            if real and real != new_size:
+                # G2(2026-10-01) **以系统实际给的为准, 彻底收敛** —— 不要再把 cfg 改回
+                # new_size。原因: `sim.screen_width/height` 经 `_ConfigProperty` 就是
+                # `cfg.screen_width/height`(ty_sim.py:56-63), 而 `handle_resize` 也直接
+                # 反写 cfg(ty_sim.py:526-534)。上一版在这里把 cfg 改回"请求值", 于是
+                # `sim.screen_width/height` 说 1540 而 `view`/`map_height` 说实际值 ——
+                # 任何之后按 `sim.screen_height - CPH` 布局的代码会重现"地图底部被切掉"。
+                # 现在: cfg/view/map_height 三者一起 = **实际值**, 用户看到明确提示,
+                # 而不是内部状态撒谎(与 main.py 的口径一致: 以 surface 真实尺寸为准)。
+                self.sim.handle_resize(*real)
+                self.sim.show_error(
+                    "窗口被系统限制为 %dx%d(请求 %dx%d): 当前工作区放不下。"
+                    "任务栏自动隐藏可腾出空间。" % (real[0], real[1],
+                                                new_size[0], new_size[1]))
+                # ⚠ 必须是 `self.sim.…`: 这个方法在 TySim 上(ty_sim.py:562), Settings
+                #   自己没有。写 `self.invalidate_screen_points_lazy()` 会在**刚好被系统
+                #   钳制尺寸**这条分支上抛 AttributeError ⇒ 点「确定」直接崩(实测)。
+                self.sim.invalidate_screen_points_lazy()
+            else:
+                # 系统给的就是我们要的(或拿不到系统真实尺寸, 例如非 Windows):
+                # 此时把请求值写回 cfg = 实际值, 不存在分叉。
+                self.sim.cfg.screen_width, self.sim.cfg.screen_height = new_size
         else:
             new_view_bounds = (self.sim.mlo, self.sim.Mlo, self.sim.mla, self.sim.Mla,
                                *new_size)

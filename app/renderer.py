@@ -2,6 +2,7 @@
 """统一渲染器：组合所有绘制逻辑。"""
 from __future__ import annotations
 
+import logging
 import math
 import time
 from typing import Tuple, TYPE_CHECKING
@@ -13,11 +14,16 @@ from .constants import (
     FPS_GREEN, FPS_YELLOW, FPS_RED, ERROR_TIMEOUT_MS,
     TD, TS, STS, C1, C2, C3, C4, C5_L,
 )
-from .render_geom import clip_segment, normalize_chain
-from .track_quality import (CURVE_DEV_LIMIT_KM, deviation_report, track_quality)
+from .render_geom import clip_segment, normalize_chain, draw_snap_grid
+# P1(2026-10-02): 抗锯齿共享底座(只读使用; 见 output/exploration/p1_map_aa.md)
+from . import paint_aa
+from .track_quality import CURVE_DEV_LIMIT_KM  # noqa: F401  (面板已去掉; 常量留着备用)
 
 if TYPE_CHECKING:
     from .ty_sim import TySim
+
+#: P1 起 renderer 也要记一条降级日志(海洋区边界的 AA 失败时回落逐段绘制)
+logger = logging.getLogger(__name__)
 
 
 def _clip_seg_rect(surface, p0, p1, sw, sh, color, width) -> None:
@@ -73,8 +79,8 @@ class Renderer:
 
             if getattr(sim.cfg, 'show_fps', False):
                 self._draw_fps(surface)
-            if getattr(sim.cfg, 'show_track_stats', False):
-                self._draw_track_stats(surface)
+            # 用户 2026-10-01: 「路径质量面板」整项去掉(莫名其妙) —— 调用点与
+            # `_draw_track_stats()` 实现一并删除, 设置里的开关也已移除。
 
             self._draw_toasts(surface)
             if getattr(sim.cfg, 'show_coord_hud', True):
@@ -119,14 +125,39 @@ class Renderer:
                 if wrap > 0 and len(pts) >= 2:
                     pts = [(int(x), int(y)) for x, y in normalize_chain(pts, wrap)]
                 n = len(pts)
-                for i in range(n):
-                    p0, p1 = pts[i], pts[(i + 1) % n]
-                    seg = clip_segment(p0, p1, sw, sh)
-                    if seg is None:
-                        continue
-                    pygame.draw.line(surface, blue,
-                                     (int(seg[0][0]), int(seg[0][1])),
-                                     (int(seg[1][0]), int(seg[1][1])), 2)
+                # ⚠ P1(2026-10-02) 修订: 这里画的是**任意方向的 2px 边界线**
+                #   (海洋区多边形的边), 属于"需要 AA"的类别。
+                #   一度决定"不改"——因为 `paint_aa.aa_line` 按**单段包围盒**做 4×
+                #   超采样, 一条横跨全屏的段会分配 ≈252 MB, 而这里是每帧 O(顶点数) 段。
+                #   **现在改成复用 P1 的分块超采样**(`_draw_segments_aa`, 见
+                #   `output/exploration/p1_map_aa.md` §3.1):
+                #     · 峰值内存 = 单块(这里传 max_ss_pixels=1M ⇒ 4 MB), 与包围盒无关;
+                #     · 每帧成本与总边长成正比、块数 = ceil(屏/tile), 全屏 ≈ 12 块;
+                #     · 该层只在 `cfg.show_ocean_areas=True` 时绘制(默认 False),
+                #       所以这笔开销不在默认路径上。
+                #   复用而不是在本文件复制一份超采样逻辑(纪律要求: 共享底座只有一份)。
+                try:
+                    from .ty_sim_mixins._draw_path_mixin import TySimDrawPathMixin
+                    segs = []
+                    for i in range(n):
+                        p0, p1 = pts[i], pts[(i + 1) % n]
+                        seg = clip_segment(p0, p1, sw, sh)
+                        if seg is None:
+                            continue
+                        segs.append(((int(seg[0][0]), int(seg[0][1])),
+                                     (int(seg[1][0]), int(seg[1][1])), blue))
+                    TySimDrawPathMixin._draw_segments_aa(
+                        surface, segs, 2, max_ss_pixels=1_000_000)
+                except Exception:
+                    logger.debug('海洋区边界 AA 绘制失败, 回落逐段', exc_info=True)
+                    for i in range(n):
+                        p0, p1 = pts[i], pts[(i + 1) % n]
+                        seg = clip_segment(p0, p1, sw, sh)
+                        if seg is None:
+                            continue
+                        pygame.draw.line(surface, blue,
+                                         (int(seg[0][0]), int(seg[0][1])),
+                                         (int(seg[1][0]), int(seg[1][1])), 2)
                 # 薄区域填充: 非相邻边界距离 ≤ √2·0.1°(≈0.1414°) → 蓝色实心
                 try:
                     import math as _math
@@ -148,7 +179,11 @@ class Renderer:
                         fill_pts = [p for p in pts if p is not None
                                     and 0 <= p[0] <= sw and 0 <= p[1] <= sh]
                         if len(fill_pts) >= 3:
-                            pygame.draw.polygon(surface, (30, 95, 185), fill_pts, 0)
+                            # P1: 任意方向的多边形 ⇒ 需要 AA(原来是 pygame.draw.polygon)。
+                            # 薄条填充的顶点已按视口过滤, 包围盒 = 该区在屏内的范围;
+                            # `paint_aa.aa_poly` 按包围盒建一张超采样面, 每次一处,
+                            # 且本函数只在 show_ocean_areas=True 时跑 ⇒ 代价可接受。
+                            paint_aa.aa_poly(surface, (30, 95, 185), fill_pts)
                 except Exception:
                     pass
                 # 标签(质心)
@@ -215,7 +250,15 @@ class Renderer:
                 sim._ms.draw(surface)
             elif md in (sim.MODE_NORMAL, sim.MODE_EDIT):
                 clock_y = max(0, sim.map_height - 250 - 8)
-                sim.draw_season_clock(surface, origin=(0, clock_y))
+                # 必须显式传时间: 不传会落到风季控制器的 sy/st/ste(这两模式没人
+                # 更新 → 钟恒停在初始日期, 用户报"时间轴坏了")。见 _active_clock_tuple。
+                # 注意: 测试/工具用的轻量 sim 桩没有这个方法, 缺了就退回旧行为。
+                _tt = None
+                _mk = getattr(sim, '_active_clock_tuple', None)
+                if callable(_mk):
+                    _tt = _mk()
+                sim.draw_season_clock(surface, origin=(0, clock_y),
+                                      time_tuple=_tt)
 
         def _track_label(surface) -> None:
             label = getattr(sim, 'tracking_label', lambda: "")()
@@ -253,12 +296,17 @@ class Renderer:
 
         return (
             ('map', lambda: True, lambda s: sim._draw_map(s)),
+            # 经纬网: **模拟模式也画**(轮次 155 起)。原来这里是 `not is_sim`,
+            # 于是模拟模式的 `show_graticule` 完全无效。
+            # ⚠ 必须排在 `sim_field` **之前** —— 模拟模式的所有内容(环境色阶层/
+            # 路径/图标/风圈)由 `_sim_render` 一次画完, 排在它后面会把网格线压在
+            # 台风图标与路径之上。风季模式没有 sim_field 层, 顺序不受影响。
+            ('graticule',
+             lambda: getattr(sim.cfg, 'show_graticule', False),
+             self._draw_graticule),
             # 模拟模式: 地图底图之上只叠 SimCore 图层(F1 隐藏时不画)
             ('sim_field', lambda: is_sim and not hidden,
              lambda s: sim._sim_render(s)),
-            ('graticule',
-             lambda: not is_sim and getattr(sim.cfg, 'show_graticule', False),
-             self._draw_graticule),
             ('ocean_areas',
              lambda: not is_sim and (getattr(sim.cfg, 'show_ocean_areas', False)
                                      or bool(oe is not None and oe.active)),
@@ -267,7 +315,8 @@ class Renderer:
              lambda s: oe.draw(s)),
             ('clock', lambda: not is_sim and not hidden, _clock),
             ('ace_bar',
-             lambda: not is_sim and not hidden and getattr(sim, 'show_ace_bar', True),
+             # 模拟模式也用同一套 ACE 条(2026-09-19 用户: "ace 条像其它模式一样显示")
+             lambda: not hidden and getattr(sim, 'show_ace_bar', True),
              lambda s: sim.draw_ace_display(s)),
             ('typhoons', lambda: not is_sim, lambda s: sim._draw_typhoons(s)),
             ('track_label',
@@ -406,58 +455,6 @@ class Renderer:
             self._fps_cache[key] = fps_surf
         x = self.sim.screen_width - fps_surf.get_width() - 8
         surface.blit(fps_surf, (x, 8))
-
-    def _draw_track_stats(self, surface: pygame.Surface) -> None:
-        """路径质量面板: 段移速/跳变、平滑曲线偏离、当前移向与移速。"""
-        sim = self.sim
-        try:
-            ty = sim.current_typhoon()
-        except Exception:
-            ty = None
-        q = track_quality(ty)
-        dev = deviation_report(ty)
-        mv = None
-        if ty is not None:
-            try:
-                mv = ty.motion_vector()
-            except Exception:
-                mv = None
-        key = (
-            None if q is None else (q['status'], int(q['max_kmh']), q['worst_index'],
-                                    q['over_limit']),
-            None if dev is None else (int(dev['last_km']), int(dev['max_km']),
-                                      dev['clamped']),
-            None if mv is None else (int(math.hypot(*mv)),
-                                     int((math.degrees(math.atan2(mv[0], mv[1]))
-                                          + 360.0) % 360.0) // 5),
-        )
-        surf = self._stats_cache.get(key)
-        if surf is None:
-            rows = []
-            if q is None:
-                rows.append(("路径质量: 无活动台风", FPS_YELLOW))
-            else:
-                rows.append((f"路径 {q['status']}  段移速 峰 {q['max_kmh']:.1f}"
-                             f" / 均 {q['mean_kmh']:.1f} km/h",
-                             FPS_RED if q['status'] == 'review' else FPS_GREEN))
-                rows.append((f"  超 {q['limit_kmh']:.0f} km/h: {q['over_limit']} 段"
-                             f"   最差 #{q['worst_index']} / {q['segments']} 段",
-                             FPS_RED if q['over_limit'] else FPS_GREEN))
-            if dev is not None:
-                rows.append((f"曲线偏离 现 {dev['last_km']:.1f} / 峰 {dev['max_km']:.1f} km"
-                             f"  限 {CURVE_DEV_LIMIT_KM:.0f}",
-                             FPS_RED if dev['max_km'] > CURVE_DEV_LIMIT_KM else FPS_GREEN))
-                if dev['clamped']:
-                    rows.append((f"  超限拉回 {dev['clamped']} 帧", FPS_RED))
-            if mv is not None:
-                spd = math.hypot(*mv)
-                brg = (math.degrees(math.atan2(mv[0], mv[1])) + 360.0) % 360.0
-                rows.append((f"移速 {spd:.1f} km/h  移向 {brg:.0f}°", FPS_GREEN))
-            surf = self._render_stats_panel(rows)
-            if len(self._stats_cache) > 24:
-                self._stats_cache.clear()
-            self._stats_cache[key] = surf
-        surface.blit(surf, (8, 8))
 
     @staticmethod
     def _render_stats_panel(rows) -> pygame.Surface:

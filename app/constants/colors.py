@@ -48,6 +48,17 @@ WIKI_SCALE = {
     "SD": (130, 190, 255),
 }
 # 2023 新版色阶(与 _ty4_legend.png 图例采样一致 = Wikipedia 官方色阶; Ty4 实测 C5 用 #8D75E6)
+#
+# ⚠ 2026-10-02 澄清(Lead, 依据 output/sim/_reference/TY4_SPEC.md §4.2/§4.3):
+#   1) 下面三个 C2-/C3-/C4-ST 键**永远取不到** —— `paint_render._eff_category`
+#      会先把 C2-/C3-/C4-ST 归一化成 C2/C3/C4(`paint_render.py:69` 的 norm 表)。保留仅为历史遗留。
+#   2) 但"wiki 与 2023 逐像素相同"**不是本项目的 bug** —— 规格书 §4.3 确证
+#      Typhoon4 自己也是 `PALETTE_CLASSIC = dict(PALETTE_2023)`, 即 **Ty4 的 NewColor 开关同样是空操作**。
+#      ⇒ 本项目与 Ty4 表现一致, 属**忠实复刻**。**不要为了"让两套色阶不同"而编造 RGB。**
+#      (规格书原话: "经典色阶无法确证…不要编造一组 RGB。")
+#   3) 规格书 §4.2 的**实测** 2023 七色与 WIKI_SCALE 的 TD..C5 **逐字节相同**
+#      (TD 实测 110,193,234; Ty4 源码写的 94,186,255 在 4 张参考图里命中 0 次)。
+#      仅 SD/SS 与 tools/ty4_render.py 的 PALETTE_2023(均灰 204,204,204)不同 —— 该两色不在图例里, 无像素证据。
 COLOR_2023_SCALE = dict(WIKI_SCALE)
 COLOR_2023_SCALE.update({
     "C2-": (255, 240, 170),

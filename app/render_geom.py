@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import math
 from typing import Iterable, Iterator, List, Optional, Sequence, Tuple
 
 import pygame
@@ -125,3 +126,88 @@ def draw_polyline(surface: pygame.Surface, color, points: Sequence[Point],
                          (int(bx), int(by)), width)
         drawn += 1
     return drawn
+
+_GRID_LAYER_CACHE = {}
+
+
+def _grid_layer(sw: int, sh: int):
+    """复用整屏网格图层。每帧新建 Surface 会产生 ~5MB/帧的分配抖动(编辑模式下
+    每帧都画), 复用后只在尺寸变化时新建。"""
+    key = (sw, sh)
+    surf = _GRID_LAYER_CACHE.get(key)
+    if surf is None:
+        surf = pygame.Surface(key, pygame.SRCALPHA)
+        _GRID_LAYER_CACHE[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
+
+def draw_snap_grid(surface, sim, step: float, sw: int = None, sh: int = None) -> None:
+    """按 step(默认 0.1°)在整屏画经纬吸附网格: step 细线 + 每 1° 一条粗线。
+
+    洋区顶点编辑(ocean_edit)与报点编辑(renderer)共用同一套观感与实现:
+      - 投影走调用方的等距圆柱投影 sim.latlon_to_screen, 经度逐条环绕,
+        跨 0°/360° 缝不会漏画;
+      - 半透明线画在单独图层上, 不遮挡底图;
+      - 间距过密(step 在屏幕上不足 1.5px)时只画 1° 粗线, 更密则整块跳过 ——
+        否则整球视野下每帧要画上万条线, 直接卡死。
+    """
+    sw = surface.get_width() if sw is None else int(sw)
+    sh = surface.get_height() if sh is None else int(sh)
+    try:
+        step = float(step)
+    except (TypeError, ValueError):
+        return
+    if not (step > 0.0) or step < 0.01:
+        # 0 = 设置里"关"; 负值会让下面的 while 永不终止; 过小会画几十万条线
+        return
+    proj = getattr(sim, 'latlon_to_screen', None)
+    if proj is None:
+        proj = sim.view.latlon_to_screen
+    lo_min, lo_max = float(sim.mlo), float(sim.Mlo)
+    la_min, la_max = float(sim.mla), float(sim.Mla)
+    if lo_max <= lo_min:
+        lo_max += 360.0
+    # 步长在当前缩放下占多少像素(等距圆柱: 经线间距与纬度无关)
+    x0, _ = proj(la_min, lo_min)
+    x1, _ = proj(la_min, lo_min + step)
+    _, y0 = proj(la_min, lo_min)
+    _, y1 = proj(la_min + step, lo_min)
+    step_x, step_y = abs(x1 - x0), abs(y1 - y0)
+    draw_fine = max(step_x, step_y) >= 1.5            # 亚像素细线只会变成糊屏
+    draw_major = max(step_x, step_y) / step >= 1.5     # 1° 的像素间距
+    if not (draw_fine or draw_major):
+        return
+    dark = bool(getattr(sim, 'dark_mode', False))
+    fine = (60, 70, 90, 60) if dark else (90, 110, 140, 55)
+    major = (255, 255, 255, 90) if dark else (0, 0, 0, 70)
+    layer = _grid_layer(sw, sh)
+    lon = math.floor(lo_min / step) * step
+    while lon <= lo_max + 1e-9:
+        is_major = abs(lon - round(lon)) < 1e-9
+        if (is_major and draw_major) or (not is_major and draw_fine):
+            nl = ((lon % 360.0) + 360.0) % 360.0
+            try:
+                x, _y = proj(la_max, nl)
+            except Exception:
+                lon += step
+                continue
+            if 0 <= x <= sw:
+                pygame.draw.line(layer, major if is_major else fine,
+                                 (int(x), 0), (int(x), sh), 2 if is_major else 1)
+        lon += step
+    lat = math.floor(la_min / step) * step
+    while lat <= la_max + 1e-9:
+        is_major = abs(lat - round(lat)) < 1e-9
+        if (is_major and draw_major) or (not is_major and draw_fine):
+            try:
+                _x, y = proj(lat, lo_min)
+            except Exception:
+                lat += step
+                continue
+            if 0 <= y <= sh:
+                pygame.draw.line(layer, major if is_major else fine,
+                                 (0, int(y)), (sw, int(y)), 2 if is_major else 1)
+        lat += step
+    surface.blit(layer, (0, 0))

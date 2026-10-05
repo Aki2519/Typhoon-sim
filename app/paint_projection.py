@@ -98,7 +98,7 @@ from typing import Dict, Iterable, Sequence, Tuple
 
 __all__ = [
     'PROJECTIONS', 'project', 'project_many', 'inverse', 'inverse_arrays',
-    'make_ctx', 'CONIC_REFERENCE', 'sample_graticule',
+    'make_ctx', 'CONIC_REFERENCE', 'sample_graticule', 'canvas_lonlat_envelope',
 ]
 
 #: 支持的投影名（与 P5 的 `cfg["projection"]` 同名）
@@ -133,9 +133,37 @@ def _raw_conic(lon: float, lat: float, ctx: Dict) -> Tuple[float, float]:
     return rho * math.sin(sig), rho * math.cos(sig)
 
 
+def equirect_dlon(lon: float, ctx: Dict, ref: Optional[float] = None) -> float:
+    """等距圆柱下经度的**折叠值** `dlon`（与 `_raw_equirect` 同口径）。
+
+    `ref` = 上一个点**解包后的 `dlon` 输出值**。给了就取"离它最近的等价圈"，
+    使相邻点之间保持连续。**不给 ref 时就是普通的折叠**（= 既有行为）。
+
+    ⚠ 这是**唯一**的折叠口径：`_raw_equirect` 直接调它，调用方要串联解包序列时
+    也调它 —— 避免"渲染器自己再算一遍"造成两套真相源（本函数就是为此抽出来的）。
+    """
+    d = (float(lon) - ctx['lon_c'] + 180.0) % 360.0 - 180.0
+    if ref is not None:
+        d += 360.0 * math.floor((float(ref) - d) / 360.0 + 0.5)
+    return d
+
+
 def _raw_equirect(lon: float, lat: float, ctx: Dict) -> Tuple[float, float]:
-    """等距圆柱原始投影（未做 scale/平移）：X 东向、Y 向北。"""
-    dlon = (float(lon) - ctx['lon_c'] + 180.0) % 360.0 - 180.0
+    """等距圆柱原始投影（未做 scale/平移）：X 东向、Y 向北。
+
+    `ctx['dlon_ref']`（**可选**）= 上一个点**解包后的 `dlon` 输出值**。
+    给了它就把本点的折叠值平移整数圈、取离它最近的那个等价值。
+
+    为什么需要：本投影把经度折叠到 `lon_c ± 180`。**逐台风连线时**，相邻两点若跨过
+    这条折叠边界，折叠值会从 −179 跳到 +179 ⇒ 一个 2° 的正常步长被画成
+    **横贯全图的直线**（实测：2026 大西洋 Dolly，`333.1°E → 331.0°E`，2133px）。
+
+    ⚠ **不给 `dlon_ref` 时与既有行为逐字节相同**（不进入 `if`）。
+    这也是 Ty4 侧不受影响的原因（全仓只有 `paint_render_qq` 传这个键）。
+    ⚠ 注意 ref 必须是**上一个点的输出值**、不是上一个点的原始经度：原始经度经过
+    同一个折叠后可能落在另一圈，串联时会再次跳变（2026-10-05 实测踩过）。
+    """
+    dlon = equirect_dlon(lon, ctx, ctx.get('dlon_ref'))
     return (math.cos(math.radians(ctx['lat_c'])) * dlon,
             float(lat) - ctx['lat_c'])
 
@@ -294,16 +322,55 @@ def make_ctx(name: str, bounds: Sequence[float], size: Sequence[int],
     return ctx
 
 
+def canvas_lonlat_envelope(ctx: Dict, size=None, n_edge: int = 48,
+                           pad_px: float = 0.0):
+    """画布覆盖的**经纬度外包框** `(lon0, lon1, lat0, lat1)`。
+
+    为什么需要它：画布尺寸与"轨迹经纬度框"是**两件独立的事**。本渲染器照 Ty4 的
+    `W = max(最大宽度, 内容 + 2*留空)` 会给画布套一个下限（默认 1920x1080），
+    于是小台风的画布远大于轨迹框 —— 此时若还用轨迹框当经纬网采样范围，网格就只会
+    出现在画布中间**一小片**（实测：8°x5° 轨迹 + 保底画布 ⇒ 网格外接框仅占画布 **3.7%**；
+    基准图 `xrq-dolphin.png` 是 **100%** 铺满）。
+
+    做法：对**四条边各 n_edge 个采样点（含四角）**反投影取极值。圆锥投影下画布是
+    "扇形"，只取四角会漏掉边缘中点，所以要沿边采样。
+
+    返回 `None` 表示该画布跨 0° 经线（经度跨度 > 300°）—— 调用方应改用兜底策略。
+    需要 numpy（走 `inverse_arrays`）。
+    """
+    import numpy as np
+    if size is None:
+        size = ctx.get('size')
+    if size is None:
+        raise ValueError('canvas_lonlat_envelope 需要 size 或 ctx["size"]')
+    W, H = float(size[0]), float(size[1])
+    s = np.linspace(-pad_px, W + pad_px, n_edge)
+    t = np.linspace(-pad_px, H + pad_px, n_edge)
+    xs = np.concatenate([s, s, np.full(n_edge, -pad_px), np.full(n_edge, W + pad_px)])
+    ys = np.concatenate([np.full(n_edge, -pad_px), np.full(n_edge, H + pad_px), t, t])
+    lon, lat = inverse_arrays(ctx.get('mode', 'equirect'), xs, ys, ctx)
+    lo0, lo1 = float(lon.min()), float(lon.max())
+    if lo1 - lo0 > 300.0:
+        return None
+    return (lo0, lo1, float(lat.min()), float(lat.max()))
+
+
 def sample_graticule(ctx: Dict, lons: Sequence[float] = tuple(range(0, 360, 10)),
                      lats: Sequence[float] = tuple(range(-80, 81, 10)),
-                     step: float = 1.0, clip=None):
+                     step: float = 1.0, clip=None, extent=None):
     """生成经纬网的折线段（供渲染器画虚线用）。
 
     返回 `[(kind, value, [(x, y), ...]), ...]`；`kind` 为 `'lon'` / `'lat'`。
     `clip` 给 `(x0, y0, x1, y1)` 时可只保留与该框相交的段。
+
+    `extent` 给 `(lon0, lon1, lat0, lat1)` 时**用它**决定每一条线的采样跨度；
+    不给才退回 `ctx['bounds']`。
+    ⚠ 一定要传画布的经纬度外包（见 `canvas_lonlat_envelope`）：`ctx['bounds']` 是
+      **轨迹**的框，用它会把经线截断在轨迹的纬度带内、经线/纬线都铺不满画布。
     """
     name = ctx['mode']
-    lon0, lon1, lat0, lat1 = ctx.get('bounds', (0.0, 360.0, -90.0, 90.0))
+    lon0, lon1, lat0, lat1 = (extent if extent is not None
+                              else ctx.get('bounds', (0.0, 360.0, -90.0, 90.0)))
     out = []
     nstep = max(2, int(round((lat1 - lat0) / step)) + 1)
     for lo in lons:

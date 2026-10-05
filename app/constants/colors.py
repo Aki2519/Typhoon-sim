@@ -49,7 +49,7 @@ WIKI_SCALE = {
 }
 # 2023 新版色阶(与 _ty4_legend.png 图例采样一致 = Wikipedia 官方色阶; Ty4 实测 C5 用 #8D75E6)
 #
-# ⚠ 2026-10-02 澄清(Lead, 依据 output/sim/_reference/TY4_SPEC.md §4.2/§4.3):
+# ⚠ 2026-10-02 澄清(Lead, 依据 Typhoon4Py/t4_render.py + t4_track.py（原 Typhoon4Py/t4_*.py（原规格书已删） 已删，见 output/exploration/r4_ty4_warmlow.md） §4.2/§4.3):
 #   1) 下面三个 C2-/C3-/C4-ST 键**永远取不到** —— `paint_render._eff_category`
 #      会先把 C2-/C3-/C4-ST 归一化成 C2/C3/C4(`paint_render.py:69` 的 norm 表)。保留仅为历史遗留。
 #   2) 但"wiki 与 2023 逐像素相同"**不是本项目的 bug** —— 规格书 §4.3 确证

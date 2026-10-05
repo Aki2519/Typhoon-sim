@@ -168,8 +168,18 @@ class PaintDialog(DraggableDialog):
         #: `cfg["projection"]` 同名(paint_render.py:160/232-233)。
         #: "equirect" = 等距圆柱(默认, 与历史行为一致); "conic" = 圆锥(Lambert 正形)。
         self.projection = "equirect"
-        self.legend_pos = "auto"
+        self.legend_pos = "none"          # R3/用户要求①: 图例默认**不显示**
         self.legend_bg = False
+        #: R3 七维样式（键名与 `app/paint_style.py` / task-39 冻结命名一致，不自创）
+        #: preset: ty4|qq|custom —— 手动改任一维度即变 custom
+        self.preset = "ty4"
+        #: `palette` 维度的**权威值**（不再靠 scheme 反推 —— 反推会把 `qq` 丢成 2023）
+        self.palette = "2023"
+        self.label_mode = "none"          # labels: none|edge|inside
+        self.basemap = "map_png"          # basemap: map_png|land_flat|none
+        self.marker = "uniform"           # marker: by_status|uniform
+        self.gradient_line = False        # 渐变线开关
+        self.gradient_subdiv = 8          # 渐变细分(默认 8)
         self.labels = False
         self.use_map = True
         self.bg_color = None
@@ -238,6 +248,8 @@ class PaintDialog(DraggableDialog):
         # P9(K12): 尺寸变化后回到顶部再重建（rebuild 会用 _row_y 定位控件,
         # 而归零保证控件矩形与 _left_scroll=0 一致）
         self._left_scroll = 0
+        # R3: 预设来源（paint_style 模块可用则用它；否则临时镜像并在 UI 如实标注）
+        self._preset_src = "paint_style" if self._style_module() else "mirror"
         self._rebuild_fields()
         self._rebuild_dropdowns()
         if self._browser is not None:
@@ -256,11 +268,152 @@ class PaintDialog(DraggableDialog):
         """
         return self._row_y_raw(idx) - self._left_scroll
 
+    # ── R3: 七维样式预设 ──
+
+    #: 临时镜像：`app/paint_style.py` **未落地时**用它让预设可切换；一旦该模块出现
+    #: （有 TY4_PRESET/QQ_PRESET）就**以模块为准**、本表自动失效。数值取自冻结命名
+    #: 与本界面既有默认，不是权威定义 —— 权威在 app-feat 的 `paint_style.py`。
+    _PRESET_MIRROR = {
+        "ty4": {"projection": "equirect", "labels": "none", "basemap": "map_png",
+                "marker": "uniform", "palette": "classic", "legend": "none",
+                "gradient_line": False, "gradient_subdiv": 8},
+        "qq": {"projection": "conic", "labels": "edge", "basemap": "land_flat",
+               "marker": "by_status", "palette": "qq", "legend": "auto",
+               "gradient_line": True, "gradient_subdiv": 8},
+    }
+
+    def _dim_values(self, dim: str):
+        """取 `paint_style.DIMENSIONS[dim]` 的合法取值（模块缺失则空）。"""
+        PS = self._style_module()
+        if PS is None:
+            return ()
+        return tuple((getattr(PS, "DIMENSIONS", {}) or {}).get(dim, ()) or ())
+
+    def _style_module(self):
+        """尝试取 `app.paint_style`（存在且有预设表才认）。"""
+        try:
+            from . import paint_style as PS          # type: ignore[attr-defined]
+        except Exception:
+            return None
+        if getattr(PS, 'TY4_PRESET', None) and getattr(PS, 'QQ_PRESET', None):
+            return PS
+        return None
+
+    def _preset_source(self):
+        """返回 (预设字典表, 来源说明)。模块优先，否则用临时镜像。"""
+        PS = self._style_module()
+        if PS is not None:
+            return {"ty4": dict(PS.TY4_PRESET), "qq": dict(PS.QQ_PRESET)}, "paint_style"
+        return self._PRESET_MIRROR, "mirror"
+
+    #: `palette` 维度 ↔ 既有「色阶方案」控件值的映射。理由：P5 已实测 wiki 与 2023
+    #: 逐像素相同（Ty4 自己也是 `PALETTE_CLASSIC = dict(PALETTE_2023)`），故映射无行为差。
+    _SCHEME_TO_PALETTE = {"app": "2023", "wiki": "classic", "2023": "2023"}
+    _PALETTE_TO_SCHEME = {"2023": "2023", "classic": "wiki", "qq": "2023"}
+
+    def _style_dict(self) -> dict:
+        """透传给渲染器的样式 dict。
+
+        **单一真相源**：模块可用时一律走 `PS.resolve(base, **ui_dims)` —— 由
+        `paint_style` 自己合成"预设 + 覆盖"（它同时输出新维度键与旧兼容键），
+        本界面**不再自己拼 dict**、也不再复制 `palette→scheme` 之类映射。
+        模块不可用才回落到本地七维 dict（此时 UI 标注 `预设(本地镜像)`）。
+        """
+        PS = self._style_module()
+        if PS is not None and hasattr(PS, "resolve"):
+            try:
+                return dict(PS.resolve(self._preset_base, **self._ui_dims()))
+            except Exception as e:                      # pragma: no cover
+                self._status = f"paint_style.resolve 失败，已回落本地七维：{e}"
+                self._status_ts = time.time()
+        return dict(self._ui_dims())
+
+    def _ui_dims(self) -> dict:
+        """当前 UI 的七维值（**冻结键名**），作为 `resolve()` 的 overrides。"""
+        return {
+            "projection": self.projection,
+            "labels": self.label_mode,
+            "basemap": self.basemap,
+            "marker": self.marker,
+            "palette": self.palette,
+            "legend": self.legend_pos,
+            "gradient_line": bool(self.gradient_line),
+            "gradient_subdiv": int(self.gradient_subdiv),
+        }
+
+    def _apply_preset(self, name: str) -> None:
+        """选中预设 ⇒ 把该预设的七维值填进各控件。
+
+        **维度值取自 `paint_style.PRESETS`（权威表），兼容键取自 `resolve()`**
+        —— 这样 `scheme`/`legend_pos`/`labels`(bool) 不需要我在 UI 里再映射一遍。
+        """
+        if name == "custom":
+            return
+        PS = self._style_module()
+        if PS is not None:
+            dims = dict((getattr(PS, "PRESETS", {}) or {}).get(name) or {})
+            try:
+                resolved = dict(PS.resolve(name))
+            except Exception:                            # pragma: no cover
+                resolved = {}
+        else:
+            dims, _src = self._preset_source()
+            dims = dict(dims.get(name) or {})
+            resolved = {}
+        if not dims and not resolved:
+            return
+        self.preset = name
+        self._preset_base = name                        # custom 时仍从它合成
+        self.projection = resolved.get("projection", dims.get("projection", self.projection))
+        _lm = dims.get("labels")
+        if isinstance(_lm, str):
+            self.label_mode = _lm
+        self.basemap = resolved.get("basemap", dims.get("basemap", self.basemap))
+        self.marker = resolved.get("marker", dims.get("marker", self.marker))
+        # 色阶：模块直接给 `scheme` 就用它；镜像路径才做 palette→scheme 映射
+        if resolved.get("palette") or dims.get("palette"):
+            self.palette = resolved.get("palette") or dims["palette"]
+        if resolved.get("scheme"):
+            self.scheme = resolved["scheme"]
+        elif self.palette in self._PALETTE_TO_SCHEME:
+            self.scheme = self._PALETTE_TO_SCHEME[self.palette]
+        else:
+            self.scheme = self._SCHEME_TO_PALETTE.get(self.scheme, self.scheme)
+        if resolved.get("legend_pos"):
+            self.legend_pos = resolved["legend_pos"]
+        elif dims.get("legend"):
+            self.legend_pos = dims["legend"]
+        self.gradient_line = bool(resolved.get("gradient_line",
+                                               dims.get("gradient_line", self.gradient_line)))
+        self.gradient_subdiv = int(resolved.get("gradient_subdiv",
+                                                dims.get("gradient_subdiv", self.gradient_subdiv)))
+        self.labels = bool(resolved.get("labels", self.label_mode != "none"))  # 旧 bool 键
+        self._rebuild_dropdowns()                       # 让下拉显示新值
+        f = self._fields.get("gradient_subdiv")
+        if f is not None:
+            f.set_text(str(self.gradient_subdiv))
+        self._status = f"已应用「{'Ty4 样式' if name == 'ty4' else 'QQ 样式'}」预设（七维已填）"
+        self._status_ts = time.time()
+        self._status_sticky = False
+
+    def _mark_custom(self) -> None:
+        """手动改任一维度 ⇒ 预设显示「自定义」。"""
+        if self.preset == "custom":
+            return
+        self.preset = "custom"
+        dd = self._dropdowns.get("preset")
+        if dd is not None:
+            dd.current = "custom"
+
+    def _gradient_cb_rect(self) -> pygame.Rect:
+        """R3: 「渐变线」勾选框（放在 row(28) 输入框左侧）。"""
+        return pygame.Rect(self.x0 + LABEL_W, self._row_y(28) + 4, 18, 18)
+
     # ── P9(K12): 左栏滚动（只挪位置，不动任何控件语义/默认值/文本/焦点）──
 
     def _left_content_height(self):
-        """左栏内容所需高度(px)：最后一行是 row(22) 的「地图文件」+ 行高 + 底部留白。"""
-        return (self._row_y_raw(22) + ROW_H + 12) - self.y0
+        """左栏内容所需高度(px)：**最后一行是 row(29)**（R3 新增「渐变细分」）+ 行高 + 留白。"""
+        return (self._row_y_raw(29) + ROW_H + 12) - self.y0
 
     def _left_scroll_max(self):
         """可滚动量(px)；内容装得下时为 0 ⇒ 此时**完全等同旧行为**（不画滚动条）。"""
@@ -301,6 +454,8 @@ class PaintDialog(DraggableDialog):
             ("min_w", 8, f"{self.min_w}", 5),
             ("min_h", 9, f"{self.min_h}", 5),
             ("map_path", 22, self.map_path or "", 160),
+            # R3: 渐变线细分（渐变线开关本身是勾选框，见 _gradient_cb_rect）
+            ("gradient_subdiv", 29, f"{self.gradient_subdiv}", 3),
         ]
         inp_x = self.x0 + LABEL_W
         for key, idx, val, mlen in rows:
@@ -320,8 +475,13 @@ class PaintDialog(DraggableDialog):
             # P5: 色阶只改**显示文案**, 不改 colors.py 的值 —— "经典/2023 相同"是对原版
             # Ty4 的忠实复刻(t4_track.py:59-60 PALETTE_CLASSIC = dict(PALETTE_2023)),
             # 不许为了"让它们不同"而编造 RGB, 也不删选项(那会丢掉"与 Ty4 同构"的事实)。
+            # R3: palette 维度含 `qq`（`paint_style.DIMENSIONS['palette']`）⇒ 色阶
+            # 下拉要能显示它，否则预设切到 QQ 后该框无对应标签。
             ("scheme", 11, [(k, _SCHEME_UI_LABEL.get(k, v))
-                            for k, v in COLOR_SCALE_SCHEMES.items()], self.scheme),
+                            for k, v in COLOR_SCALE_SCHEMES.items()]
+                           + ([("qq", "QQ 色阶")]
+                              if self._dim_values("palette") and
+                              "qq" in self._dim_values("palette") else []), self.scheme),
             ("coord_unit", 12, [("deg", "经纬度(°)"),
                                 ("px", "像素(px)·启用宽度/大小")], self.coord_unit),
             ("order", 13, [("simult", "同时"), ("sort", "按强度排序"),
@@ -333,6 +493,15 @@ class PaintDialog(DraggableDialog):
             ("projection", 15, [("equirect", "等距圆柱"), ("conic", "圆锥(Lambert 正形)")],
              self.projection),
             ("legend_pos", 16, [(k, v) for k, v in LEGEND_POS_NAMES.items()], self.legend_pos),
+            # ── R3: 七维样式（预设 + 经纬度标注 / 底图 / 点的样式）──
+            # row 23/28/29 是新增区；左栏已可滚动(K12)，内容变高不会撑破布局。
+            ("preset", 24, [("ty4", "Ty4 样式"), ("qq", "QQ 样式"),
+                            ("custom", "自定义")], self.preset),
+            ("label_mode", 25, [("none", "不标注"), ("edge", "图外沿标注"),
+                                ("inside", "图内标注")], self.label_mode),
+            ("basemap", 26, [("map_png", "地图 PNG"), ("land_flat", "纯色陆地"),
+                             ("none", "无底图")], self.basemap),
+            ("marker", 27, [("by_status", "按强度区分"), ("uniform", "统一样式")], self.marker),
         ]
         # 统一按第一列 x0+LABEL_W 排列(图例位置不再偏右)
         inp_x = self.x0 + LABEL_W
@@ -354,7 +523,18 @@ class PaintDialog(DraggableDialog):
         P5: 这些提示是**说明性**的, 不改变任何渲染参数 —— 例如"经典/2023 相同"是原版
         Ty4 的行为, 说清楚比"偷偷让它们不一样"正确。
         """
+        # R3: 预设下拉 = "一键填七维"；其余维度改动即标"自定义"
+        if key == "preset":
+            self._apply_preset(v)
+            return
         setattr(self, key, v)
+        if key in ("scheme", "projection", "legend_pos", "label_mode",
+                   "basemap", "marker"):
+            if key == "label_mode":
+                self.labels = (v != "none")        # 兼容旧渲染器的 bool 键
+            if key == "scheme":                    # 「色阶方案」就是 palette 维度的控件
+                self.palette = self._SCHEME_TO_PALETTE.get(v, v)
+            self._mark_custom()
         msg = None
         sticky = False
         if key == "coord_unit":
@@ -716,6 +896,16 @@ class PaintDialog(DraggableDialog):
         for key, dd in self._dropdowns.items():
             if dd.toggle(pos):
                 return
+        # R3: 「渐变线」勾选框（独立于既有 7 个勾选框，避免动它们的下标）
+        if self._gradient_cb_rect().collidepoint(x, y):
+            self.gradient_line = not self.gradient_line
+            self._mark_custom()
+            self._status = ("渐变线：开（沿路径做颜色渐变，细分 "
+                            f"{self.gradient_subdiv}）" if self.gradient_line
+                            else "渐变线：关（单色路径）")
+            self._status_ts = time.time()
+            self._status_sticky = True
+            return
         if self._checkbox_click(x, y):
             return
         if self._map_browse_rect and self._map_browse_rect.collidepoint(x, y):
@@ -940,6 +1130,9 @@ class PaintDialog(DraggableDialog):
                 # 读 `opts.get("projection")`, 非法/缺省 ⇒ "equirect")。
                 "projection": self.projection,
                 # P5: 「多文件重置」(multireset) 已按 P3 定案移除 —— 不再透传。
+                # R3: 七维样式 dict（键名冻结, 见 task-39）。与上面的个体键**同时**透传，
+                # 老渲染器读个体键、新渲染器/QQ 渲染器读 style，二者都不破。
+                "style": self._style_dict(),
                 "legend_pos": self.legend_pos,
                 "legend_entries": WIKI_LEGEND_ENTRIES,
                 "legend_bg": self.legend_bg,
@@ -1123,6 +1316,28 @@ class PaintDialog(DraggableDialog):
         for i, (key, lab) in enumerate(dd_lab):
             self._label(surface, lab, lx, row(11 + i), dark)
             self._dropdowns[key].draw_base(surface, dark)
+        # ── R3: 七维样式区（预设 + 经纬度标注 / 底图 / 点的样式 / 渐变线）──
+        self._label(surface, "样式（七维）", lx, row(23) + 1, dark, bright=True, font=f_m)
+        dd2 = [("preset", 24, "预设"), ("label_mode", 25, "经纬度标注"),
+               ("basemap", 26, "底图"), ("marker", 27, "点的样式")]
+        for key, ridx, lab in dd2:
+            _lab = lab
+            if key == "preset" and getattr(self, '_preset_src', 'mirror') == 'mirror':
+                _lab = "预设(本地镜像)"          # 模块未落地时如实标注
+            self._label(surface, _lab, lx, row(ridx), dark)
+            self._dropdowns[key].draw_base(surface, dark)
+        # 渐变线（勾选框）+ 细分（输入框）
+        self._label(surface, "渐变线", lx, row(28), dark)
+        cb = self._gradient_cb_rect()
+        pygame.draw.rect(surface, _pb(dark, 2), cb, border_radius=4)
+        pygame.draw.rect(surface, _bd(dark), cb, 1, border_radius=4)
+        if self.gradient_line:
+            pygame.draw.line(surface, (110, 230, 150), (cb.x + 3, cb.centery),
+                             (cb.centerx, cb.bottom - 3), 3)
+            pygame.draw.line(surface, (110, 230, 150), (cb.centerx, cb.bottom - 3),
+                             (cb.right - 2, cb.y + 4), 3)
+        self._label(surface, "渐变细分", lx, row(29), dark)
+        self._fields["gradient_subdiv"].draw(surface)
         # 勾选(两列 4+3)
         # P5: 同上, 标题放 row(17) 预留空行(原来 row(17)-26 与"图例位置"完全叠字)
         self._label(surface, "显示", lx, row(17) + 1, dark, bright=True, font=f_m)

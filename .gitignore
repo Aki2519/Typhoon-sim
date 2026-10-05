@@ -61,7 +61,15 @@ simulator/env/train_cache/
 simulator/env/model/
 sim_typhoon/
 output/sim/
-# (output/exploration/ 保留入库 —— 本轮验收报告与对比图是证据)
+# ── 2026-10-05（用户裁定）output/exploration 下的**二进制产物**不入库 ────────────
+# 更正上一版"整目录保留入库"的约定：出图 / 回退备份 / 测试用 b-deck 都是
+# **画一次就有的产物**，与源码无关，进库只会把仓库撑大（本轮就攒了 30+ 张、最上一张 35 MB）。
+# ⚠ `.md` 报告仍可入库（那是分析证据，不是产物）。
+output/exploration/_backup/
+output/exploration/presets/
+output/exploration/bdeck/
+output/exploration/*.png
+output/exploration/**/*.png
 
 # 由 tools/make_heightmap.py / 底图生成脚本产出的中间大图
 map/heightmap.png

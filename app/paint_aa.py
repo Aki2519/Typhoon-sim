@@ -169,14 +169,23 @@ def _poly_tiled(surf: pygame.Surface, color: Color, pts, w: int, h: int,
             sw, sh = tw + 2, th + 2
             local = [(px - (tx - 1), py - (ty - 1)) for px, py in sub]
             sprite = _supersample((sw, sh), lambda s, k: pygame.draw.polygon(
-                s, color, [(px * k, py * k) for px, py in local]), 2)
+                s, color, [(px * k, py * k) for px, py in local]), 2, fill=(color[0], color[1], color[2], 0))
             surf.blit(sprite, (tx - 1, ty - 1))
 
 
-def _supersample(size: Tuple[int, int], paint, ss: int = SS) -> pygame.Surface:
+def _supersample(size: Tuple[int, int], paint, ss: int = SS,
+                 fill=None) -> pygame.Surface:
     """在 ss 倍画布上执行 paint(surf, s)，再降采样回 size。"""
     w, h = max(1, int(size[0])), max(1, int(size[1]))
     big = pygame.Surface((w * ss, h * ss), pygame.SRCALPHA)
+    #: ⚠ 关键: SRCALPHA 面的**透明区 RGB = (0,0,0)**。不先铺色的话,
+    #: `smoothscale` 会把这块黑**平均进边缘像素的 RGB** —— 边缘于是拿到
+    #: `color x 覆盖率` 的 RGB, 而 alpha 是 `255 x 覆盖率`; 再按**非预乘** blit,
+    #: 实际合成变成 `dst*(1-a) + color*a^2` ⇒ **边缘被二次变暗**(视觉上是黑边/暗环)。
+    #: 用形状色 + alpha=0 铺底 ⇒ 透明区也带形状色, 降采样后 RGB 处处等于形状色,
+    #: 只有 alpha 变化 ⇒ 与非预乘 blit 的语义一致。抗锯齿强度不变。
+    if fill is not None:
+        big.fill(fill)
     paint(big, ss)
     return pygame.transform.smoothscale(big, (w, h))
 
@@ -201,7 +210,7 @@ def aa_disc(surf: pygame.Surface, color: ColorA, center: Sequence[float],
     sprite = _cache_get(key)
     if sprite is None:
         sprite = _supersample((d, d), lambda s, k: pygame.draw.circle(
-            s, color, (d * k // 2, d * k // 2), rp * k), ss)
+            s, color, (d * k // 2, d * k // 2), rp * k), ss, fill=(color[0], color[1], color[2], 0))
         _cache_put(key, sprite)
     surf.blit(sprite, (int(round(center[0] - sprite.get_width() / 2.0)),
                        int(round(center[1] - sprite.get_height() / 2.0))))
@@ -223,7 +232,7 @@ def aa_ring(surf: pygame.Surface, color: ColorA, center: Sequence[float],
     sprite = _cache_get(key)
     if sprite is None:
         sprite = _supersample((d, d), lambda s, k: pygame.draw.circle(
-            s, color, (d * k // 2, d * k // 2), r * k, wdt * k), ss)
+            s, color, (d * k // 2, d * k // 2), r * k, wdt * k), ss, fill=(color[0], color[1], color[2], 0))
         _cache_put(key, sprite)
     surf.blit(sprite, (int(round(center[0] - sprite.get_width() / 2.0)),
                        int(round(center[1] - sprite.get_height() / 2.0))))
@@ -252,7 +261,7 @@ def aa_poly(surf: pygame.Surface, color: Color, points: Iterable[Sequence[float]
         return
     local = [(x - x0, y - y0) for x, y in pts]
     sprite = _supersample((w, h), lambda s, k: pygame.draw.polygon(
-        s, color, [(x * k, y * k) for x, y in local]), ss)
+        s, color, [(x * k, y * k) for x, y in local]), ss, fill=(color[0], color[1], color[2], 0))
     surf.blit(sprite, (x0, y0))
 
 
@@ -323,5 +332,5 @@ def _aa_line_short(surf: pygame.Surface, color: Color, pt, qt, w: int) -> None:
     local = [(pt[0] - x0, pt[1] - y0), (qt[0] - x0, qt[1] - y0)]
     sprite = _supersample((ww, hh), lambda s, ss: pygame.draw.line(
         s, color, (local[0][0] * ss, local[0][1] * ss),
-        (local[1][0] * ss, local[1][1] * ss), w * ss))
+        (local[1][0] * ss, local[1][1] * ss), w * ss), fill=(color[0], color[1], color[2], 0))
     surf.blit(sprite, (x0, y0))

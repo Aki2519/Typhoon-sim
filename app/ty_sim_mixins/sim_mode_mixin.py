@@ -22,7 +22,8 @@ from app.constants import f_s, rt
 # 轮次 156: 信息框的宽度/位置改用风季的常量(原来是硬编码 470 与 (15,244))
 from app.constants.layout import (SEASON_INFO_BOX_WIDTH,
                                   SEASON_INFO_BOX_START_X,
-                                  SEASON_INFO_BOX_START_Y)
+                                  SEASON_INFO_BOX_START_Y,
+                                  SEASON_INFO_BOX_SPACING_X)
 
 logger = logging.getLogger(__name__)
 
@@ -1990,7 +1991,7 @@ class SimModeMixin:
         # 实测残留 142,803 px(19.04% 地图), 用户看到"幽灵台风"。
         if 'track' in self.sim_layers:
             try:
-                _sel_ty = None
+                _box_tys = []
                 for tc in disp['tcs']:
                     if not (tc.get('track') or []):
                         continue
@@ -2001,22 +2002,17 @@ class SimModeMixin:
                     self.draw_typhoon_info(
                         surface, ty,
                         with_name=bool(self._sim_display('_show_labels', True)))
-                    if tc['id'] == self.sim_sel_tc_id:
-                        _sel_ty = ty
-                if _sel_ty is not None:
-                    _h = self._season_info_box_height()
-                    if getattr(_sel_ty, 'fcPeak', None) or getattr(_sel_ty, 'fcLand', None):
-                        _h += self._season_info_box_line_height()   # 多一行"预报"
-                    # ⚠⚠ 轮次 156: 改用风季那套**共用**的框渲染 `blit_info_box`。
-                    # 原来这里直接调 `_render_info_box(_sel_ty, 470, _h)` 又只 blit
-                    # `_res[0]`, 丢掉 `ace_x/ace_y/tc` ⇒ 框里"实时ACE:"后面**永远空白**;
-                    # 宽度还是硬编码 470(风季常量 350), 位置也是写死的 (15,244)。
-                    self.blit_info_box(surface, _sel_ty,
-                                       SEASON_INFO_BOX_WIDTH, _h,
-                                       SEASON_INFO_BOX_START_X,
-                                       SEASON_INFO_BOX_START_Y,
-                                       self._box_alpha(_sel_ty,
-                                                       pygame.time.get_ticks()))
+                    _box_tys.append(ty)
+                # ── S4b(用户 2026-10-05 裁定): "把所有台风的信息框都画出来啊" ──
+                # 原实现**只画 `sim_sel_tc_id` 那一只**(注释原文"只画选中的那一只,
+                # 免得十几个框铺满屏幕")。现在**全部画**, 并复用风季那套布局:
+                #   · 单列 + 滚轮滑动(热区不可见、略宽于框、纵向覆盖整列含框间空白);
+                #   · 视口裁剪 ⇒ 视口外一个像素都不画(无残影);
+                #   · 选中那只在框**左侧**画一条青色竖条(框外 ⇒ 不压任何文字);
+                #   · 放不下的用 "↓ 还有 N 个 (滚轮滑动)" 提示, **不静默截断**;
+                #   · 命中登记仍在 `blit_info_box` 绘制时完成 ⇒ 点击自动跟随滚动偏移。
+                if _box_tys:
+                    self.draw_info_boxes_scrolling(surface, _box_tys)
             except Exception:
                 logger.debug("模拟模式图标/信息框渲染失败", exc_info=True)
         self._sim_draw_hud(surface)
@@ -2242,10 +2238,31 @@ class SimModeMixin:
 
             north = [t for t in named_all if float(t.get('lat', 0.0)) >= 0.0]
             south = [t for t in named_all if float(t.get('lat', 0.0)) < 0.0]
+            # ⚠ 2026-10-06(S2 诊断, **纯新增一行, 不改任何既有语义**):
+            #   用户看到"面板写 11 台风, 路径层却只有 1 条" —— 挖出来的根因是
+            #   **视图窗口**而不是筛选: `_sim_render` 对 `disp['tcs']` **全部**调用
+            #   `draw_typhoon`(只见 `sim_mode_mixin.py:1957-1983`, 唯一跳过条件是
+            #   `len(tc['track']) < 1`), 实测 19 条 tc → `draw_typhoon` 调用 **19 次**;
+            #   但当前视图只有 lon 107–157E / lat −10..15N, 其余 17 条画在画布外。
+            #   而本框的"总命名/存活"是**全局**统计(用户 2026-09-19 明确要的口径) ⇒
+            #   两者相差时用户无从判断。这里把"当前中心落在屏幕内"的条数一并报出,
+            #   让差值自解释。**只加一行显示, 不参与任何绘制/物理逻辑**。
+            _in_view = 0
+            try:
+                for _t in tcs:
+                    _x, _y = self.latlon_to_screen(
+                        float(_t.get('lat', 0.0)), float(_t.get('lon', 0.0)))
+                    if 0 <= _x <= self.screen_width and 0 <= _y <= self.map_height:
+                        _in_view += 1
+            except Exception:
+                logger.debug('统计框「视野内」计数失败', exc_info=True)
+                _in_view = -1
             lines = [
                 ('总命名', str(len(named_all)), (150, 205, 255)),
                 ('存活', '%d(命名 %d)' % (len(alive), len(named_alive)),
                  (150, 230, 170)),
+                ('视野内', ('%d/%d' % (_in_view, len(tcs))) if _in_view >= 0 else '-',
+                 (200, 210, 235)),
                 ('北半球年最强', _strongest('N') or '-', (255, 160, 150)),
                 ('南半球年最强', _strongest('S') or '-', (255, 160, 150)),
             ]
@@ -2267,7 +2284,18 @@ class SimModeMixin:
                 panel.blit(rt(f_s, a, dim), (12, y + 2))
                 panel.blit(s2, (12 + lab_w + 10, y + 2))
                 y += line_h
-            surface.blit(panel, (12, max(0, sh - bh - 12)))
+            # ⚠ S4b: 统计框原来固定在左下角 (12, sh-bh-12) —— 那时信息框只有 1 个
+            #   (y=245..397) 不冲突。现在**一列多框**会一直排到 y≈774, 底下一个框
+            #   正好被统计框压住(实测截图里 SP4 框下半截的文字被统计框盖掉) ⇒
+            #   把统计框**挪到信息框那一列的右侧**(列右缘 + 8px), 两者永不相交。
+            #   没有信息框时不挪(保持原位, 不无故改变既有布局)。
+            _col_right = (SEASON_INFO_BOX_START_X + SEASON_INFO_BOX_WIDTH
+                          + SEASON_INFO_BOX_SPACING_X)
+            _has_boxes = int(getattr(self, '_info_box_content_n', 0) or 0) > 0
+            _bx = _col_right if _has_boxes else 12
+            _by = max(0, sh - bh - 12)
+            self._sim_stats_rect = pygame.Rect(_bx, _by, bw, bh)
+            surface.blit(panel, (_bx, _by))
         except Exception:
             logger.debug('模拟统计框绘制失败', exc_info=True)
 

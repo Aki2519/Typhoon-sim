@@ -117,6 +117,43 @@ class TySimEventMixin:
         if self._handle_map_pan(e):
             return True
 
+        # ── S4: 信息框悬停反馈(手型光标 + 框沿高亮) ──
+        # 放在地图平移之后、缩放之前: **只更新悬停状态, 不消费事件** ⇒ 不影响
+        # 拖图/缩放/框选等任何既有交互。命中只读 `blit_info_box` 绘制时登记的矩形。
+        if e.type == pygame.MOUSEMOTION and hasattr(self, '_info_box_hit_record'):
+            try:
+                self._info_box_hover_update(e.pos)
+            except Exception:
+                self._info_box_hover_ty = None
+
+        # ── S4b: 信息框滚轮热区(**先于**地图缩放) ──
+        # 用户 2026-10-05: "在信息框的地方做一矩形, 无可见外观, 但鼠标放到矩形里
+        # 滚动不是缩放而是滑动信息框, **即使在信息框之间的空白区域**; 矩形应该略宽于
+        # 信息框。风季与模拟模式都这样"。
+        # 优先级链与 task-59 一致: 功能栏 → **信息框热区** → 地图缩放。
+        #   · 功能栏在地图区**之下**, 本处用 `my >= map_height` 直接让开(不串事件);
+        #   · 热区**不可见**、略宽于框、纵向覆盖整列(含框间空白);
+        #   · 内容不足一屏时 `_info_box_scroll_by` 返回 False ⇒ 回落到地图缩放
+        #     (避免"在空矩形上滚半天没反应、还不能缩放")。
+        if e.type == pygame.MOUSEWHEEL:
+            try:
+                # ⚠ 用"内容里的框总数"(`_info_box_content_n`, 绘制时写入), 不是
+                #   登记表条数(那只等于"这一屏画出来的几个") —— 否则可滚范围被
+                #   严重低估(实测 19 个框只滚得动 76px)。
+                n_boxes = int(getattr(self, '_info_box_content_n', 0) or 0)
+                if n_boxes <= 0:
+                    n_boxes = len(getattr(self, '_info_box_hit', None) or {})
+                if self._info_box_scroll_by(
+                        getattr(e, 'y', 0),
+                        # ⚠ 用绘制时记录的**本帧生效高度**(有"预报"行时高一行),
+                        #   与布局同源; 否则钳制步进会和实际差一行。
+                        getattr(self, '_info_box_box_h',
+                                self._season_info_box_height()),
+                        n_boxes):
+                    return True
+            except Exception:
+                pass
+
         if self._handle_map_zoom(e):
             return True
 
@@ -158,6 +195,22 @@ class TySimEventMixin:
                     and self.control_panel is not None
                     and self.control_panel.hit_test(e.pos) is not None):
                 return self._handle_click(e.pos)
+            # ── S4: 点台风信息框 ⇒ 镜头跳到该 TC(模拟模式 + 风季模式) ──
+            # 用户名 2026-10-05: "左边不是有台风信息框吗, 加一个点击后跳到那个 tc
+            # 的功能就行, 风季模式也加上"。
+            # 位置: **在功能栏优先级之后**(功能栏按钮必须先拿到点击)、在
+            #   `_sim_handle_click`(地图点击生成/选中) 与通用 `_handle_click` 之前 ⇒
+            #   信息框盖住的那块地图不再被"点穿"到下面的台风/生成逻辑。
+            # 命中矩形来自 `blit_info_box` 绘制时登记的那一份(不另算坐标)。
+            # 模式限定在 SIM/SEASON: NORMAL 模式的框是 `_draw_icon_mixin` 另一套,
+            #   且带"双击名称行改名"的既有交互(`event_mixin.py:218-226`), 不在这里动。
+            if (not self.dialog_mgr.any_active()
+                    and getattr(self, 'md', None) in (
+                        getattr(self, 'MODE_SIM', 'sim'),
+                        getattr(self, 'MODE_SEASON', 'season'))):
+                _hit_ty, _hit_rect = self._info_box_at(e.pos)
+                if _hit_ty is not None and self._info_box_jump_to(_hit_ty):
+                    return True
             # 模拟模式: 地图左键点击 → 生成/选中台风
             if (getattr(self, 'md', None) == getattr(self, 'MODE_SIM', 'sim')
                     and not self.dialog_mgr.any_active()):

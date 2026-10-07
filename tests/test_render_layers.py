@@ -16,7 +16,11 @@ import pygame
 from app.renderer import Renderer
 
 EXPECTED_ORDER = (
-    "map", "sim_field", "graticule", "ocean_areas", "ocean_edit", "clock",
+    # 轮次 156: `graticule` 由 `sim_field` **之后**移到**之前**。
+    # 原因: 模拟模式的全部内容(环境色阶层/路径/图标/风圈)都由 `_sim_render`
+    # 一次画完; 经纬网排在它后面会把网格线压在台风图标与路径之上。
+    # 风季模式没有 sim_field 层, 顺序不受影响。
+    "map", "graticule", "sim_field", "ocean_areas", "ocean_edit", "clock",
     "ace_bar", "typhoons", "track_label", "season_info_boxes",
     "typhoon_info", "effects",
 )
@@ -63,8 +67,11 @@ class LayerSim:
     def _draw_typhoons(self, surface):
         self.calls.append("typhoons")
 
-    def draw_season_clock(self, surface, origin=None):
+    def draw_season_clock(self, surface, origin=None, time_tuple=None):
+        # time_tuple: 正常/编辑模式现在显式传当前台风时刻(2026-09-19 修"时间轴
+        # 坏了" —— 不传会落到风季控制器的陈旧字段)
         self.calls.append("clock")
+        self.last_clock_tuple = time_tuple
 
     def draw_ace_display(self, surface):
         self.calls.append("ace_bar")
@@ -125,7 +132,10 @@ class TestLayerTable(unittest.TestCase):
                          ["map", "typhoons"])
 
     def test_sim_mode_only_map_and_field(self):
-        self.assertEqual(self._render(LayerSim("sim")), ["map", "sim_field"])
+        # 2026-09-19: 模拟模式也用同一套 ACE 条(用户"ace 条像其它模式一样显示"),
+        # 所以这里多了 'ace_bar'
+        self.assertEqual(self._render(LayerSim("sim")),
+                         ["map", "sim_field", "ace_bar"])
 
     def test_sim_mode_hidden_skips_field(self):
         self.assertEqual(self._render(LayerSim("sim"), hidden=True), ["map"])
@@ -151,6 +161,17 @@ class TestLayerTable(unittest.TestCase):
         sim4 = LayerSim("season")
         sim4.show_info_box_season = False
         self.assertNotIn("season_info_boxes", self._render(sim4))
+
+    def test_no_fullscreen_snap_grid_layer(self):
+        """2026-09-19 回退: 整屏 0.1° 吸附网格层被删掉了。
+
+        用户报"编辑模式的格点出问题了" —— 之前这一版把吸附网格画成**整屏**细线
+        网, 在 0.1° 步长下几乎糊满地图。旧版本是在**被拖动的那个点周围**画一小块
+        半径 130px、边缘径向渐隐的网格(_draw_path_mixin._draw_snap_grid), 现在
+        回到那个做法, 所以渲染层表里不再有 snap_grid。
+        """
+        for md in ("normal", "season", "edit", "sim"):
+            self.assertNotIn("snap_grid", self._render(LayerSim(md)))
 
     def test_ocean_edit_layer_visibility(self):
         sim = LayerSim("normal")

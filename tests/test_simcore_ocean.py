@@ -6,6 +6,7 @@ P2: 尾流/OHC 消耗要随表层漂流平流(不然海温异常钉在原地),
     并新增"风切" "环流" 两个可显示图层。
 """
 import os
+import time
 import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -116,12 +117,57 @@ class TestShearLayer(unittest.TestCase):
         cls.sim = make_sim(n_tc=3)
 
     def test_shape_and_land_mask(self):
+        """陆地像素必须被掩成透明。
+
+        有 map/heightmap.png 时函数会升采样到 (720,2160) 并按真实海岸线裁切
+        (6x6 重复); 没有时退回 0.5° 粗掩码 (120,360)。
+        """
         out = R.render_env_layer(self.sim, "shear")
-        self.assertEqual(out.shape, (V.ENVNY, V.ENVNX, 4))
         self.assertEqual(out.dtype, np.uint8)
-        land = self.sim["land"] >= 0.5
-        self.assertTrue((out[..., 3][land] == 0).all())
+        self.assertEqual(out.shape[2], 4)
+        # 2026-09-19: 图层现在会**外推到两极**(±90), 所以行数比内核域(±60)多;
+        # 列数不变。核心带(±60)仍按高分辨率海岸线裁切。
+        hi = R._hi_land_mask()
+        self.assertGreater(out.shape[1], 0)
+        self.assertGreaterEqual(out.shape[0], V.ENVNY)
+        ny = out.shape[0]
+        core = int(round(ny * 120.0 / 180.0))          # ±60 占 180° 里的 120°
+        c0 = (ny - core) // 2
+        band = out[c0:c0 + core]
+        # 2026-09-19: 掩码口径改了 —— **只挖"100% 陆地"的格点**
+        # (用户: "图中有因为小岛造成的空缺…如果陆地占比达到 100% 再不模拟这个格子"),
+        # 所以"高分辨率海岸线里是陆地"不再等于"图层透明"(部分陆地格照常着色,
+        # 小岛才不会打洞)。这里改断言: 全陆格点必须透明。
+        from simulator.simcore import core as _C
+        _al = _C.all_land_mask()
+        if _al is not None:
+            ny2 = band.shape[0]
+            ry = max(1, int(round(ny2 / _al.shape[0])))
+            rx = max(1, int(round(band.shape[1] / _al.shape[1])))
+            # land_cell.npz 是**南在上**(与内核 row0 一致), 而图层输出是北在上,
+            # 比对前必须翻一次(原来漏了这一步, 于是 3.4 万像素的"错位差")
+            al_hi = np.repeat(np.repeat(np.flipud(_al), ry, axis=0), rx, axis=1)
+            if al_hi.shape == band.shape[:2]:
+                self.assertEqual(int((band[..., 3][al_hi] > 0).sum()), 0,
+                                 "100% 陆地的格子必须完全透明")
+        elif hi is not None and band.shape[:2] == hi.shape:
+            # 缓存缺失时的旧口径: 高分辨率海岸线全透明
+            self.assertEqual(int((band[..., 3][np.flipud(hi)] > 0).sum()), 0)
+        else:
+            land = np.asarray(self.sim["land"]).reshape(V.ENVNY, V.ENVNX) >= 0.5
+            import pygame as _pg
+            small = _pg.transform.smoothscale(
+                _pg.image.frombuffer(np.ascontiguousarray(band[..., 3]).tobytes(),
+                                     (band.shape[1], band.shape[0]), 'A'),
+                (V.ENVNX, V.ENVNY))
+            am = _pg.surfarray.array_alpha(small).T
+            self.assertEqual(int((am[land] > 0).sum()), 0)
         self.assertGreater(int((out[..., 3] > 0).sum()), 0)
+        # 两极带必须有数据(用户 2026-09-19: "两极没有海温")
+        if ny > core:
+            pole_rows = np.concatenate([np.arange(0, c0), np.arange(c0 + core, ny)])
+            self.assertGreater(int((out[pole_rows, :, 3] > 0).sum()), 0,
+                               "两极没有填充数据")
 
     def test_color_grows_with_shear(self):
         sim = make_sim()
@@ -142,22 +188,91 @@ class TestStreamlines(unittest.TestCase):
 
     def test_draws_and_caches(self):
         R._flow_cache.clear()
-        R._flow_last[:] = [None, 0]
+        # 轮次 151: 节流状态由 `[surf, made_ms]` 改成**按图层名分开的 dict**
+        # (原先 flow 与 current 共用一个, 洋流层会复用风场那张图)。
+        R._flow_last.clear()
         surf = pygame.Surface((W, H))
         R.draw_streamlines(surf, self.sim, fx, fy)
         self.assertEqual(len(R._flow_cache), 1)
-        first = R._flow_last[0]
+        first = R._flow_last['flow'][0]
         self.assertIsNotNone(first)
         self.assertIsNotNone(first.get_colorkey())
         # 同一 env 版本/视口再画一次: 命中的是同一张缓存
         R.draw_streamlines(surf, self.sim, fx, fy)
-        self.assertIs(R._flow_last[0], first)
+        self.assertIs(R._flow_last['flow'][0], first)
         self.assertGreater(int(pygame.surfarray.array3d(surf).sum()), 0)
+
+    def test_flow_and_current_do_not_share_throttle(self):
+        """轮次 151 回归: 环流与洋流的节流缓存必须**互相独立**。
+
+        缺陷原貌: 两者共用一个 `[surf, made_ms]`, 而 `draw_streamlines` 先调用,
+        于是 150ms 窗口内 `draw_currents` 直接复用风场那张流线图 —— 用户同时打开
+        "环流"和"洋流"时, 洋流层画的是风场(实测地图新增 0 像素)。
+        """
+        R._flow_cache.clear()
+        R._flow_last.clear()
+        surf = pygame.Surface((W, H))
+        # `draw_currents` 在 ocn 缺 u/v 时会提前返回(不进节流) —— 补一份洋流场
+        self.sim.setdefault('ocn', {})
+        self.sim['ocn']['u'] = np.full((V.ENVNY, V.ENVNX), 0.4, np.float32)
+        self.sim['ocn']['v'] = np.full((V.ENVNY, V.ENVNX), 0.1, np.float32)
+        R.draw_streamlines(surf, self.sim, fx, fy)     # 先建档 flow 的节流
+        self.assertIn('flow', R._flow_last)
+        self.assertNotIn('current', R._flow_last)
+        R.draw_currents(surf, self.sim, fx, fy)
+        self.assertIn('current', R._flow_last)
+        # 两者是不同的 surface 对象, 没有互相借图
+        self.assertIsNot(R._flow_last['flow'][0], R._flow_last['current'][0])
 
     def test_seed_points_are_deterministic(self):
         a = R._stream_seeds(50)
         b = R._stream_seeds(50)
         self.assertIs(a, b)
+
+    def test_flow_throttle_rebuilds_after_window(self):
+        """轮次 153 回归: 视图(key)变化后, 流线层**必须**在节流窗口过后重建。
+
+        缺陷原貌: `_flow_throttle_put` 被放在"复用上一张节流图"那条路径上 ⇒
+        每帧都刷新时间戳, 而**新 key 从未写进 `_flow_cache`** ⇒ 下一帧继续 miss、
+        继续复用同一张旧图。只要帧间隔 <150ms, 环流/洋流层就**永久冻结**在旧视图
+        (拖动/缩放地图后不再更新)。原实现只在真正重建后写时间戳, 所以 150ms 后
+        必然重建一次、自愈。
+
+        ⚠ 测法要点: 必须用**连续快帧**(每帧间隔 <150ms)跨过 150ms 窗口。
+        早先版本用单次 `sleep(0.2)` 直接跨过窗口 —— 那样坏写法也会因为等到了
+        超时而重建, **测试恒过、抓不到 bug**(已实测确认)。
+        """
+        R._flow_cache.clear()
+        R._flow_last.clear()
+        calls = []
+        orig = R._build_streamlines
+
+        def _spy(*a, **kw):
+            calls.append(1)
+            return orig(*a, **kw)
+
+        R._build_streamlines = _spy
+        try:
+            surf = pygame.Surface((W, H))
+            R.draw_streamlines(surf, self.sim, fx, fy)
+            self.assertEqual(len(calls), 1, '首次应当重建一次')
+
+            # 换 key(改 env 版本) —— 新 key 不在缓存里, 首帧允许复用节流图
+            self.sim['_envVer'] = int(self.sim.get('_envVer', -1)) + 1
+            R.draw_streamlines(surf, self.sim, fx, fy)
+
+            # 连续快帧: 每个间隔都短于 150ms 节流窗口, 但累计远超 150ms。
+            # 修好的版本会在窗口过期后重建并缓存新 key; 坏版本每帧刷新时间戳,
+            # 永远等不到过期 ⇒ 一次都不重建(图层永久冻结)。
+            n_before = len(calls)
+            for _ in range(8):
+                time.sleep(0.04)
+                R.draw_streamlines(surf, self.sim, fx, fy)
+            self.assertGreater(
+                len(calls), n_before,
+                '连续快帧下流线层从未重建(节流时间戳被复用路径永久刷新 ⇒ 图层冻结)')
+        finally:
+            R._build_streamlines = orig
 
 
 if __name__ == "__main__":

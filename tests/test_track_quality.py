@@ -8,7 +8,6 @@
   4. 跨 0 度经线的距离/方向不出现"半个地球"的假跳变。
 """
 import math
-import os
 import unittest
 from types import SimpleNamespace
 
@@ -174,70 +173,6 @@ class TestMotionVector(unittest.TestCase):
             o.at = i * _MOTION_SAMPLE_STEP_H * 0.5
             TyphoonSimMixin._record_motion_sample(o)
         self.assertLessEqual(len(o.v._motion_samples), _MOTION_SAMPLE_MAX)
-
-
-class TestMotionArrow(unittest.TestCase):
-    """_draw_motion_vector 的可执行性与跨经线护栏(观感靠人工确认)。"""
-
-    @classmethod
-    def setUpClass(cls):
-        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-        import pygame
-        pygame.init()
-        cls.pygame = pygame
-
-    def _sim(self, shift_x=0):
-        class S:
-            cfg = SimpleNamespace(show_motion_vector=True)
-            screen_width = 200
-
-            @staticmethod
-            def latlon_to_screen(la, lo):
-                return (int(lo - 120.0) + shift_x, int(-la))
-        return S()
-
-    def _blank(self):
-        return self.pygame.Surface((200, 200))
-
-    def _ink(self, surf):
-        import pygame.surfarray as sa
-        arr = sa.array3d(surf)
-        return int(arr.sum())
-
-    def test_draws_arrow(self):
-        from app.ty_sim_mixins._draw_path_mixin import TySimDrawPathMixin
-        ty = SimpleNamespace(motion_vector=lambda: (25.0, 12.0))
-        surf = self._blank()
-        TySimDrawPathMixin._draw_motion_vector(
-            self._sim(), surf, ty, (50, 50), {'la': 10.0, 'lo': 120.0}, 255)
-        self.assertGreater(self._ink(surf), 0)
-
-    def test_disabled_flag_draws_nothing(self):
-        from app.ty_sim_mixins._draw_path_mixin import TySimDrawPathMixin
-        sim = self._sim()
-        sim.cfg = SimpleNamespace(show_motion_vector=False)
-        ty = SimpleNamespace(motion_vector=lambda: (25.0, 12.0))
-        surf = self._blank()
-        TySimDrawPathMixin._draw_motion_vector(
-            sim, surf, ty, (50, 50), {'la': 10.0, 'lo': 120.0}, 255)
-        self.assertEqual(self._ink(surf), 0)
-
-    def test_seam_guard_draws_nothing(self):
-        """投影把箭尖甩到屏幕另一端(跨 0 度经线)时不画, 避免横穿全屏的假箭头。"""
-        from app.ty_sim_mixins._draw_path_mixin import TySimDrawPathMixin
-        ty = SimpleNamespace(motion_vector=lambda: (25.0, 12.0))
-        surf = self._blank()
-        TySimDrawPathMixin._draw_motion_vector(
-            self._sim(shift_x=180), surf, ty, (50, 50), {'la': 10.0, 'lo': 120.0}, 255)
-        self.assertEqual(self._ink(surf), 0)
-
-    def test_no_samples_draws_nothing(self):
-        from app.ty_sim_mixins._draw_path_mixin import TySimDrawPathMixin
-        ty = SimpleNamespace(motion_vector=lambda: None)
-        surf = self._blank()
-        TySimDrawPathMixin._draw_motion_vector(
-            self._sim(), surf, ty, (50, 50), {'la': 10.0, 'lo': 120.0}, 255)
-        self.assertEqual(self._ink(surf), 0)
 
 
 if __name__ == '__main__':

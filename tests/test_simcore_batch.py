@@ -55,7 +55,9 @@ class TestBatchSampling(unittest.TestCase):
 
     # 容许误差: 标量版在 float32 场上按 NumPy 弱提升求值, 批量版用 float64 权重,
     # 两者相差 ≤ float32 eps(~1e-7)。风速量级是几十 kt, 1e-5 远低于物理噪声。
-    ATOL = 1e-5
+    # 2026-09-21: 扩域到 360 行后批量求和的次序变了, float32 累加差异从
+    # <1e-5 变成 1.17e-5(相对差 8.8e-8) —— 是精度噪声不是逻辑错, 容差放到 5e-5。
+    ATOL = 5e-5
 
     def test_env_bilinear_arr_matches_scalar(self):
         env = self.sim["env"]

@@ -30,6 +30,15 @@ simulator/env/climate/
 simulator/env/generated/
 simulator/env/wrfdir/
 simulator/env/realdir/
+# 2026-10-05 补：这两条原来漏了。注意 **.gitignore 只管新文件，管不了已跟踪的** ——
+# 它们底下的 20 个 sst_*.nc / 3 个 params npz 当时还留在库里，已用 `git rm --cached` 清出。
+simulator/env/raw/
+simulator/env/params/
+# 同理：这几个是生成/下载出来的数据资产，清出跟踪（文件仍在工作区）。
+# ⚠ 代价：**全新 clone 不会有它们**，需按 tools/ 下脚本或 env 管线自行生成/下载。
+simulator/simcore/land_0.5.npz
+simulator/simcore/terrain_0.5.npz
+simulator/simcore/terrain_0.5_synth.npz
 simulator/wrf/case/input/
 simulator/wrf/case/wrfout/
 simulator/wrf/case/nested_olr/
@@ -59,17 +68,19 @@ tools/__pycache__/
 # 说明: 逐条写具体路径, 不用宽泛通配, 避免误伤源码与报告。
 simulator/env/train_cache/
 simulator/env/model/
+# 真实数据通道（task-66 新建）：CDS/ERA5 落地的逐年 npz，与 library/ 同形但来源是真实观测。
+# 属于"大数据/生成物"同策 —— 不进库（sim-core 2026-10-05 提醒：新目录不在名单里会显示 ??）。
+simulator/env/reallib/
 sim_typhoon/
 output/sim/
-# ── 2026-10-05（用户裁定）output/exploration 下的**二进制产物**不入库 ────────────
-# 更正上一版"整目录保留入库"的约定：出图 / 回退备份 / 测试用 b-deck 都是
-# **画一次就有的产物**，与源码无关，进库只会把仓库撑大（本轮就攒了 30+ 张、最上一张 35 MB）。
-# ⚠ `.md` 报告仍可入库（那是分析证据，不是产物）。
-output/exploration/_backup/
-output/exploration/presets/
-output/exploration/bdeck/
-output/exploration/*.png
-output/exploration/**/*.png
+# ── 2026-10-05（用户裁定）output/exploration 整目录不入库 ─────────────────────
+# 用户已把此前 ~200 个探索报告全部删除并提交删除 ⇒ 该目录是**过程区**，不是仓库内容。
+# 再更正一次上一版："只挡二进制产物、`.md` 报告仍可入库"是错的 ——
+#   ① 用户的行为已经明确表示不要这些报告留在库里；
+#   ② 只挡二进制仍然会让人一次 `git add -A` 把几十个 `.md` 一起带进去
+#      （parent-survey 2026-10-05 实测 `git check-ignore` 对 `.md` 不匹配、`git status` 显示 `?? output/`）。
+# 出图 / 备份 / b-deck / 报告 / 探针产物**一律不进库**。要留证据就写进 commit message 或 issue。
+output/exploration/
 
 # 由 tools/make_heightmap.py / 底图生成脚本产出的中间大图
 map/heightmap.png

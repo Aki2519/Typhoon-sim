@@ -17,6 +17,7 @@ dataMode 语义(与 KWP 对照):
 """
 from __future__ import annotations
 
+import logging
 import os
 import math
 from collections import OrderedDict
@@ -40,6 +41,12 @@ def _env_dims():
     return _C.ENVNX, _C.ENVNY, float(_C.C['ENVD'])
 
 
+# ⚠ 「读库回落」必须留日志：这个项目在 `map/land.png` 上栽过一次**静默降级**
+# （找不到就悄悄换成 0.5° 粗掩码，画出来还是"正常"的图 ⇒ 很久没人发现）。
+# 数据源的同一条规矩：**只要没用首选源，就 `logger.warning`**。
+logger = logging.getLogger(__name__)
+
+
 ENVNX, ENVNY = _env_dims()[:2]
 ENVD = _env_dims()[2]
 
@@ -53,6 +60,13 @@ _LIB = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     '..', 'env', 'library')
 _CLIM = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      '..', 'env', 'climate')
+#: 真实再分析库（S8/S8b 由 `simulator/env/build_reallib_cds.py` 从 CDS ERA5 生成）。
+#: 与 `library/` **同 shape (12,121,360) / 同 keys ['months','meta'] / 同 dam 口径**，
+#: 但 `meta.source='era5-cds'` 且是**真值**；`library/` 那 48 年是**合成**产物
+#: （`meta.source='synthetic'`，且 `hgt500` 只是 `mslp` 的线性代理 `560+(1013-mslp)`，corr=-1.000000）。
+#: ⚠ **绝不覆盖/改写 `library/` 与 `climate/`** —— 它们另有用途（可复现的合成基准）。
+_REALLIB = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        '..', 'env', 'reallib')
 
 # 单位/标定常量(单点表达, 避免魔法数散落)
 KT = 1.944                       # m/s → kt
@@ -85,10 +99,23 @@ def _chdir_ctx(path: str):
         os.chdir(old)
 
 
-def _var_path(var: str, year: Optional[int], clim: bool):
+def _var_paths(var: str, year: Optional[int], clim: bool):
+    """按**优先级**返回候选路径: `reallib/`（真实）优先, 其次 `climate/`(气候态) 或 `library/`。
+
+    · clim=True  ⇒ [reallib/{var}_clim.npz, climate/{var}_clim.npz]
+    · 否则       ⇒ [reallib/{var}_{year}.npz, library/{var}_{year}.npz]
+    回落由 `load_months` 打 `logger.warning`（见那里的注释）。
+    """
     if clim:
-        return os.path.join(_CLIM, f'{var}_clim.npz')
-    return os.path.join(_LIB, f'{var}_{year}.npz')
+        return [os.path.join(_REALLIB, f'{var}_clim.npz'),
+                os.path.join(_CLIM, f'{var}_clim.npz')]
+    return [os.path.join(_REALLIB, f'{var}_{year}.npz'),
+            os.path.join(_LIB, f'{var}_{year}.npz')]
+
+
+def _var_path(var: str, year: Optional[int], clim: bool):
+    """旧接口: 返回**首选**路径（向后兼容; 内部走 `_var_paths`）。"""
+    return _var_paths(var, year, clim)[0]
 
 
 def load_raw_sst_months(year: int) -> Optional[np.ndarray]:
@@ -154,6 +181,11 @@ def _fill_nan_lat(a: np.ndarray) -> np.ndarray:
     return b
 
 
+#: 回落警告去重（U-S8b-5）：reallib 目前只有 mslp/hgt500，其余变量**每次**调用都会回落
+#: ⇒ 逐帧刷屏。**刷屏的日志等于没日志**，所以每个 (var, year, clim) 只警告一次。
+_WARNED_FALLBACK: set = set()
+
+
 def load_months(var: str, year: Optional[int] = None,
                 clim: bool = False) -> Optional[np.ndarray]:
     """加载变量月数据, 返回 (12, ...) 数组或 None。
@@ -166,13 +198,32 @@ def load_months(var: str, year: Optional[int] = None,
     key = (var, year)
     if key in _cache:
         return _cache[key]
-    if year is None:
-        p = _var_path(var, None, True)
-        if not os.path.exists(p):
-            p = _var_path(var, 2000, False)     # 无气候态: 用 2000 年库近似
-    else:
-        p = _var_path(var, year, False)
-    if not os.path.exists(p):
+    _cands = _var_paths(var, year, True) if year is None else _var_paths(var, year, False)
+    p = None
+    for _i, _c in enumerate(_cands):
+        if os.path.exists(_c):
+            p = _c
+            if _i > 0:
+                # **回落必须留日志**（不静默降级）: 首选 reallib 缺失 ⇒ 用了 library/climate。
+                # ⚠ 但**每个 (var, year, clim) 只警告一次**（U-S8b-5）：否则逐帧刷屏。
+                _wk = (var, year, (year is None))
+                if _wk not in _WARNED_FALLBACK:
+                    _WARNED_FALLBACK.add(_wk)
+                    logger.warning(
+                        '读库回落: var=%s year=%s clim=%s —— 首选 %s 不存在, 改用 %s'
+                        '（本组合后续不再重复告警）',
+                        var, year, (year is None), os.path.basename(_cands[0]), _c)
+            break
+    if p is None and year is None:
+        # 既有行为(保留): 气候态缺失时退回 **2000 年库近似**。
+        # ⚠ 原来这一步**一声不响**就换了数据源 ⇒ 现在补日志。
+        _fb = _var_paths(var, 2000, False)[-1]
+        if os.path.exists(_fb):
+            logger.warning(
+                '读库回落: var=%s 气候态缺失(%s) —— **改用 2000 年库近似** %s',
+                var, [os.path.basename(c) for c in _cands], _fb)
+            p = _fb
+    if p is None:
         return None
     try:
         # with 关闭 NpzFile 的 zip 句柄(否则滞留到 GC)
@@ -423,6 +474,26 @@ def build_env_fields(sim_params: dict, t_h: float, month0: int,
         # 旧合成库的 ohc 是 kJ/cm²(见 climate.UNITS), 必须显式标注 ——
         # core 只在标注为 'm' 时才把它当 D26 用
         fields['_ohc_unit'] = 'kJ'
+    # ── 500hPa 位势高度（R18/S3）：副高 5880 线的**真实**数据来源 ──
+    # 仓库里 `env/climate/hgt500_clim.npz` + `env/library/hgt500_{1990,1991,1992}.npz`
+    # （只有这 3 个年份 + 气候态）。单位 gpm（ERA5 500hPa 位势高度）。
+    # `get3(..., 0.0)`：不加日变化（位势高度的日变化可忽略），与其它标量同一套
+    # 重采样 + 月间插值路径 ⇒ 直接落在内核网格上。
+    _z500 = get3('hgt500', 0.0)
+    if _z500 is not None:
+        fields['z500'] = _z500.astype(np.float32)
+        # S11：**距平基准** —— 真实 500hPa 气候态（常走 reallib/hgt500_clim.npz）。
+        # ⚠ `n_years=1` 时它只是**一年的年循环**，不是 30 年气候态（该文件 meta 有 warning）。
+        # 单独取 clim 分支：`get3` 跟随调用方的 year/clim，而基准必须**始终是气候态**。
+        # （U-S11-4 实验：已用临时开关证伪"本键扰动物理"的假说，见 s12_sandbox_port.md §2；
+        #   开关已移除，恢复为无条件执行。）
+        try:
+            _mc = load_months_env('hgt500', None, True)
+            if _mc is not None:
+                fields['z500Base'] = interp_month(_mc, t_h, month0, dc, 0.0,
+                                                  clock=clock).astype(np.float32)
+        except Exception:
+            pass
     shear = get3('shear', amp['shear'])
     if shear is not None:
         # 库 shear 单元: m/s(见 real_source)。转 kt

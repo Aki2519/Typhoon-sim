@@ -811,7 +811,10 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
                   levels: Optional[List[float]] = None) -> None:
     """气压等值线(marching squares) + 高/低标记。"""
     if levels is None:
-        levels = [976, 980, 984, 988, 992, 996, 1000, 1004, 1008, 1012, 1016, 1020, 1024, 1028]
+        # S3：4 hPa -> **2 hPa**。用户 2026-10-05：「气压层整体几乎空白」——
+        # 4 hPa 间距在全球 53 hPa 跨度上只有 ~13 条等值线，窄窗只穿过 2-4 条；
+        # 实测画布内只有 281/26850 段（1.05%）。加密到 2 hPa 后条数约翻倍。
+        levels = list(range(970, 1041, 2))
     p = sim['env'].get('pDisp', sim['env']['pTot'])
     ny, nx = V.ENVNY, V.ENVNX
     # 逐格屏幕坐标只算一次: fx 只依赖经度 / fy 只依赖纬度, 原实现每层每格调
@@ -838,12 +841,14 @@ def draw_contours(surface, sim, fx: Callable, fy: Callable,
         y0 = ys0a[j0] + v0 * (ys1a[j0] - ys0a[j0])
         x1 = xs0a[i1] + u1 * (xs1a[i1] - xs0a[i1])
         y1 = ys0a[j1] + v1 * (ys1a[j1] - ys0a[j1])
-        col = (200, 205, 215)
+        # S3：原 1px (200,205,215) 在海军蓝底上几乎看不见（实测单层仅 1976 px
+        # = 144 万像素的 0.14%）。提亮到近白 + 加粗到 2px。
+        col = (232, 238, 246)
         # 一次性 tolist: 逐元素 float() 转换 4x2800 次反而更慢
         for ax, ay, bx, by in zip(x0.tolist(), y0.tolist(), x1.tolist(), y1.tolist()):
             # AA: 1px 斜线走原生 aaline(零分配零缓存) —— pressure 层每帧 ~2800 段,
             # 是全模块最需要 AA、也最不能付"逐段精灵"代价的一处。
-            _aa_line(surface, col, (ax, ay), (bx, by), 1)
+            _aa_line(surface, col, (ax, ay), (bx, by), 2)
     # 高/低标记(向量化: 原 120×360 双层 Python 循环实测 0.13s/帧)
     lj, li, hj, hi = _pressure_extremes(p, ny, nx)
     for j, i in zip(lj, li):
@@ -1530,54 +1535,81 @@ def draw_ridge(surface, sim, fx: Callable, fy: Callable, grid=None) -> None:
     try:
         p = np.asarray(sim['env'].get('pDisp', sim['env']['pEnv']))
         env_ver = int(sim.get('_envVer', -1))
-        try:
-            p90 = float(np.percentile(p, 88))
-        except Exception:
-            p90 = 1016.0
-        th = max(1012.0, round(p90, 1))
-        mask = np.flipud(p >= th)              # 网格南在上 -> 贴图前翻正
-        rgba = np.zeros(mask.shape + (4,), dtype=np.uint8)
-        rgba[..., 0] = 255
-        rgba[..., 1] = 150
-        rgba[..., 2] = 40
-        rgba[..., 3] = np.where(mask, 90, 0).astype(np.uint8)
-        # 视野内到底有没有副高格点? (给 UI 反馈用 —— 见 RIDGE_VISIBLE_PX)
-        try:
-            if grid is not None:
-                _vis = grid.visible(surface.get_size())
-                if _vis is None:
-                    RIDGE_VISIBLE_PX[0] = 0
-                else:
-                    _c0, _r0, _c1, _r1, _ = grid.src_window(mask.shape[1],
-                                                            mask.shape[0], _vis)
-                    RIDGE_VISIBLE_PX[0] = int(rgba[_r0:_r1, _c0:_c1, 3].sum())
+        # ── S3：副高改按**用户口径** = 500hPa 位势高度 **≥ 5880 gpm**（WPSH 标准定义）──
+        # 原来用 `pDisp` 的 **88 分位数**当阈值（实测 th=1021.70 hPa）—— 那与 5880 毫无关系：
+        # 掩膜占全球 11.8%、经度散布 0.2–359.8、纬度 −89.8–81.8，**根本不是一块副高**，
+        # 而且在默认窄窗里恰好 0 个格点（这正是它恒空白的根因）。
+        # 数据源：真实 ERA5 `hgt500`（`env/climate/hgt500_clim.npz` + `env/library/hgt500_{1990..1992}.npz`），
+        # 经 `climate.build_env_fields` 加到 `env['z500']`（**单位 dam**，不是 gpm）。
+        _z = sim['env'].get('z500')
+        if _z is not None:
+            # ⚠ **单位**：`hgt500` 存的是 **dam**（`simulator/env/real_source.py:20,347` 的
+            # m→dam 口径），不是 gpm ⇒ **5880 gpm = 588 dam**，必须先 ×10 再比。
+            # 不是 gpm ⇒ **5880 gpm = 588 dam**，必须先 ×10 再比。
+            _zg = np.asarray(_z, np.float64) * 10.0            # dam -> gpm
+            th = 5880.0
+            mask = np.flipud(_zg >= th)
+            # 实测这份数据集的 500hPa 位势高度**最大只有 ~5719 gpm**（571.9 dam）
+            # ⇒ 5880 线**在本数据集内不存在**、掩膜恒空。这不是画错了，是数据不够：
+            # 如实把"数据最大多少"写进标注，**不**偷偷换成分位数口径（用户已否掉）。
+            if not mask.any():
+                th_txt = '5880 gpm（数据最大 %.0f gpm，本集内无此线）' % float(np.nanmax(_zg))
+            elif bool(np.all(np.isfinite(_zg) & (_zg >= th))):
+                # 未来情景/增暖下底场整体抬高 ⇒ 全场都在 5880 之上 ⇒ 线**移出画面**。
+                # 必须说清"不是副高没了，是这条绝对阈值线已经不在画面里"。
+                th_txt = '5880 gpm（**全场都在 5880 之上**：底场抬升，此线已移出）'
             else:
-                RIDGE_VISIBLE_PX[0] = int(rgba[..., 3].sum())
-        except Exception:
-            RIDGE_VISIBLE_PX[0] = 0
-        _blit_layer(surface, rgba, fx, fy, cache_key=('ridge', env_ver, th),
-                    grid=grid)
-        # 边界描边(隔点画, 省一半圆)
-        if mask.shape[0] > 3 and mask.shape[1] > 3:
-            edge = np.zeros_like(mask)
-            edge[1:-1, 1:-1] = mask[1:-1, 1:-1] & ~(
-                mask[:-2, 1:-1] & mask[2:, 1:-1]
-                & mask[1:-1, :-2] & mask[1:-1, 2:])
-            ys, xs = np.nonzero(edge)
-            for j, i in zip(ys[::2], xs[::2]):
-                lon = V.C['LON0'] + (i + 0.5) * V.C['ENVD']
-                lat = V.C['LAT0'] + ((mask.shape[0] - 1 - j) + 0.5) * V.C['ENVD']
-                # AA: 副高边界点是小实心圆(r=2), 走共享底座缓存精灵(单色单半径 ⇒ 1 个缓存项)。
-                _aa_disc(surface, (255, 150, 60), (fx(lon), fy(lat)), 2)
+                th_txt = '5880 gpm'
+        else:
+            # 取不到 500hPa 位势高度 ⇒ **不画**，并在标注里写明原因 ——
+            # **不**退回分位数、也**不**硬编一个假阈值（用户明确否掉了分位数口径）。
+            th = -1.0
+            th_txt = '未取到 z500'
+            mask = np.zeros(np.asarray(p).shape, dtype=bool)
+        # ── S11：显示改成**描 5880 gpm 等值线**（不再填一整片橙）──────────────
+        # 用户 2026-10-05 裁定"**并存**"：**物理用高度距平（可调/可外推），显示画 5880**。
+        # 为什么不能再用填充（S8b 实测数字）：真实场 ≥5880 占 **27.185%** 格点
+        # ⇒ 填充会盖住约 **70%** 画面，观感是"一整片橙"；而 5880 的物理含义是
+        # **副高北界**，只有描线才表达得出来。
+        # 风格与气压层协调：气压层 2px 近白 (232,238,246)；副高 2px 暖橙，不抢戏。
+        # ⚠ 索引→屏幕映射**与 `draw_contours` 逐字相同**（同样不 flip），避免朝向错位。
+        _seg = None
+        if _z is not None and bool(mask.any()):
+            _seg = _contour_segments(_zg, [th],
+                                     key=(id(_z), env_ver, ('ridge5880',),
+                                          _zg.shape, float(np.nansum(_zg))))
+        RIDGE_VISIBLE_PX[0] = 0
+        if _seg is not None and int(np.asarray(_seg[0]).size) > 0:
+            _ny2, _nx2 = _zg.shape
+            _xs0 = np.asarray([fx(V.C['LON0'] + (i + 0.5) * V.C['ENVD'])
+                               for i in range(_nx2)], np.float64)
+            _xs1 = np.asarray([fx(V.C['LON0'] + (i + 1.5) * V.C['ENVD'])
+                               for i in range(_nx2)], np.float64)
+            _ys0 = np.asarray([fy(V.C['LAT0'] + (j + 0.5) * V.C['ENVD'])
+                               for j in range(_ny2)], np.float64)
+            _ys1 = np.asarray([fy(V.C['LAT0'] + (j + 1.5) * V.C['ENVD'])
+                               for j in range(_ny2)], np.float64)
+            _j0, _i0, _u0, _v0, _j1, _i1, _u1, _v1 = _seg
+            _x0 = _xs0[_i0] + _u0 * (_xs1[_i0] - _xs0[_i0])
+            _y0 = _ys0[_j0] + _v0 * (_ys1[_j0] - _ys0[_j0])
+            _x1 = _xs0[_i1] + _u1 * (_xs1[_i1] - _xs0[_i1])
+            _y1 = _ys0[_j1] + _v1 * (_ys1[_j1] - _ys0[_j1])
+            for _ax, _ay, _bx, _by in zip(_x0.tolist(), _y0.tolist(),
+                                          _x1.tolist(), _y1.tolist()):
+                _aa_line(surface, (255, 176, 92), (_ax, _ay), (_bx, _by), 2)
+                RIDGE_VISIBLE_PX[0] += 1
         # 标注: 写实际用的阈值(副高范围), 位置跟着可见区走
         if grid is not None:
             win = _visible_window(grid, surface.get_size())
-            lab = _label('副高 %.0f hPa' % th, (255, 170, 80))
+            # RIDGE_VISIBLE_PX 生效（S3）：视野内没有副高格点时，把这件事**写到标注里**
+            # —— 原来这个变量只写不读，"副高不在当前视野"的提示从未出现。
+            _vis_txt = '' if RIDGE_VISIBLE_PX[0] > 0 else '（本视野内无）'
+            lab = _label('副高 %s%s' % (th_txt, _vis_txt), (255, 170, 80))
             lx = int(grid.x(min(max(win[0] + 4.0, win[0]), win[1])))
             ly = int(grid.y(win[3] - 3.0))
             surface.blit(lab, (lx + 6, ly - lab.get_height() - 2))
         else:
-            surface.blit(_label('副高 %.0f hPa' % th, (255, 170, 80)),
+            surface.blit(_label('副高 %s' % th_txt, (255, 170, 80)),
                          (int(fx(120)), int(fy(33))))
     except Exception:
         logger.debug('simcore 图层绘制失败', exc_info=True)

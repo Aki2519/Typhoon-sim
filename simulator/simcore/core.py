@@ -363,6 +363,14 @@ def mpi(sst: float, ohc_d26: float, outflow: float, lat: float,
     **V² ∝ (Ts − To)/To** 修正: 对流层顶越高/出流层越冷 → 上下温差越大 →
     同样 SST 下 MPI 越强(用户 2026-09 提的"对流层顶影响")。
     参考态取 Ts=300K / To=210K; To 降 5K 约 +4% 风速, 与理论一致。
+
+    ⚠⚠ **不要把"生成支持度"混进本函数**（Lead 2026-10-05）。本函数是
+    **物理最大潜在强度**（Emanuel），**24°C 处仍有约 10.5 kt**（非 0，物理上本该如此）。
+    沙盒的 `SEA_POTENTIAL`（`(24,0.00)…(31,1.00)`）是**归一化支持度**、24°C **定义为 0**，
+    当 `sea_supported = 80·warmth·heat·org^0.75` 的**乘子**用 —— **两类量不该逐点相等**
+    （实测归一化后在 24–27°C 差 19%–57%，**是概念不同，不是 bug**；见
+    output/exploration/s12_sandbox_port.md ③-B）。
+    ⇒ 将来要"24°C 以下不支持生成"，**做成独立的生成阈值/支持度乘子**，别改这里。
     """
     d = max(0.0, min(5.0, sst - 26.0))
     v = 70.0 + 26.73 * d - 0.729 * d * d
@@ -1722,6 +1730,16 @@ def _env_update_impl(sim) -> None:
         # 逐位安全: copy() 不做任何数值运算, 位模式与"现场重算"完全相同。
         pe = _CG['pe_base'].copy()
         _RGC = _ridge_grids()                # 轮次 159: 副高 (dy, d) 常量网格
+        # S11：副高强度的**可调旋钮**（"距平口径"里唯一的手调量）。
+        # ⚠ **默认 1.0 = 保持现行幅度、逐位不变** —— `ramp * 1.0 * k` 在 IEEE-754 下
+        #   与 `ramp * k` 位级相同，所以 test_simcore_ridge 的
+        #   `test_p_env_matches_rebuild_bit_for_bit`（逐位重建 pEnv）继续成立，
+        #   也避免引入"标定用一套、模式用另一套"。
+        # **沙盒的 0.85**（`s9_sandbox_v2.md:167` 的 `subtropical_high_strength = 0.85`，
+        #   配 `RIDGE_HEIGHT_M = 45.0` ⇒ +38 m 脊距平）**作为一个可选设定**保留：
+        #   想照抄沙盒就传 `ridgeAnom=0.85`（实测：峰值距平 8.48 hPa、面积 19409 万 km²；
+        #   0.0 可整体关掉、1.5 可加强 ⇒ 强度连续可调，见 s11_ridge_anomaly.md 实验①）。
+        _ridge_str = float(P.get('ridgeAnom', 1.0))
         for _i, (rlat, rlon, ramp) in enumerate(RIDGES):
             _dy, d = _RGC[_i]
             # 轮次 158: 内联算式 → `ridge.ridge_core`(四向伸展各自独立可调)。
@@ -1742,7 +1760,7 @@ def _env_update_impl(sim) -> None:
             #   其实都在用缓存; 而且机器 A/A 极差 72-76% ⇒ 与 1.0 不可分。
             #   **是否值得缓存这件事仍是开放的**, 要用**真旁路**复测(见 PERF_MEMO_PLAN 的 M3)。
             #   当前撤回到"算常量网格"这一层, 是因为它**可证明**只消除冗余、不依赖计时。
-            pe += ramp * _RG.ridge_core(_dy, d, P)
+            pe += (ramp * _ridge_str) * _RG.ridge_core(_dy, d, P)
         # 轮次 158: 两项都只随**月份**变(经度项是常量), 取自 _month_bands 的缓存。
         # 写成两次就地 `-=` 是为了与原式的运算顺序逐位一致。
         pe -= _B['mt'][0]
@@ -1761,6 +1779,20 @@ def _env_update_impl(sim) -> None:
     cos_lat = _CG['cos_lat']
     dx_m = _CG['dx_m']
     dy_m = C['ENVD'] * 110.57
+    # 500hPa 位势高度：副高（5880 gpm）判定用。来自真实 ERA5 `hgt500`（气候态或 1990-92）。
+    # 取不到就不建这个键 —— `draw_ridge` 会据此**不画**并标注原因，而不是硬编一个假阈值。
+    if DATA is not None and 'z500' in DATA:
+        env['z500'] = np.asarray(DATA['z500'], np.float32)
+        # ── S11：副高的**物理量** = **高度距平**（用户 2026-10-05 裁定"并存"）──────
+        # 物理用距平、显示画 5880。理由：5880 是**绝对阈值** —— 全球每升温 1°C，
+        # 500hPa 面抬升几十米 ⇒ 底场一抬高"副高"就自己膨胀（未来情景 `sim_typhoon/2100`
+        # 直接失真）；而"**比常年高 X 米**"与底场无关 ⇒ **可外推、强度可连续调**。
+        # 基准 = 真实 500hPa 气候态。⚠ `reallib/hgt500_clim.npz` 目前 **n_years=1**
+        #   ⇒ 它只是**一年的年循环**，不是 30 年气候态（见该文件 meta 的 warning）；
+        #   回填更多年份后本判据自然变准，代码不用改。
+        _zb = env.pop('z500Base', None)
+        if _zb is not None:
+            env['z500Anom'] = (env['z500'] - np.asarray(_zb, np.float32)).astype(np.float32)
     pe = env['pEnv']
     dpdx = np.empty_like(pe)
     dpdx[:, 1:-1] = (pe[:, 2:] - pe[:, :-2]) / (2.0 * dx_m[:, 1:-1])
@@ -2104,8 +2136,48 @@ def steering_weights(vmax: float, lat: float):
     既然纬度变式并不比常数好, 就取常数(平滑、无带边界跳变、少一个自由参数)。
     残余的向极亏损(-1.2 ~ -4.6 kt 随纬度增大)不是权重能补的, 那是**瞬变槽脊**
     的贡献 —— 月平均气候态本身产生不了转向所需的经向风。
+
+    **S14 / task-70（2026-10-05）：把"强度 ⇒ 权重"这一维也标了 —— 结论同样是"不改"。**
+    同一套 `tools/calib_steer.py`（`parse_track`/`rmse`/`grid`/`_ring_avg` 原样复用），
+    只把 rows 换成**同时带回 vmax** 的版本，按强度分箱（本次样本 **2524 步**；
+    ⚠ 与上面记的 1739 步**不同**，见下）。逐箱**箱内最优 vs 现行常数**：
+
+        | 强度档 kt | n    | 现行常数 RMSE | 箱内最优 RMSE | 箱内最优 eff(850/200) |
+        | 0-34      | 1016 | 12.569       | 12.524       | 0.70 / 0.30 |
+        | 34-50     |  731 | 13.553       | 13.539       | 0.62 / 0.38 |
+        | 50-65     |  308 | 14.910       | 14.901       | 0.63 / 0.37 |
+        | 65-85     |  211 | 13.434       | 13.392       | 0.59 / 0.41 |
+        | 85-105    |  136 | 12.367       | 12.054       | 0.49 / 0.51 |
+        | 105+      |  122 | 11.164       | 11.155       | 0.62 / 0.38 |
+
+    · **样本加权总 RMSE：常数 13.163 → 逐强度箱最优 13.121，改善 0.042（0.32%）**。
+      比**纬度维**那次（10.06 → 9.90，改善 1.6%）还小 ⇒ **不值得多一个自由度** ⇒ **取常数**。
+    · **没有单调趋势**：`eff850` = 0.70/0.62/0.63/0.59/**0.49**/0.62 —— 只有 85-105 那箱
+      偏低（也正是"变强⇒偏高层"该有的方向），但**非单调、且下一箱又回去了** ⇒
+      用户认可的"加强中的台风会转向"**在这批观测里没有得到支持**。
+    · ⚠ **本函数的三权重是"退化"的**：`mid = 0.6·sh + 0.4·dp` 是另两层的**固定线性组合**
+      ⇒ 真正起作用的只有 `eff850 = ws + 0.6·wm` 与 `eff200 = wd + 0.4·wm`
+      （全局最优 `(0.2,0.75,0.05)` 的 eff = **(0.65, 0.35)**，与现行常数的 eff 相同、
+      RMSE 同为 13.163）⇒ **"三层权重"实际只有 1 个自由度**。
+      今后要动就动 `eff`，别去动三者的拆分。
+    · ⚠ **绝对 RMSE 与上面记的 10.06 不可比**：本次收集到 **2524** 步而上面记 1739 步
+      （口径/数据版本不同，未查明）。但**上面所有比较都是同一样本内的相对比较**，不受影响。
+    · ⇒ **"强度 ⇒ 引导权重"这一维：有证据地不改**。`vmax`/`lat` 两个形参**保留但注明未使用**
+      （删掉会改掉 `steering_at()` 的调用签名与既有测试）。
     """
     # eff850 = ws + 0.6*wm = 0.50 + 0.15 = 0.65;  eff200 = wd + 0.4*wm = 0.25 + 0.10 = 0.35
+    #
+    # ⚠⚠ S12-① 结论（Lead 2026-10-05 要求写进注释，防止后人再踩）：
+    #   · **不要**照抄沙盒 `s9_sandbox_v2.md` 的 `shallow=(0.349,0.527,0.124)` /
+    #     `deep=(0.186,0.527,0.287)` 变权重 —— 它的等价物正是本函数 docstring 里
+    #     **已被 1739 个观测步标定推翻**的那版（旧"|lat|>26 ⇒ 深层=1.0"，那行
+    #     标定 RMSE 94.08 kt = 坏数据）。照抄 = 回退到坏标定。
+    #   · **形参 `vmax` / `lat` 目前未使用** —— 本函数是**常数**。这不代表"强度影响引导"
+    #     这个物理不存在，而是：**纬度变式已被证否，"强度变式"从未被标定**。
+    #   · 实测（135E/22N 真实三层风）：按沙盒式强度插值，20→90kt 航向会变 **−7.55°**
+    #     （20kt −65.50° → 90kt −73.05°）⇒ "加强中的台风会转向"**可观测但当前未接**。
+    #     若要做，**必须先用 `tools/calib_steer.py` 那套观测步重新标定**，不能凭沙盒常数硬接
+    #     （见 output/exploration/s12c_steer_ridge.md）。
     return 0.50, 0.25, 0.25
 
 
@@ -2313,8 +2385,55 @@ def steering_at(sim, lon: float, lat: float, vmax: float = 40.0):
     return su, sv
 
 
+#: S12-② β 漂移**纬度查表**（**照抄沙盒**）：(纬度, u, v)，单位 **m/s**。
+#: 出处 output/exploration/s9_sandbox_v2.md。u 西向为负、v 向极为正。
+#: 用户裁定："公式算的不如**每个纬度到底漂多少**准，纯查表、零成本。"
+_BETA_TABLE = [(8.0, -2.8, 2.3), (14.0, -2.8, 2.0), (20.0, -1.3, 1.7),
+               (26.0, -0.9, 2.3), (32.0, -0.75, 1.6)]
+#: 默认算法：'table'（沙盒查表，默认）| 'formula'（原公式版，保留对照）
+BETA_DRIFT_MODE = 'table'
+
+
+def _smoothstep(e0: float, e1: float, x: float) -> float:
+    t = clamp((x - e0) / (e1 - e0), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def beta_drift_table(lat: float):
+    """β漂移**查表版**(kt)：按 `_BETA_TABLE` 在纬度上线性插值，再乘沙盒的窗口
+    `smoothstep(2,7,|lat|) × (1 − smoothstep(42,65,|lat|))`
+    —— **赤道附近与高纬都逐渐减弱**（照抄沙盒）。半球镜像同公式版。
+
+    ⚠ 单位：表是 **m/s**，本函数返回 **kt**（与 `beta_drift_formula` 一致，
+    调用方 `core.py` 两处都按 kt 用）。转换用 `KT = 1.944`。
+    """
+    al = abs(lat)
+    w = _smoothstep(2.0, 7.0, al) * (1.0 - _smoothstep(42.0, 65.0, al))
+    if w <= 0.0:
+        return 0.0, 0.0
+    la = [p[0] for p in _BETA_TABLE]
+    u = float(np.interp(al, la, [p[1] for p in _BETA_TABLE]))
+    v = float(np.interp(al, la, [p[2] for p in _BETA_TABLE]))
+    hemi = 1.0 if lat >= 0 else -1.0
+    return u * KT * w, v * KT * w * hemi
+
+
 def beta_drift(lat: float):
-    """β漂移(kt): 向西 + 向极(两半球镜像), 高纬(>32 度)随大尺度气流增强而衰减。
+    """β漂移(kt) —— **分发**：默认走查表版(S12-②, 沙盒口径)，
+    `BETA_DRIFT_MODE='formula'` 时回原公式版（保留对照, 见 `beta_drift_formula`）。
+
+    ⚠⚠ 概念区分（Lead 2026-10-05 要求写进注释，防止后人踩）：
+    本函数是**物理漂移**；**不要**把"24°C 以下不支持生成"这类**生成支持度**
+    塞进来 —— 那是**另一个概念**（`SEA_POTENTIAL` 那种归一化乘子），
+    要加就加在**生成阈值/支持度**上，别改物理量。同理**不要**去改 `mpi()`。
+    """
+    if str(BETA_DRIFT_MODE) == 'formula':
+        return beta_drift_formula(lat)
+    return beta_drift_table(lat)
+
+
+def beta_drift_formula(lat: float):
+    """β漂移(kt) **原公式版（保留对照）**: 向西 + 向极(两半球镜像), 高纬(>32 度)随大尺度气流增强而衰减。
 
     南半球必须镜像: 直接用 sin(lat) 会得到负值再被 clamp 抬到下限, 既丢符号
     又把 |β| 压小 —— 域覆盖 -60~60 度, 南半球台风会朝赤道漂。
@@ -2332,6 +2451,18 @@ def beta_drift(lat: float):
     # 3.6, 但东太只需要 6°(168h), 结果东太台风多走 7 个纬度冲进墨西哥内陆,
     # 登陆率 80% vs 观测 13%。两个盆地需求相反, 一个全局常数无法同时满足;
     # 取 2.9 折中, 并接受西太纬跨略欠。
+    #
+    # ⚠⚠ S12-② 查因（Lead 2026-10-05 要求写进注释）：**本函数与查表版的纬度趋势是"反的"**。
+    #   · 解析形式：`f = clamp(sin|lat|/sin15°, 0.25, 1.4)`，`u = −3.6·f·decay`、`v = +2.9·f·decay·hemi`
+    #     ⇒ **纬度依赖就是 `sin φ`（= 科氏参数 f），在 0.25/1.4 处截断**（≥26° 饱和）；
+    #   · 实测剖面：8° −1.936、14° −3.365、20° −4.757、26/32/40° −5.040 kt ⇒ **随纬度增强**；
+    #   · 查表版：8° −5.443、14° −5.443、20° −2.527、26° −1.750、32° −1.458 kt ⇒ **随纬度减弱**；
+    #   · **理论**：β = df/dy = 2Ωcosφ/a ⇒ **赤道最大、向极减小**（cos8°=0.9903 vs cos32°=0.8480，
+    #     低纬 β 高 17%）⇒ **查表版与理论同向 ✓，本公式版与理论反向 ✗**。
+    #   ⚠ **但这不是"除法/索引写反"的编码 bug** —— 代码算的就是它写的（一次 sin/sin，无反向运算）；
+    #     它实质是上面 **T3 标定**产出的**经验漂移曲线**（按"观测纬跨 9.6°/6°"反推幅度），
+    #     **不是 β 的解析式** ⇒ **差因是"定义不同"，不是实现错**（同 S12 的 ③-B）。
+    #     **默认已改查表版（`BETA_DRIFT_MODE='table'`）；本函数留作对照，未重标定前不要改回默认。**
     return -3.6 * f * decay, 2.9 * f * decay * hemi
 
 
@@ -2832,6 +2963,23 @@ def intensity_step(sim, tc, dt: float) -> None:
     # 轮次 159: `_ds` = 地形对数衰减的放大因子, **必须先在这里无条件初始化** ——
     # 下面减弱支的封顶项也要用它, 而那个分支不一定经过 `env['land'] > 0.02`。
     _ds = 1.0
+    # ── S12-④：**登陆后宽限期 / 渐变**（沙盒 `LAND_GRACE_HOURS=12` + `LAND_FADE_HOURS=24` 的结构）──
+    # 我们原来的陆地衰减**只看 `env['land']` 与地形**，**没有"登陆多久"这一维** ⇒
+    # 一沾地就开始掉强度（沙盒有 12 h 宽限、再用 24 h 渐入满衰减）。
+    # ⚠ **默认 `landGraceH = 0.0` ⇒ `_lf_ramp = 1.0` ⇒ 与本改动前【逐位相同】**。
+    #   理由：本文件 `0.012` 那个系数是拿观测"登陆后 24h 中位 −15 kt（n=378, 2013-2024）"
+    #   **反推整条系数**的（见下方注释）。若直接给它加宽限期而**不重标定**，
+    #   等于把标定口径改掉 —— 那正是 ① 里"照抄沙盒 = 回退到坏标定"的同一类错误。
+    #   ⇒ 这里只**提供旋钮**（与 `terrainDecayK`/`terrainDecayMax` 同一模式），
+    #     要用必须先用同一批观测（n=378）重标 `0.012` / `0.002` 两个系数。
+    #   旋钮：`landGraceH`（小时，默认 0=关）、`landFadeH`（渐入时长，默认 24）。
+    _lf_ramp = 1.0
+    _tp_lf = sim.get('params') or {}
+    _grace = float(_tp_lf.get('landGraceH', 0.0))
+    if _grace > 0.0 and tc.get('landfall') is not None:
+        _hrs = max(0.0, float(sim['t']) - float(tc['landfall'].get('t', sim['t'])))
+        _fade = max(1e-6, float(_tp_lf.get('landFadeH', 24.0)))
+        _lf_ramp = max(0.0, min(1.0, (_hrs - _grace) / _fade))
     if env['land'] > 0.02:
         # 轮次 159: **山脉高度加快登陆衰减**。
         # ⚠⚠ 这里一度是**裸倍率** `* _ds`(`decay_scale` 最高 8.49x), 被地形复核判定
@@ -2856,9 +3004,9 @@ def intensity_step(sim, tc, dt: float) -> None:
             _k = float(_tp.get('terrainDecayK', 0.25))
             _cap = float(_tp.get('terrainDecayMax', 2.0))
             _ds = min(max(1.0, _cap), 1.0 + _k * max(0.0, _raw - 1.0))
-        dV -= tc['vmax'] * min(1.0, env['land']) * 0.012 * _ds
+        dV -= tc['vmax'] * min(1.0, env['land']) * 0.012 * _ds * _lf_ramp
     if env['land'] > 0.3:
-        dV -= tc['vmax'] * 0.002
+        dV -= tc['vmax'] * 0.002 * _lf_ramp
     if env['sst'] < 26.5:
         # I3 标定(观测 1980-2024, 24h Δvmax 分箱): SST 25.5-26.5 时观测只掉
         # -0.8 kt/24h。原系数 0.04 在 sst=26、vmax=50 时给 -24 kt/24h —— **强 30 倍**。
@@ -3024,6 +3172,35 @@ def intensity_step(sim, tc, dt: float) -> None:
     _heat = clamp((tc['vmax'] / max(1.0, vpi)) * (22.0 / max(8.0, tc['rmw'])), 0.0, 2.0)
     tc['core_org'] = clamp(_org + (0.045 * _heat - 0.030 * A - 0.020 * max(0.0, _sh - 25.0) / 20.0)
                            * dt, 0.05, 1.0)
+    # ── U-S12-5：**陆地组织度衰减**（与风速**分开**）—— 沙盒"结构先垮、风速后掉" ──────
+    # 缺口（实测）：上面的 `core_org` 演化只由 集中加热 / 雨带 A / 风切 驱动，
+    #   **`env['land']` 完全不出现** —— 登陆后组织度只通过 `vpi(陆地抑制)` 间接、缓慢地降，
+    #   没有"撞山/上岸后结构先散"的独立通道。沙盒有 `LAND_ORGANIZATION=0.5` /
+    #   `MOUNTAIN_ORGANIZATION=0.5` 两条**直接**衰减。
+    # ⚠⚠ **默认 `landOrgDecay = 0.0` ⇒ 整段不执行 ⇒ 与本改动前【逐位相同】**。
+    #   理由与 ④ 的 `landGraceH` 完全相同：本文件的强度项系数（`0.012`/`0.002`）是
+    #   **反推自"登陆后 24h 中位 −15 kt（n=378）"** 的；单独加一条组织度汇会**改变
+    #   那条反推的前提**（组织度→`_heat`→vmax 是耦合的）⇒ **启用前必须重标**
+    #   （记 U-S12-6：至少 `0.012`/`0.002`/`0.045`/`0.030` 四个系数要一起重看）。
+    #   本旋钮的含义：**组织度在陆地每小时直接衰减多少（1/h）**。
+    #   ⚠⚠ **速率【不能】照抄沙盒的 `LAND_ORGANIZATION=0.5`** —— 实测（248 个真实登陆个例，
+    #   见 output/exploration/s15_org_decay.md）：取 `landOrgDecay=0.5` 时
+    #   **组织度半衰 = 0.91 h**，而同条件**风速半衰 = 303.6 h** ⇒ 组织度快 **约 330 倍**
+    #   —— 那不是"结构先垮、风速后掉"，是"结构瞬间归零"。⇒ 沙盒那个 0.5 的**语义未取到**
+    #   （不可能是 per-hour 线性减量；更像倍率/目标值），**不要拿它当速率**。
+    #   本旋钮速率**必须标定**（见 U-S12-6），**当前没有可用默认值**。
+    #   山地放大：`terrainOn` 时用与强度衰减同一个 `terrain.decay_scale(elev_max)`（有界 2x）。
+    _tp_org = sim.get('params') or {}
+    _org_land = float(_tp_org.get('landOrgDecay', 0.0))
+    if _org_land > 0.0 and float(env['land']) > 0.02:
+        _org_mul = min(1.0, float(env['land']))
+        if _tp_org.get('terrainOn') and _TG.available():
+            try:
+                _org_mul *= min(2.0, float(_TG.decay_scale(
+                    float(_TG.elev_at(tc['lon'], tc['lat'], use_max=True)))))
+            except Exception:
+                pass
+        tc['core_org'] = clamp(tc['core_org'] - _org_land * _org_mul * dt, 0.05, 1.0)
     _org = tc['core_org']
 
     # ── EMBC(嵌匿中心)──

@@ -17,6 +17,12 @@ class TySimKeyboardMixin:
     """Mixin: 键盘快捷键、模式切换、数据重载、截图。"""
 
     def reload_typhoons(self):
+        # 中#6: 重载前先收掉拖拽。否则 `drag_typhoon` 仍指向**即将被替换**的旧
+        # 对象: 重载后继续 MOUSEMOTION 会改旧对象的 pts, 松手时
+        # `save_typhoon_to_file(旧对象)` 按旧 filepath 落盘, 直接覆盖刚重载的数据。
+        self._cancel_drag()
+        self._drag_needs_save = False
+
         saved_mlo, saved_Mlo = self.mlo, self.Mlo
         saved_mla, saved_Mla = self.mla, self.Mla
 
@@ -95,6 +101,31 @@ class TySimKeyboardMixin:
 
         self.mlo, self.Mlo = saved_mlo, saved_Mlo
         self.mla, self.Mla = saved_mla, saved_Mla
+
+        # 中#5: 镜头跟踪相关的**强引用**也必须一起清(与 `delete_typhoon`
+        # `utils_mixin._tracking_seen.discard` / `_tracked_ty=None` 同款)。
+        # 不清的后果: ① 旧 Typhoon 对象被集合/字段钉住, 台风列表重建后不 GC;
+        # ② 下一轮收尾 `_track_finale_span(list(self._tracking_seen))` 会把
+        #    **已被替换掉的旧对象**的报点算进总览 bbox(区域离谱/路径变小白点);
+        # ③ 正在跑的收尾相位持有旧对象, 重载后继续对旧点推镜/高亮。
+        seen = getattr(self, '_tracking_seen', None)
+        if seen is not None:
+            seen.clear()
+        self._tracked_ty = None
+        self.tracking_typhoon = None
+        self._track_finale_tys = []
+        self._track_finale_md = None
+        self._track_hl_tys = []
+        self._track_hl_ty = None
+        self._track_hl_from = 0
+        self._track_fade_from = 0
+        self._track_phase = 'idle'
+        self._track_phase_t0 = 0
+        self._track_anim = None
+        self._track_anim_dur = 0
+        self._track_tgt_prev = None
+        self._track_glide = False
+        self._track_scale_changed = False
 
     def _apply_history(self, action: str) -> None:
         if not self.edit_typhoon:
@@ -733,6 +764,23 @@ class TySimKeyboardMixin:
 
     def _btn_settings(self) -> bool:
         self.dialog_mgr.sd.activate()
+        return True
+
+    def _btn_modules(self):
+        """功能栏「模块」（用户 2026-10-14）：打开模块总表。"""
+        dlg = getattr(self.dialog_mgr, 'modules', None)
+        if dlg is None:
+            return
+        dlg.refresh()
+        dlg.activate()
+
+    def _btn_offscreen(self) -> bool:
+        """域外风暴小窗的选择对话框（用户 2026-10-12 需求 1.5）。"""
+        dlg = getattr(self.dialog_mgr, 'offscreen', None)
+        if dlg is None:
+            return False
+        dlg.refresh()
+        dlg.activate()
         return True
 
     def _btn_time_jump(self) -> bool:

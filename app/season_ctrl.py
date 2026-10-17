@@ -121,7 +121,7 @@ class SeasonController:
         self.yf = False
         wrapped = False
 
-        while True:
+        for _guard in range(9):   # 硬保险(2026-10-13): 单帧最多 9 次跨年/回卷迭代 —— 回卷落点若与回卷点相等, 旧的 `while True` 会永不退出(南半球单年 + 末报早于 7/1 实测可复现); for 耗尽即退出, 等于 guard>8 break
             year_seconds = (366 if self._is_leap_year(self.sy) else 365) * 86400
             if (self.cfg.hemisphere == HEMISPHERE_SOUTH and self.sy >= self.edy):
                 # 南半球最后季节结束点 = 数据最后报点后 1 小时(不早于 7/1):
@@ -129,7 +129,7 @@ class SeasonController:
                 # 兜底按当年 7/1 动态计算(闰年 182 天/非闰年 181 天,防单年死循环)
                 w = getattr(self, '_sh_wrap_second', None)
                 if w is None:
-                    w = (datetime(self.sy, 7, 1)
+                    w = 3600.0 + (datetime(self.sy, 7, 1)
                          - datetime(self.sy, 1, 1)).total_seconds()
                 year_seconds = min(year_seconds, w)
             if self.ste >= year_seconds:
@@ -149,17 +149,20 @@ class SeasonController:
                         # 首年 1-6 月已有报点:从最早报点前 1 小时起播,
                         # 与 reset_to_first_year 完全一致(M4),否则回卷后
                         # 首年 1-6 月(上一 ACE 年)数据被永久跳过(R3)。
-                        self.ste = max(0.0, first - 3600.0)
+                        self.ste = max(0.0, min(first - 3600.0,
+                                                year_seconds - 1.0))
                     elif self.sty == self.edy:
-                        # 单年数据:精确落到当年 7/1(与 reset_to_first_year 及
-                        # 多年 else 分支一致)。回卷点 _sh_wrap_second 必不小于
-                        # 当年 7/1+1h(末报在 7-12 月),故 ste=base < 回卷点,
-                        # 不会恒真死循环;且避免 base-3600 落地后首帧 ACE 年
-                        # 瞬时误标为上一 ACE 年、与 reset 起播点错位(R4)。
-                        self.ste = base
+                        # 单年数据:落到当年 7/1,且**严格小于**本次回卷点
+                        # (min(base, year_seconds-1))。旧注释假设"末报在 7-12 月
+                        # ⇒ 回卷点必不小于 7/1+1h",该假设不成立时(末报早于 7/1
+                        # ⇒ w=july_sec,或 _sh_wrap_second 未设走 132 行兜底)
+                        # ste=base 与回卷点**相等** ⇒ while True 恒真死循环
+                        # (2026-10-13 实测复现: sy 在 sty/edy 间往返 1000+ 次)。
+                        # 落地后仍避免 base-3600 那种"首帧 ACE 年误标上一 ACE 年"。
+                        self.ste = max(0.0, min(base, year_seconds - 1.0))
                     else:
                         # 多年数据:精确落到当年 7/1,与 reset_to_first_year 一致
-                        self.ste = base
+                        self.ste = max(0.0, min(base, year_seconds - 1.0))
                 else:
                     self.ste -= year_seconds
                 if wrapped:
@@ -189,14 +192,7 @@ class SeasonController:
                 # (南半球非回卷:ste 现已落到次年 1/1 附近,ACE 年尚未变,
                 # 由下方 "July-1 翻转" 在真实跨入 7/1 时再重置,避免本帧重复重置。)
                 if self.sy == self.sty:
-                    if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
-                        pb = self._dialog_mgr.sim.playback_ctrl
-                        pb.landfall_records.clear()
-                        try:
-                            pb._lf_last.clear()
-                            pb._was_fin.clear()
-                        except Exception:
-                            pass
+                    self._clear_landfall_state()
                     for ty in self.repo.tys:
                         ty.rst()
                         ty.ss = False
@@ -291,6 +287,36 @@ class SeasonController:
             sim._last_month_key = None
             sim._last_month_ste = None
 
+    def _clear_landfall_state(self) -> None:
+        """清空播放控制器的登陆派生状态(回卷 / 时间跳转 / 重置三处共用)。
+
+        ⚠⚠ 2026-10-13(审查): 原来三处各写一段, 且**只清**
+        `landfall_records` / `_lf_last` / `_was_fin` ——
+        而 `PlaybackController._check_landfall()` 自己持有的边沿状态
+        `_lf_prev_land` **全仓没有任何清理点** ⇒ 时间回拨后它仍记着"未来那次
+        在陆上", 重播同一段陆上路径时 `is_land and not prev_land` 恒假 ⇒
+        登陆记录 / 特效 / 音效在回拨后**不再出现**。
+        现在统一走 `PlaybackController.clear_landfall_state()`, 新旧接口都能用,
+        下一个新增状态也不会再漏清。
+        """
+        sim = getattr(getattr(self, '_dialog_mgr', None), 'sim', None)
+        pb = getattr(sim, 'playback_ctrl', None)
+        if pb is None:
+            return
+        fn = getattr(pb, 'clear_landfall_state', None)
+        if callable(fn):
+            fn()
+            return
+        try:            # 轻量桩 / 旧接口兜底(sim_mode_mixin 的 FakeSim 之类)
+            pb.landfall_records.clear()
+            pb._lf_last.clear()
+            pb._was_fin.clear()
+            prev_land = getattr(pb, '_lf_prev_land', None)
+            if prev_land is not None:
+                prev_land.clear()
+        except Exception:
+            pass
+
     def jump_to(self, dt: datetime) -> None:
         """统一时间跳转：设置时间 + 重置全部台风 + 计算ACE + 同步 TySim。"""
         self.calc_years()   # 切模式/跳转路径不调 reset: 确保回卷点数据就绪(R2-2/T3-1)
@@ -304,16 +330,10 @@ class SeasonController:
         self.invalidate_pending()
         self.yf = False
         self._reset_sim_month_tracker()
-        # 跳转回拨后清空登陆记录/去重位置/完成提示,避免同一段路径被重复统计、
-        # 或重新播完该台风时被 _was_fin=True 抑制 ACE 结束提示(R4)
-        if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
-            pb = self._dialog_mgr.sim.playback_ctrl
-            pb.landfall_records.clear()
-            try:
-                pb._lf_last.clear()
-                pb._was_fin.clear()
-            except Exception:
-                pass
+        # 跳转回拨后清空登陆记录/去重位置/完成提示/登陆边沿,避免同一段路径被重复统计、
+        # 或重新播完该台风时被 _was_fin=True 抑制 ACE 结束提示(R4)、
+        # 或被 _lf_prev_land 抑制"再次上陆"的边沿(2026-10-13)
+        self._clear_landfall_state()
         for ty in self.repo.tys:
             ty.rst()
             if not ty.pts:
@@ -372,15 +392,8 @@ class SeasonController:
         self.invalidate_pending()
         self.yf = False
         self._reset_sim_month_tracker()
-        # 年循环：清空 finish note 记录让台风重新触发
-        if self._dialog_mgr and hasattr(self._dialog_mgr.sim, 'playback_ctrl'):
-            pb = self._dialog_mgr.sim.playback_ctrl
-            pb._was_fin.clear()
-            pb.landfall_records.clear()
-            try:
-                pb._lf_last.clear()
-            except Exception:
-                pass
+        # 年循环：清空 finish note / 登陆记录 / 登陆边沿, 让台风与踏上陆都能重新触发
+        self._clear_landfall_state()
         for ty in self.repo.tys:
             ty.rst()
             ty.ss = False

@@ -74,6 +74,11 @@ class Renderer:
         self._draw_scene(surface, hidden)
         # hidden 时 draw_control_panel 内部只画面板底色(与地图区分)
         sim.draw_control_panel(surface)
+        # 需求 3.6：脚本时间轴**故意压住**右 1/4 功能栏 ⇒ 必须画在功能栏之后。
+        # （面板本体在场景图层里，会正常被功能栏挡住；只有这条时间轴要"盖上去"。）
+        _sp = getattr(sim, 'script_panel', None)
+        if _sp is not None and not hidden:
+            _sp.draw_overlay(surface)
         if not hidden:
             sim.dialog_mgr.draw(surface)
 
@@ -272,19 +277,27 @@ class Renderer:
             surface.blit(ts, (12, 12))
 
         def _typhoon_info(surface) -> None:
+            # ⚠ 2026-10-12 用户: "打开设置/台风列表/脚本界面都会导致背景的台风图标消失,
+            #   当路径等东西还在。台风图标不要消失"。
+            #   根因: 这里原来把 `not dialog_open` 当成**整条共享路径**的开关, 而
+            #   `draw_typhoon_info()` 同时画【图标】【名字】【信息框】⇒ 图标被顺带跳过;
+            #   路径是上面 `typhoons` 层画的, 所以路径还在 ⇒ 现象正好是"只剩路径"。
+            #   修法: 对话框打开时**只免掉信息框**(它会与对话框抢地方),
+            #   图标与名字照画 ⇒ 现在传 `with_box=not dialog_open`。
             dialog_open = sim.dialog_mgr.any_active()
+            with_box = not dialog_open
             if md == sim.MODE_NORMAL:
                 ty = sim.current_typhoon()
-                if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
-                    sim.draw_typhoon_info(surface, ty)
+                if ty and getattr(ty.v, 'icon_alpha', 255) > 0:
+                    sim.draw_typhoon_info(surface, ty, with_box=with_box)
             elif md == sim.MODE_SEASON:
                 for ty in sim.tys:
-                    if ty.act and ty.ss and not ty.sf and not dialog_open:
-                        sim.draw_typhoon_info(surface, ty)
+                    if ty.act and ty.ss and not ty.sf:
+                        sim.draw_typhoon_info(surface, ty, with_box=with_box)
             elif md == sim.MODE_EDIT:
                 ty = sim.edit_typhoon
-                if ty and not dialog_open and getattr(ty.v, 'icon_alpha', 255) > 0:
-                    sim.draw_typhoon_info(surface, ty)
+                if ty and getattr(ty.v, 'icon_alpha', 255) > 0:
+                    sim.draw_typhoon_info(surface, ty, with_box=with_box)
 
         def _effects(surface) -> None:
             ct = pygame.time.get_ticks()
@@ -329,7 +342,27 @@ class Renderer:
                       and getattr(sim, 'show_info_box_season', True)),
              lambda s: sim.draw_season_info_boxes(s)),
             ('typhoon_info', lambda: not is_sim and not hidden, _typhoon_info),
+            ('offscreen_boxes',
+             # 用户 2026-10-12 需求 1：屏幕边缘的"域外风暴"小窗。
+             # 排在 typhoon_info **之后** ⇒ 优先级低（它自己再按被覆盖情况降到 20%）。
+             lambda: (not is_sim and not hidden
+                      and getattr(sim.cfg, 'show_offscreen_boxes', True)
+                      and getattr(sim, 'offscreen', None) is not None),
+             lambda s: sim.offscreen.draw(s)),
             ('effects', lambda: not is_sim and not hidden, _effects),
+            # 需求 3.1（用户 2026-10-13）：右侧脚本可视化编辑面板。
+            # 排在**最后** ⇒ 盖住地图/图标/域外小窗；但它自己只画到
+            # （功能栏上方），时间轴那条贴在窗口底、
+            # **故意压住**右 1/4 功能栏（用户 3.6 原话"覆盖功能栏"）。
+            # 需求 3.5：target 黄框 + 框外黑遮罩（在面板之下、台风图标之上）
+            ('script_target_box',
+             lambda: (not hidden and getattr(sim, 'script_target_box', None) is not None
+                      and sim.script_target_box.active),
+             lambda s: sim.script_target_box.draw(s)),
+            ('script_panel',
+             lambda: (not hidden and getattr(sim, 'script_panel', None) is not None
+                      and sim.script_panel.active),
+             lambda s: sim.script_panel.draw(s)),
         )
 
     def _layer_drawn(self, name: str, elapsed_ms: float = 0.0) -> None:

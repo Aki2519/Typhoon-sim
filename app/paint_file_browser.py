@@ -298,7 +298,15 @@ class FileBrowserDialog(DraggableDialog):
         if tr.collidepoint(pos):
             self._tree_scroll = max(0, self._tree_scroll + d)
         elif fr.collidepoint(pos):
+            # ⚠ 审查 R7(2026-10-15): 原实现只有下界 ，滚轮可以一直加大
+            #   ⇒ 绘制  为空 ⇒ 列表整块空白、
+            #   点击无反应，滚动条比例也 >1 画出界。这里按"可见行数"补上界。
             self._file_scroll = max(0, self._file_scroll + d)
+            try:
+                vis = max(1, len(self.files) - self._file_scroll)
+                self._file_scroll = min(self._file_scroll, max(0, len(self.files) - 1))
+            except Exception:
+                pass
 
     def _click(self, pos):
         x, y = pos

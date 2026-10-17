@@ -29,6 +29,20 @@ _font_ace_title = SmartFont(_load_font(FONT_FILE, 18, 18), _load_font(FONT_FILE,
 _font_ace = SmartFont(_load_font(FONT_FILE, 34, 34), _load_font(FONT_FILE, 34, 34))
 _font_ace_note = SmartFont(_load_font(FONT_FILE, 25, 25), _load_font(FONT_FILE, 25, 25))
 
+
+def format_peak_text(max_wind, peak_t: str, is_season: bool) -> str:
+    """信息框"巅峰"行的文本。
+
+    2026-10-12 用户: "风季模式左侧信息框中, 巅峰强度与后面的时间之间有一个莫名其妙的
+    '@' … 应该有个括号括起来巅峰时间, 去掉这个 @"
+    ⇒ 旧格式 `巅峰:148kt@09-20`（`@` 是旧实现的分隔符），新格式 `巅峰:148kt(09-20)`。
+    时间只在**风季模式**显示（用户 2026-09-19: "另外两个模式的状态栏巅峰后面的时间都去掉"）。
+    """
+    out = f"巅峰:{max_wind}kt"
+    if is_season and peak_t and len(peak_t) >= 8:
+        out += f"({peak_t[4:6]}-{peak_t[6:8]})"
+    return out
+
 # 法30: 季节时钟 trig LUT(4096 级,亚像素一致)
 _TRIG_N = 4096
 _COS_LUT = [math.cos(2 * math.pi * i / _TRIG_N) for i in range(_TRIG_N)]
@@ -269,11 +283,9 @@ class TySimDrawInfoBoxesMixin:
         current_wind = cp['w'] if cp else "?"
         cur_st = (cp['st'].upper() if cp and cp['st'] else '-') if cp else '-'
         cur_pres = cp['p'] if cp else 0
-        peak_txt = f"巅峰:{max_wind}kt"
-        # 巅峰后面的时间只在风季模式显示(用户: "另外两个模式的状态栏巅峰后面的时间都去掉")
-        if peak and getattr(self, 'md', None) == getattr(self, 'MODE_SEASON', 'season'):
-            pt = peak['t']
-            peak_txt += f"@{pt[4:6]}-{pt[6:8]}" if len(pt) >= 8 else ""
+        peak_txt = format_peak_text(
+            max_wind, peak['t'] if peak else '',
+            getattr(self, 'md', None) == getattr(self, 'MODE_SEASON', 'season'))
         mv_txt = f" 移速:{mv:.0f}kt" if mv else ""
         if cp:
             la, lo = cp['la'], cp['lo']

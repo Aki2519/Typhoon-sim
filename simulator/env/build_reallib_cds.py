@@ -252,7 +252,11 @@ def _existing_is_valid(path):
                 return False, 'keys=%s' % list(z.keys())
             m = np.asarray(z['months'])
             meta = z['meta'].item()
-        if tuple(m.shape) != (12, TGT_LATS.size, TGT_LONS.size):
+        # extended (task G): uv_steer is dual-component 4D (12,2,121,360);
+        # the original 3D-only check would judge it invalid.
+        _ok_shape = (tuple(m.shape) == (12, TGT_LATS.size, TGT_LONS.size)
+                     or tuple(m.shape) == (12, 2, TGT_LATS.size, TGT_LONS.size))
+        if not _ok_shape:
             return False, 'shape=%s (期望 %s)' % (m.shape, (12, TGT_LATS.size, TGT_LONS.size))
         fin = np.isfinite(m)
         if fin.mean() < 0.99:

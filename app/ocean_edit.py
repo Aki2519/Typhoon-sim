@@ -199,12 +199,19 @@ class OceanEditMode:
         except Exception:
             return 0, 0
 
-    def _screen_to_geo(self, x: int, y: int) -> Tuple[float, float]:
+    def _screen_to_geo(self, x: int, y: int) -> Optional[Tuple[float, float]]:
+        """屏幕 → (lat, lon)。**失败返回 None**, 不许用 (0.0, 0.0) 兜底。
+
+        (0.0, 0.0) 是个"看起来合法"的坐标: 调用方会把它当成用户真的点到了
+        赤道/本初子午线 —— 拖动时顶点被挪到那里并置 dirty, 退出时**落盘**。
+        转换失败(地图视图缺失/内部异常)必须显式拒绝, 由调用方提示后不动顶点。
+        """
         try:
             la, lo = self.sim.screen_to_latlon(x, y)
             return float(la), float(lo)
-        except Exception:
-            return 0.0, 0.0
+        except Exception as ex:
+            logger.warning(f"洋区编辑: 屏幕坐标转换失败 ({x},{y}): {ex}")
+            return None
 
     def _clamp_lon(self, lon: float) -> float:
         """经度归一到 [0, 360)。"""
@@ -317,7 +324,13 @@ class OceanEditMode:
             return False
         if e.type == pygame.MOUSEMOTION and self.drag_idx >= 0:
             if self.selected_area is not None:
-                la, lo = self._screen_to_geo(*e.pos)
+                _geo = self._screen_to_geo(*e.pos)
+                if _geo is None:
+                    # 转换失败: 提示但**不动顶点**(旧实现会用 (0,0) 把顶点拖到赤道
+                    # 并置 dirty, 退出时落盘)。消费事件, 避免后续逻辑再算一遍。
+                    self._set_status("坐标转换失败, 顶点未改动")
+                    return True
+                la, lo = _geo
                 la = max(-90.0, min(90.0, la))
                 lo = self._clamp_lon(lo)
                 # 与台风报点一致: 按 edit_snap_step(默认0.1°)吸附网格, Shift 临时取消
@@ -377,7 +390,12 @@ class OceanEditMode:
         if len(area.vertices) >= self.MAX_VERTICES:
             self._set_status("顶点数已达上限")
             return True
-        la, lo = self._screen_to_geo(mx, my)
+        _geo = self._screen_to_geo(mx, my)
+        if _geo is None:
+            # 转换失败: 拒绝插入(旧实现会把 (0,0) 当成合法点插进多边形)
+            self._set_status("坐标转换失败, 未插入顶点")
+            return True
+        la, lo = _geo
         # 与台风报点一致: 按 edit_snap_step(默认0.1°)吸附网格
         try:
             _raw = getattr(self.sim.cfg, 'edit_snap_step', 0.1)

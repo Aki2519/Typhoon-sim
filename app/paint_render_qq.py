@@ -364,22 +364,38 @@ QQ_FIXED: Tuple[str, ...] = ("TD", "SD", "DB", "MD", "INV", "INVEST")
 #: `SS` 特例：变色，但**下限夹到第 2 档**（不含最弱那档的蓝）
 QQ_SS_MIN_IDX = 1
 
+#: ── 用户 2026-10-14 直接裁定（与 Ty4 侧 `paint_render._point_style` **同源，必须一致**）──
+#: 原话："35kt 以上的 LO/DB 应该画成对应风速的颜色的三角形；SS 同理。"
+#: ⇒ 这三个码在 **≥35kt** 时：形状 → **三角**、颜色 → **跟随风速**
+#:   （不再走 `QQ_FIXED` 的最弱档，也不再走 `SS` 的第 2 档下限）。
+#: **35kt 以下完全保持原规则**（SS 仍是方块 + 下限夹 TS 档）。
+QQ_STRONG_NONTROPICAL: Tuple[str, ...] = ("LO", "DB", "SS")
+QQ_STRONG_MIN_KT = 35.0
+
+
+def _ramp_index(w_kt: float) -> int:
+    """风速(kt) → `QQ_RAMP` 档位下标（超过最后一档上界则落最后一档）。"""
+    for i, hi in enumerate(QQ_BINS):
+        if float(w_kt) <= hi:
+            return i
+    return len(QQ_RAMP) - 1
+
 
 def color_for_code(w_kt: float, code: str = "") -> Tuple[int, int, int]:
     """风速(kt) + 类型码 → 颜色（**用户裁定的规则**）。
 
+    · `QQ_STRONG_NONTROPICAL`(LO/DB/SS) 且 **≥35kt** ⇒ **随风速取档**（2026-10-14 裁定，
+      与 Ty4 侧同源；**这条必须排在 `QQ_FIXED` 之前**，否则 DB 会先被固定档截走）；
     · `QQ_FIXED` 里的码 ⇒ 恒定 `QQ_RAMP[0]`，**不随风速变**；
     · `SS` ⇒ 按风速取档，但**下限夹到 `QQ_RAMP[1]`**（不含最弱的蓝）；
     · `QQ_VARIES` 及其它未列出的码 ⇒ 按风速取档（不因出现新码而退化）。
     """
     c = (code or "").strip().upper()
+    if c in QQ_STRONG_NONTROPICAL and float(w_kt or 0) >= QQ_STRONG_MIN_KT:
+        return QQ_RAMP[_ramp_index(w_kt)]
     if c in QQ_FIXED:
         return QQ_RAMP[0]
-    idx = len(QQ_RAMP) - 1
-    for i, hi in enumerate(QQ_BINS):
-        if float(w_kt) <= hi:
-            idx = i
-            break
+    idx = _ramp_index(w_kt)
     if c == "SS":
         idx = max(idx, QQ_SS_MIN_IDX)
     return QQ_RAMP[idx]
@@ -400,12 +416,16 @@ def _is_official_point(p) -> bool:
     return hh in ("00", "06", "12", "18")
 
 
-def shape_for_code(code: str) -> str:
+def shape_for_code(code: str, w_kt: float = None) -> str:
     """报点类型码 → 标记形状。**用户 2026-10-04 裁定**（与 Ty4 侧同一套规则）：
 
         三角 : DB, EX, WV, LO, MD, INV, INVEST
         方块 : SD, SS
         圆   : 其余全部（TD, TS, TY, ST, HU, …）
+
+    `w_kt`（可选）用于 2026-10-14 的裁定：**≥35kt 的 LO/DB/SS 一律三角**
+    （与 Ty4 侧 `_point_style` 同源）；`SS` 因此只在 **<35kt** 时是方块。
+    不传 `w_kt`（老调用方）⇒ 逐位保持原行为。
 
     ⚠ 与基准图的关系：26 Dolphin 的 99 个报点实测 **SD→方块 4/4、EX→三角 4/4**
     （4x 放大图 `ref_EXSD.png` 可直接看到），与上表**一致**；`INV/INVEST/WV/LO/MD/SS`
@@ -414,6 +434,8 @@ def shape_for_code(code: str) -> str:
     与 Ty4 侧 `{DB,EX,WV,LO,MD,INV,INVEST}` 全三角**不一致** ⇒ 违反用户第 1 条。
     """
     c = (code or "").strip().upper()
+    if c in QQ_STRONG_NONTROPICAL and float(w_kt or 0) >= QQ_STRONG_MIN_KT:
+        return "triangle"
     if c in QQ_TRIANGLE:
         return "triangle"
     if c in QQ_SQUARE:
@@ -876,15 +898,17 @@ class QQTrackRenderer:
         except Exception:
             return color_for_wind(w)
 
-    def _shape_for(self, code: str) -> str:
-        """状态码 → 形状。按 `marker` 维度分派。
+    def _shape_for(self, code: str, w_kt: float = None) -> str:
+        """状态码(+风速) → 形状。按 `marker` 维度分派。
 
-        · `by_status` —— `shape_for_code` 的实测规则（DB/EX→三角, SD/SS→方块, 其余→圆）；
+        · `by_status` —— `shape_for_code` 的规则（DB/EX/WV/LO/MD/INV/INVEST→三角,
+          SD/SS→方块, 其余→圆；**≥35kt 的 LO/DB/SS 一律三角**，2026-10-14 裁定，
+          与 Ty4 侧 `_point_style` 同源）；
         · `uniform`   —— 全部画圆（基准图之外的一种"极简"选项）。
         """
         if self.marker == "uniform":
             return "circle"
-        return shape_for_code(code)
+        return shape_for_code(code, w_kt)
 
     # ── 工具: 统一取点, 兼容 Ty 对象与 b-deck 行 ──
     @staticmethod
@@ -1518,7 +1542,7 @@ class QQTrackRenderer:
                 #   （`TrackPoint.official` 字段全仓无任何地方赋值, 恒 True ⇒ 拿它判会永远不触发）
                 # U7: 两种判据的差异点数已实测 = 1/99（唯一分歧是 i=66 / 09Z）,
                 #     换判据时不会静默变化。
-                self._shapes(surf, self._shape_for(code), self._color_for(w, code),
+                self._shapes(surf, self._shape_for(code, w), self._color_for(w, code),
                              (x, y), hollow=(self.black_core and not _is_official_point(p)))
 
     def _gradient_segment(self, surf, p1, p2, a, b):

@@ -275,7 +275,10 @@ def holland_b(pmin: float) -> float:
 
 def tangent_v(tc, r: float) -> float:
     """切向风(kt): 内核刚体旋转, 外区幂律衰减。"""
-    R = tc['rmw']
+    # ⚠ 审查 R11-3(2026-10-15): 与数组版  的
+    #    对齐 —— 标量版原来直接用 tc['rmw']，
+    #   rmw 被写成 0（数据脏 / 未初始化）时 r/R 直接 ZeroDivisionError。
+    R = max(1e-6, float(tc['rmw']))
     if r <= 0:
         return 0.0
     if r <= R:
@@ -286,7 +289,13 @@ def tangent_v(tc, r: float) -> float:
 def radius_at_wind(tc, v0_kt: float) -> float:
     if v0_kt >= tc['vmax']:
         return 0.0
-    return tc['rmw'] * (tc['vmax'] / v0_kt) ** (1.0 / alpha_outer(tc['vmax']))
+    # ⚠ 审查 R11-4(2026-10-15): v0_kt == 0 时 vmax/v0 除零（旧代码只在
+    #   v0 >= vmax 时早退）。0kt 等值线没有有限半径 ⇒ 返回 inf 表示"无穷远"，
+    #   调用方  用它算 rkm，inf 会被后续 clamp/比较自然吸收。
+    if v0_kt <= 0:
+        return float('inf')
+    return max(1e-6, float(tc['rmw'])) * (tc['vmax'] / v0_kt) ** (
+        1.0 / max(1e-6, alpha_outer(tc['vmax'])))
 
 
 def tc_deficit(tc, r: float) -> float:
@@ -1847,6 +1856,19 @@ def _env_update_impl(sim) -> None:
         # uMid 与切变推导之前 —— 冷空气只加在低层, 靠 `u200-u850` 在下面自然反馈
         # 进切变(见 synoptic.apply_to_env 的 docstring)。关闭时纯 no-op。
         _SY.apply_to_env(env, sim)
+        # step ⑧: **先**加天气尺度扰动，再推导 uMid/切变（默认关 ⇒ None ⇒ 逐位不变）
+        _ss = steer_systems(sim, env['u850'].shape, t)
+        if _ss is not None:
+            env['u850'] = (env['u850'] + _ss[0]).astype(np.float32)
+            env['v850'] = (env['v850'] + _ss[1]).astype(np.float32)
+            env['u200'] = (env['u200'] + _ss[0]).astype(np.float32)
+            env['v200'] = (env['v200'] + _ss[1]).astype(np.float32)
+        _sp = synoptic_perturb(sim, env['u850'].shape, t)
+        if _sp is not None:
+            env['u850'] = (env['u850'] + _sp[0]).astype(np.float32)
+            env['v850'] = (env['v850'] + _sp[1]).astype(np.float32)
+            env['u200'] = (env['u200'] + _sp[0]).astype(np.float32)
+            env['v200'] = (env['v200'] + _sp[1]).astype(np.float32)
         u850 = env['u850']
         v850 = env['v850']
         env['uMid'] = (0.45 * u850 + 0.55 * env['u200']).astype(np.float32)
@@ -1924,6 +1946,21 @@ def _env_update_impl(sim) -> None:
         env['coldSurge'] = np.zeros(sh_u.shape, np.float32)
         env['u200'] = (u850 * 1.45 + sh_u).astype(np.float32)
         env['v200'] = (v850 * 1.45 + sh_v).astype(np.float32)
+        # step ⑧: 解析支同样叠加（默认关 ⇒ None ⇒ 逐位不变）
+        _ss = steer_systems(sim, env['u850'].shape, t)
+        if _ss is not None:
+            env['u850'] = (env['u850'] + _ss[0]).astype(np.float32)
+            env['v850'] = (env['v850'] + _ss[1]).astype(np.float32)
+            env['u200'] = (env['u200'] + _ss[0]).astype(np.float32)
+            env['v200'] = (env['v200'] + _ss[1]).astype(np.float32)
+        _sp = synoptic_perturb(sim, env['u850'].shape, t)
+        if _sp is not None:
+            env['u850'] = (env['u850'] + _sp[0]).astype(np.float32)
+            env['v850'] = (env['v850'] + _sp[1]).astype(np.float32)
+            env['u200'] = (env['u200'] + _sp[0]).astype(np.float32)
+            env['v200'] = (env['v200'] + _sp[1]).astype(np.float32)
+        u850 = env['u850']
+        v850 = env['v850']
         env['uMid'] = (u850 * 1.225 + sh_u * 0.5).astype(np.float32)
         env['vMid'] = (v850 * 1.225 + sh_v * 0.5).astype(np.float32)
     du = np.empty_like(u850)
@@ -2110,7 +2147,7 @@ _STEER_RING_W = np.array([rw for _r, rw in _STEER_RINGS
                           for _k in range(_STEER_AZIMUTHS)])
 
 
-def steering_weights(vmax: float, lat: float):
+def steering_weights(vmax: float, lat: float, eff850=None):
     """三层引导权重 (浅层850, 中层, 深层200), 和为 1。
 
     **2026-09-22(轮次 102)重标定 —— 推翻 2026-09-18 的旧结论。**
@@ -2167,6 +2204,47 @@ def steering_weights(vmax: float, lat: float):
     """
     # eff850 = ws + 0.6*wm = 0.50 + 0.15 = 0.65;  eff200 = wd + 0.4*wm = 0.25 + 0.10 = 0.35
     #
+    # ── step ⑦（Lead 裁定）：把 eff850 做成 `params['steerEff850']`（**默认 0.65 ⇒ 逐位不变**）──
+    # 动机（用户【1】）：**"北半球所有风暴都是西北行，几乎没有其它路径"**。v5 实测（交付数据）：
+    #   北半球低纬 W+NW 91.0% —— β split 落地后**基本没动**（v3 是 90.5%）⇒
+    #   **"全是西北行"不是 β 驱动的，是 850hPa 信风东风驱动的** ⇒ 本步降 850 的有效权重，
+    #   让 30° 以北**更早吃到东向高层风** ✓
+    # `eff850 = ws + 0.6*wm`（唯一自由度）；固定 `wm = 0.25` ⇒ ws = eff850-0.15、wd = 1-ws-wm
+    #   ⇒ eff850=0.65 复原现行的 (0.50, 0.25, 0.25) ✓
+    # ── §46/§47：**默认由 0.65 改为 0.80（Lead 裁定采纳 B1）** ──────────────────────
+    # 依据（同 seed 90 天、报点数口径、**每条轴都更好、无一项变差**）：
+    #   方向  W+NW 95.8→90.1 | N+NE+E 3.9→8.9 | S+SW+SE 0.2→1.0   （全部朝目标方向）
+    #   存活  ≥30° 36.8→**43.0**（+6.2）| ≥35° 26.4→**37.0**（+10.6）
+    #   EX    21→**23**（中位持续报点数 14）
+    # 机制：`steering_layers` 的 **200 层 |u| 是 850 的两倍**（10.15 vs 5.10）⇒ 它把 `v/|u|`
+    #   压小 ⇒ 方向被钉进 W/NW；**提高 850 权重 = 降 200 权重** ⇒ 方向放开 ✓
+    # ⚠ 只改**层权重** ⇒ 不改寿命/强度分布的口径 ⇒ 符合用户【1.1】的界 ✓
+    # ⚠ 旋钮仍可回调：传 `steerEff850=0.65` 即完全复原历史行为 ✓
+    # §60：**按纬度分带**（`params['steerEff850Lat']` = [[lat_max, eff850], ...]）
+    # 默认为 None ⇒ **完全回落旧行为（常数 0.80）⇒ 逐位不变** ✓
+    _band = None
+    if isinstance(eff850, (list, tuple)) and eff850 and isinstance(eff850[0], (list, tuple)):
+        _band = eff850
+    if _band is not None:
+        _al = abs(float(lat))
+        _sel = float(_band[-1][1])
+        for _lm, _lv in _band:
+            if _al < float(_lm):
+                _sel = float(_lv)
+                break
+        _e = _sel
+    else:
+        _e = 0.80 if eff850 is None else float(eff850)
+    _e = min(0.95, max(0.0, _e))
+    _wm = 0.25
+    _ws = max(0.0, _e - 0.6 * _wm)
+    _wd = max(0.0, 1.0 - _ws - _wm)
+    _tot = _ws + _wm + _wd
+    if _tot > 0 and abs(_tot - 1.0) > 1e-9:      # 归一（防极端输入）
+        _ws, _wm, _wd = _ws / _tot, _wm / _tot, _wd / _tot
+    if eff850 is not None:
+        return _ws, _wm, _wd
+    #
     # ⚠⚠ S12-① 结论（Lead 2026-10-05 要求写进注释，防止后人再踩）：
     #   · **不要**照抄沙盒 `s9_sandbox_v2.md` 的 `shallow=(0.349,0.527,0.124)` /
     #     `deep=(0.186,0.527,0.287)` 变权重 —— 它的等价物正是本函数 docstring 里
@@ -2178,7 +2256,7 @@ def steering_weights(vmax: float, lat: float):
     #     （20kt −65.50° → 90kt −73.05°）⇒ "加强中的台风会转向"**可观测但当前未接**。
     #     若要做，**必须先用 `tools/calib_steer.py` 那套观测步重新标定**，不能凭沙盒常数硬接
     #     （见 output/exploration/s12c_steer_ridge.md）。
-    return 0.50, 0.25, 0.25
+    return _ws, _wm, _wd
 
 
 def sh_ridge_lat(sim):
@@ -2375,7 +2453,9 @@ def steering_layers(sim, lon: float, lat: float):
 def steering_at(sim, lon: float, lat: float, vmax: float = 40.0):
     """三层(850/中层/200 hPa)引导气流(kt) —— 见 `steering_layers` 的采样说明。"""
     s_sh, s_dp = steering_layers(sim, lon, lat)
-    ws, wm, wd = steering_weights(vmax, lat)
+    _P60 = sim.get('params') or {}
+    ws, wm, wd = steering_weights(
+        vmax, lat, _P60.get('steerEff850Lat', _P60.get('steerEff850')))
     mid = [0.6 * s_sh[i] + 0.4 * s_dp[i] for i in (0, 1)]
     tot = ws + wm + wd
     su = (ws * s_sh[0] + wm * mid[0] + wd * s_dp[0]) / tot
@@ -2390,8 +2470,19 @@ def steering_at(sim, lon: float, lat: float, vmax: float = 40.0):
 #: 用户裁定："公式算的不如**每个纬度到底漂多少**准，纯查表、零成本。"
 _BETA_TABLE = [(8.0, -2.8, 2.3), (14.0, -2.8, 2.0), (20.0, -1.3, 1.7),
                (26.0, -0.9, 2.3), (32.0, -0.75, 1.6)]
-#: 默认算法：'table'（沙盒查表，默认）| 'formula'（原公式版，保留对照）
-BETA_DRIFT_MODE = 'table'
+#: 默认算法：'formula'（原公式版，**当前默认**）| 'table'（沙盒查表，保留对照）
+#: ─────────────────────────────────────────────────────────────────────────────
+#: ⚠⚠ **2026-10-05 回退到 'formula'（路径线 step ①）**。
+#: 这是一次**回退一个已定位的回归**，不是新调参 —— 用户报"北半球全是西北行"之后查因：
+#: `task-68` ② 把查表版设为默认，而查表版在**低纬的西向分量是公式版的 1.6–2.8 倍**：
+#:     8°N : 查表 **−5.443 kt** vs 公式 −1.936 kt（2.8×）
+#:     14°N: 查表 **−5.443 kt** vs 公式 −3.365 kt（1.6×）
+#: ⇒ **是我上一轮加重了"西北行"** ⇒ 本步把它退回去 ✓
+#: （纬度考据另见 `beta_drift_formula` 的 docstring：查表版 ∝ 表值、随纬度**减弱**，与 β 理论同向；
+#:  公式版 ∝ sinφ、随纬度**增强**，与理论反向 —— 但**绝对量级**上查表版在低纬**过强**，
+#:  而用户的诉求是路径，故先回退量级更小的公式版 ✓）
+#: 查表版（`beta_drift_table`）**保留**，设 `BETA_DRIFT_MODE='table'` 即可切回 ✓
+BETA_DRIFT_MODE = 'split'
 
 
 def _smoothstep(e0: float, e1: float, x: float) -> float:
@@ -2418,8 +2509,39 @@ def beta_drift_table(lat: float):
     return u * KT * w, v * KT * w * hemi
 
 
+def beta_drift_split2(lat: float):
+    """β漂移 **u=公式、v=折中**（`BETA_DRIFT_MODE='split2'`）—— §44 新增。
+
+    **机制**（见 g_path_sim.md §43）：南向逃逸要求 `v_steer + v_beta < 0`，
+    而**查表版的 v 太大**（8°N **+4.47** kt）⇒ 把 `base_wind` 里那条 ~15% 的南向尾巴整体抬正
+    （实测合成后南向只剩 0.9%，而真实 `<20°` 的 S+SW+SE 有 **18.5%**）✗
+    **但整条回退 formula 会让 ≥30° 存活崩**（step① 实测 30.4% → 20.7%）✗
+    ⇒ **对 v 取折中**：`v = 0.5·公式 + 0.5·查表`（8°N：0.5·1.56+0.5·4.47 = **+3.02** kt）✓
+    """
+    _fu, _fv = beta_drift_formula(lat)
+    _tu, _tv = beta_drift_table(lat)
+    return _fu, 0.5 * (_fv + _tv)
+
+
+def beta_drift_split(lat: float):
+    """β漂移(kt) **按分量拆版（当前默认）** —— 路径线 step ①b。
+
+    **2 分量各取所需**（Lead 2026-10-05 裁定）：
+      · **纬向 u（西向）用公式版**：直击用户"北半球全是西北行"里的**西向过强**
+        （查表版 8°N 给 −5.443 kt，是公式版 −1.936 的 **2.8 倍** —— 那是我 task-68 ② 引入的回归）
+      · **经向 v（向极）保留查表版**：实测查表版的向极分量也强 **2.9 倍**（8°N +4.471 vs +1.559 kt），
+        而**正是它把风暴推到更高纬度** ⇒ 整条回退会把"≥30° 存活"从 **30.4% 打到 20.7%** ✗
+        （step ① 的实测，见 output/exploration/g_path_sim.md §15.4）
+
+    **按裁定 1**：改它的动机是**路径**（西向过强），**不是**为了对上寿命/强度分布 ✓
+    """
+    _fu, _fv = beta_drift_formula(lat)
+    _tu, _tv = beta_drift_table(lat)
+    return _fu, _tv
+
+
 def beta_drift(lat: float):
-    """β漂移(kt) —— **分发**：默认走查表版(S12-②, 沙盒口径)，
+    """β漂移(kt) —— **分发**：`split`(默认, 按分量拆) | `formula` | `table`。
     `BETA_DRIFT_MODE='formula'` 时回原公式版（保留对照, 见 `beta_drift_formula`）。
 
     ⚠⚠ 概念区分（Lead 2026-10-05 要求写进注释，防止后人踩）：
@@ -2427,9 +2549,14 @@ def beta_drift(lat: float):
     塞进来 —— 那是**另一个概念**（`SEA_POTENTIAL` 那种归一化乘子），
     要加就加在**生成阈值/支持度**上，别改物理量。同理**不要**去改 `mpi()`。
     """
-    if str(BETA_DRIFT_MODE) == 'formula':
+    _m = str(BETA_DRIFT_MODE)
+    if _m == 'formula':
         return beta_drift_formula(lat)
-    return beta_drift_table(lat)
+    if _m == 'table':
+        return beta_drift_table(lat)
+    if _m == 'split2':
+        return beta_drift_split2(lat)
+    return beta_drift_split(lat)
 
 
 def beta_drift_formula(lat: float):
@@ -3042,7 +3169,14 @@ def intensity_step(sim, tc, dt: float) -> None:
     # 24.5kt、多数 <15)。真实切变均值 20.5kt,  太常见 → weak 一直涨 →
     # 风暴被过早削弱。观测显示切变 25-30kt 时 24h 平均仍是 +0.2kt、衰减率只
     # 18%(0-5kt 时是 14.6%), 影响要弱得多; SST 同理(25.5-26.5 只 -0.8kt/24h)。
-    if tc['vmax'] < 60 and (env['sst'] < 25.5 or env['shear'] > 35.0
+    # ── 路径线 step ③：把 shear 门做成旋钮 `weakShear`（**默认 35.0 ⇒ 与本改动前逐位相同**）──
+    # 背景（`output/exploration/g_path_sim.md` §19-20）：这个门当初由 23 **刻意提到 35**
+    # 是为了压"weak 一直涨 ⇒ 风暴被过早削弱"。但它同时让 `weak > 20`（路径 1 的第三子句）
+    # **几乎不可达**：实测 `weak` 峰值 **18.5**，离门 20 **只差 1.5** ⇒ 于是 SD/SS 恒 0。
+    # ⇒ Lead 裁定：**不钝降**，做**分级实验**（35→33→30→28），且**必须同时报
+    #   A=SS 触发数 与 B=过早削弱的代价**，否则无法判断该不该留 ✓
+    _weak_sh = float((sim.get('params') or {}).get('weakShear', 35.0))
+    if tc['vmax'] < 60 and (env['sst'] < 25.5 or env['shear'] > _weak_sh
                             or env['land'] > 0.25):
         weak += dt / 6.0          # 每 6h +1
         dV -= tc['vmax'] * 0.004 * weak
@@ -3396,8 +3530,14 @@ def intensity_step(sim, tc, dt: float) -> None:
         # 会把整个季节的变性过程挡在门外(实测一个 EX 都出不来)。真实 ET 的配料是
         # "够北 + 强切变 + 仍强 + 海温已不足以维持纯热带结构":
         #   |lat| >= 30 且 sst < 27.5 且 shear >= 22 且 vmax >= 35, 持续 ET_HOURS 即变性。
+        # ── 诊断线（Lead 2026-10-05）：`vmax >= 35` 做成旋钮 `etVmax`（**默认 35.0 ⇒ 逐位不变**）──
+        # 用户说真实情况里"未登陆风暴以 LO/DB 被切死或转 EX/SS ≈ 六四开"，而我们的 EX 只 ~10%，
+        # 说明**短板在 EX（路径 2）而非 SS（路径 1）**；而路径 2 里 `|lat|>=30 时 vmax>=35`
+        # 是关键卡点 ⇒ 用这个旋钮做 35/30/25 三档诊断，判"门太高"还是"到那儿已太弱" ✓
+        _et_v = float((sim.get('params') or {}).get('etVmax', 35.0))
+        _et_s = float((sim.get('params') or {}).get('etShear', 22.0))
         _et_ing = (abs(float(env['lat'])) >= 30.0 and float(env['sst']) < 27.5
-                   and float(env['shear']) >= 22.0 and tc['vmax'] >= 35.0)
+                   and float(env['shear']) >= _et_s and tc['vmax'] >= _et_v)
         if _et_ing:
             tc['etHours'] = float(tc.get('etHours', 0.0)) + dt
         else:
@@ -3470,7 +3610,8 @@ def intensity_step(sim, tc, dt: float) -> None:
             weak=float(weak), front=bool(phase in ('EX', 'SS')),
             disturb=bool(tc.get('disturb')),
             lon=float(tc['lon']), retropical=bool(phase == 'TC'),
-            td_fresh=bool(_prev in ('TS', 'TY', 'ST') and tc['vmax'] < _PH.KT_TS))
+            td_fresh=bool(_prev in ('TS', 'TY', 'ST') and tc['vmax'] < _PH.KT_TS),
+            structure=phase)
         tc['phase'] = _res['phase']
         tc['phaseWhy'] = _res.get('confidence')
         if _res.get('capped_from'):
@@ -3497,7 +3638,45 @@ def intensity_step(sim, tc, dt: float) -> None:
         tc.pop('weakSince', None)
     elif 'weakSince' not in tc:
         tc['weakSince'] = float(sim['t'])
-    if tc['vmax'] < _fade_kt or weak > 120:
+    # ── step ④（Lead 2026-10-05 裁定）：**EX/SS 用自己的消亡口径，不走热带那套地板** ──
+    # 病灶（实测，见 output/exploration/g_path_sim.md §24.1）：**16/20 的 EX 台风死在
+    # `phase=='EX' and vmax < 20`** —— 一个已转温带的系统本来就不该套"热带气旋最低强度地板"，
+    # 真实里温带气旋可以很弱、且能维持很多天。交付口径实测 **EX 中位只有 2 个报点 ≈ 12 小时**。
+    # 新口径（**温带气旋的消亡一般是"填塞/被合并"**，故用"弱 + 持续" + 年龄上限）：
+    #   · `exFadeKt = 5.0`   —— 温带气旋的绝对地板（远低于热带的 20kt）
+    #   · `exWeakH  = 72.0`  —— **持续** vmax<12kt 满 72h ⇒ 填塞消亡
+    #   · `exAgeCapH = 720.0`—— 年龄上限 30 天（防"永远不死"；不是物理阈值，是兜底）
+    # ⚠ **按裁定 1**：本步动机是**生命史类型**（用户【1.2】明确点名"没有 EX/SS/SD"），
+    #   **不是**追寿命/强度指标 —— 但**会顺带改变寿命分布**（EX 活得久了总寿命自然涨），
+    #   **用户本阶段不把寿命作为验收项，故接受** ✓
+    # ⚠ 统计口径（Lead 定，写进报告当规矩）：**"存活/持续"一律按【报点数】算，
+    #   **不**按 `sim['tcs']` 步数算 —— 后者含 **120 天死后残留**（core.py:5398-5410）** ✓
+    if phase in ('EX', 'SS'):
+        # ⚠⚠ **step ⑥ 修正（实测驱动）**：step⑤ 报出 **100% 的 EX 都死在 `ageCap`** ⇒
+        #  查因：`core.py:3421` 的 `clamp(tc['vmax'] + dV2*dt, **12**, 999)` 把 EX 的 vmax
+        #  **地板锁在 12** ⇒ step④ 那两条判据是**死代码**：
+        #    · `vmax < 5.0`  ⇒ 12<5 恒假 ✗
+        #    · `vmax < 12.0` ⇒ 12<12 恒假 ✗
+        #  ⇒ **只有 `ageCap` 能触发** ⇒ "兜底"变成了"唯一主控" ✗
+        # 修法（Lead 批准 (b)）：**弱计时改成 `<= 12.0`**（可达）⇒ 物理口径真正生效 ✓
+        #  ⚠ **`exFadeKt` 分支已删除**：在地板恒 12 的前提下，它取 `<=12` 恒假（还是死代码）、
+        #    取 `>12`（Lead 曾议 13.0）会**立刻**杀掉刚转温带的系统 ⇒ **变成新的主控** ✗
+        #    ⇒ 任何取值都无意义，**删掉**比留一个旋钮更安全 ✓
+        #  ⇒ 依据：温带气旋消亡 = **填塞/被合并** ⇒ "**持续弱满 `exWeakH` 小时**" ⇒ 消亡 ✓
+        _ex_weak_h = float(_P.get('exWeakH', 72.0))
+        _ex_cap = float(_P.get('exAgeCapH', 720.0))
+        if tc['vmax'] <= 12.0:
+            if 'exWeakSince' not in tc:
+                tc['exWeakSince'] = float(sim['t'])
+            elif float(sim['t']) - float(tc['exWeakSince']) > _ex_weak_h:
+                tc['dead'] = True
+                tc['exDeadBy'] = 'exWeakH'
+        else:
+            tc.pop('exWeakSince', None)
+        if tc['age'] > _ex_cap:
+            tc['dead'] = True
+            tc['exDeadBy'] = 'exAgeCapH'
+    elif tc['vmax'] < _fade_kt or weak > 120:
         tc['dead'] = True
     elif phase == 'LO' and (_lo_h > _lo_cap or tc['vmax'] < 10.0):
         tc['dead'] = True
@@ -3648,6 +3827,139 @@ def fujiwhara_drift(lon, lat, vmax, others):
         fu += tx * mag
         fv += ty * mag
     return fu, fv
+
+
+#: step ⑧ 天气尺度引导扰动（Lead 2026-10-05 派）。
+#: 动机（用户【1】）：**深热带(<20°) W+NW 实测 83.4%，真实 62–72%** ⇒ 我们太偏西北。
+#: 根因：`base_wind` 是 **(12,180,360) 月平均** ⇒ 空间平滑、时间只有 12 个点 ⇒
+#: 让 <20° 出现 E/N/SW 的东西（季风涡旋、副高断裂、鞍型场、弱引导打转）**全被抹掉** ✓
+#: ⇒ 本函数叠加**低波数 + AR(1) 演变**的扰动 ⇒ 偶发地让 |v| 超过 β 的向极分量(+3.9kt)
+#:   或让 u 反号 ⇒ 方向不再被"东方 + β 向极"钉死 ✓
+#: ⚠ **默认 `synAmp=0.0` ⇒ 直接 return None ⇒ 不消耗任何随机数 ⇒ 与改动前逐位相同** ✓
+#: ⚠ 叠加在 **u850/v850/u200/v200**（**不是 uMid**）：`steering_layers` 采样的就是 850/200 两层 ✓
+def synoptic_perturb(sim, shape, t_h):
+    """返回 (du, dv) kt，或 None（关闭时）。空间低波数 + 时间 AR(1)。"""
+    _P = sim.get('params') or {}
+    amp = float(_P.get('synAmp', 0.0))
+    if amp <= 0.0:
+        return None
+    tau = max(6.0, float(_P.get('synTauH', 120.0)))
+    nw = max(1, min(6, int(_P.get('synWaves', 3))))
+    st = sim.get('_synState')
+    if st is None or len(st.get('a', ())) != nw * 2:
+        g0 = np.random.Generator(np.random.PCG64(987654321))
+        st = {'t': float(t_h), 'ph': g0.random(nw * 2) * 2.0 * np.pi,
+              'a': g0.standard_normal(nw * 2)}
+        sim['_synState'] = st
+    d = float(t_h) - float(st['t'])
+    if d > 1e-9:
+        gg = np.random.Generator(np.random.PCG64(int(abs(t_h) * 1000) % (2 ** 31)))
+        rho = math.exp(-d / tau)
+        st['a'] = rho * st['a'] + math.sqrt(max(0.0, 1.0 - rho * rho)) * gg.standard_normal(len(st['a']))
+        st['t'] = float(t_h)
+    ny, nx = int(shape[0]), int(shape[1])
+    lat = np.linspace(-89.5, 89.5, ny)[:, None]
+    lon = np.linspace(0.5, 359.5, nx)[None, :]
+    du = np.zeros((ny, nx), np.float64)
+    dv = np.zeros((ny, nx), np.float64)
+    for k in range(nw):
+        wl = float(k + 1)
+        au = amp * float(st['a'][k])
+        av = amp * float(st['a'][nw + k])
+        la = np.cos(np.radians(lat * 0.6))          # 赤道强、极区弱
+        du += au * np.sin(np.radians(lon * wl) + float(st['ph'][k])) * la
+        dv += av * np.cos(np.radians(lon * (wl * 0.7)) + float(st['ph'][nw + k])) * la
+    return du.astype(np.float32), dv.astype(np.float32)
+
+
+def steer_systems(sim, shape, t_h):
+    """§63 **在模型里生成引导环流系统**（Lead 2026-10-05 派）—— 默认全 0 ⇒ None（no-op）。
+
+    **定性**: 用真实数据离线统计出尺度/强度/周期 ⇒ **在模型里生成**；
+    **不是**把真实逐日场读进来（那是回放）✓
+
+    **为什么必须零均值**: `base_wind` 是真实再分析【月平均】⇒ **本来就含副高**
+    （850 层 7 月 100-160E/10-30N 有清晰反气旋）⇒ 再叠一整个反气旋 = **把副高乘二** ✗
+    ⇒ 本函数生成的是【相对气候态的异常】，并**减去 cos(lat) 加权面积平均** ⇒ 面积平均 ≈ 0 ✓
+
+    ① 副高异常: 脊线随经度/时间漂移 + 缺口 ⇒ 台风在不同纬度/经度遇缺口 ⇒ 转向时刻分散
+       **符号**（Lead 复核 ✓）: NH 反气旋 **北侧 = 西风(u>0)、南侧 = 信风(u<0)**
+       ⇒ `Δu = +shAmp * sign(lat - ridge) * 包络`（**注意是 +**，我在 §62 设计稿里写成 −，已更正 ✓）
+    ② 东移短波槽: 波数 k、**相速 twSpeedMs（m/s，10-15 往东）** ⇒ 槽扫过 ⇒ 急拐
+    """
+    _P = sim.get('params') or {}
+    _A = float(_P.get('sysShAmp', 0.0))          # 副高异常幅度(kt), 0=关
+    _A2 = float(_P.get('sysTwAmp', 0.0))         # 短波槽幅度(kt), 0=关
+    if _A <= 0.0 and _A2 <= 0.0:
+        return None
+    # ── §69 **日历锁**：相位的时基（默认 0 = 现状：挂在【本次运行累计小时】上）──────
+    # 为什么需要: 这里用的 `t_h` 是 `sim['t']`（`_env_update_impl` 的 `t = sim['t']`，
+    #   `core.py:1583`）= **本次运行的 elapsed**，**不是日历时刻**。
+    #   ⇒ 两个 run 只要 elapsed 相同、日历月份相同 ⇒ 环流异常场**逐点相同**
+    #   ⇒ 在同一个位置生成的台风走同一条路。
+    #   实测(§6.1 复现, `output/exploration/gen_diff_probe.py`): 8 个起报日期
+    #   (8/01,8/04,…,8/22)、同一位置 14N/140E、槽开 + 相速 12 m/s
+    #   ⇒ **最北纬极差只有 1.8°**（全关基线 0.6°）= 不分化 ✓
+    # 打开 `sysClockLock` 后，相位改挂**绝对日历**（距 2000-01-01 的小时数）
+    #   ⇒ "140E 上空的槽在 8/5 在哪" 由日历决定，与"哪天按下播放"无关 ✓
+    # 默认 0 ⇒ `_t_h` 就是 `t_h` ⇒ 逐位不变 ✓（已用 free_hash 验证）
+    _t_h = t_h
+    if float(_P.get('sysClockLock', 0.0)) > 0.0:
+        try:
+            _t_h = (float(t_h)
+                    + (sim['start'] - datetime(2000, 1, 1)).total_seconds() / 3600.0)
+        except Exception:
+            _t_h = t_h
+    ny, nx = int(shape[0]), int(shape[1])
+    lat = np.linspace(-89.5, 89.5, ny)[:, None]
+    lon = np.linspace(0.5, 359.5, nx)[None, :]
+    du = np.zeros((ny, nx), np.float64)
+    dv = np.zeros((ny, nx), np.float64)
+    # ── ① 副高异常（脊线漂移 + 缺口，均以 lon 上的余弦构造 ⇒ 经向积分为 0）──
+    if _A > 0.0:
+        wl = max(20.0, float(_P.get('sysShWLon', 90.0)))
+        drift = float(_P.get('sysShDrift', 0.0)) * (float(_t_h) / 24.0)
+        lat0 = float(_P.get('sysShLat0', 25.0))
+        ampL = float(_P.get('sysShAmpLon', 8.0))
+        ph = 2.0 * np.pi * (lon - drift) / wl
+        ridge = lat0 + ampL * np.cos(ph)
+        envY = np.exp(-0.5 * ((lat - ridge) / max(1.0, float(_P.get('sysShSigY', 8.0)))) ** 2)
+        # 缺口: 对幅度做零均值调制（用余弦，不用 1-高斯 ⇒ 后者非零均值）
+        gapw = float(_P.get('sysShGapAmp', 0.0))
+        mod = 1.0 + gapw * np.cos(2.0 * np.pi * (lon - drift - float(_P.get('sysShGapLon', 180.0)))
+                                  / max(5.0, float(_P.get('sysShGapW', 15.0)) * 4.0))
+        du += _A * np.sign(lat - ridge) * envY * mod          # ★ 符号: + ✓
+        dv += _A2 * 0.0 + float(_P.get('sysShAmpV', 0.0)) * np.cos(ph) * envY
+    # ── ② 东移短波槽（相速 twSpeedMs ⇒ 相位随 t 推进）──
+    if _A2 > 0.0:
+        k = max(1, int(_P.get('sysTwWaves', 3)))
+        c = float(_P.get('sysTwSpeedMs', 0.0))
+        pk = float(_P.get('sysTwLatPeak', 40.0)); wd = max(2.0, float(_P.get('sysTwWidth', 12.0)))
+        envL = np.exp(-0.5 * ((np.abs(lat) - pk) / wd) ** 2)
+        for j in range(k):
+            wl_j = 360.0 * (j + 1) / float(k)
+            phase = 2.0 * np.pi * lon / wl_j
+            # 相速换算: 度/天 = c[m/s]*86400/111320/cos(lat)
+            omega = (c * 86400.0 / 111320.0) / np.maximum(0.2, np.cos(np.radians(lat)))
+            phase = phase - omega * (float(_t_h) / 24.0) + float(_P.get('sysTwPhase0', 0.0)) + j
+            # §68 **离散槽**: `sysTwDuty` = 槽占的比例（0 = 连续波 = 现状，逐位不变 ✓）
+            # 门控只在波峰附近打开 ⇒ 槽【一个一个过境】，槽之间接近零场
+            #   ⇒ 期望形态: "走一段、转一次"，而不是"一路在抖"（Lead 逐条看图后的判断 ✓）
+            _duty = float(_P.get('sysTwDuty', 0.0))
+            if _duty > 0.0:
+                _thr = 1.0 - 2.0 * min(0.49, _duty)
+                gate = np.clip((np.cos(phase) - _thr) / max(1e-6, 1.0 - _thr), 0.0, 1.0)
+                du += _A2 * gate * np.cos(phase) * envL
+                dv -= _A2 * gate * np.sin(phase) * envL
+            else:
+                du += _A2 * np.cos(phase) * envL
+                dv -= _A2 * np.sin(phase) * envL
+    # ── **零均值铁律**: 减去 cos(lat) 加权的面积平均 ⇒ 面积平均 ≈ 0（不加倍已有副高）──
+    w = np.cos(np.radians(lat))
+    wsum = float(w.sum()) * nx
+    for arr in (du, dv):
+        arr -= float((arr * w).sum()) / max(1e-9, wsum)
+    return du.astype(np.float32), dv.astype(np.float32)
 
 
 def _free_motion(sim, tc, dt):
@@ -3900,9 +4212,23 @@ def _gen_tables():
             g = np.maximum(g, 0.0)
             n = g.sum(axis=(1, 2), keepdims=True)
             _GEN_CACHE['dens'] = g / np.maximum(n, 1e-9)
-            # **密度场自带纬轴**(实测 tc_clim['lat'] = -59.5..59.5, 120 行)。
-            # 扩域到 ±90 后, 若还按"全域跨度 / 行数"反推纬度, 生成点会被整体搬到高纬
-            # 冷海(实测 7.5 天 0 个风暴 —— 生成了但同一步就被冷海判死)。
+            # ── B(S14/t2050): **月间相对权重** `dens_w`（月均 = 1）──────────────────
+            # 上面那行把**每个月各自**归一化到 1 ⇒ **月与月"总量"完全相同** ⇒
+            # 抽样只决定**落点**、不决定**数量** ⇒ 数量只由 `gen_check` 里那个**与月份无关**
+            # 的常数闸门定 ⇒ **生成数天然没有季节形状**（实测 7/8/9/10 = 23/20/22/27，平的）。
+            # 而原始 `tc_clim['genesis']` 的月总量是
+            #   [76,73,62,49,51,79,127,179,195,136,87,64]（峰 9 月 / 谷 4 月 = **3.98 倍**）
+            # ⇒ **季节形状本来就在数据里，是被这行除掉的**。
+            # `dens_w[m] = (月总量 / 年总量) * 12` ⇒ **12 个月之和 = 12、均值 = 1**
+            # ⇒ 配合 `gen_check` 里的**无偏随机取整**，**年总量在期望上不变** ✓
+            _nt = np.maximum(n, 1e-9)
+            _GEN_CACHE['dens_w'] = ((_nt.ravel() / float(_nt.sum())) * 12.0
+                                    ).astype(np.float64)
+            # ⚠ 密度场**不带**纬轴成员（实测 `'dens_lat' in C` 为 **False**）⇒
+            #   下面两个 `if` 在现网数据下**都不成立**，真正的纬度来自 `gen_check` 里的
+            #   **以赤道为中心的 1° 兜底**（`lat = (jy + 0.5) - d.shape[0]/2` ⇒ ±59.5 ✓）。
+            #   （原注释写"密度场自带纬轴(实测 tc_clim['lat'] = …)"**已过期且与
+            #    `gen_check` 里的实测矛盾**，S14/t2050 顺手改对 —— U-t2050-3。）
             if 'lat' in z.files:
                 _GEN_CACHE['dens_lat'] = np.asarray(z['lat'], np.float32)
             if 'lon' in z.files:
@@ -4154,6 +4480,161 @@ def _gi_weight(C, env, lat, lon=None):
     return np.clip(w, 0.0, 1.0)
 
 
+# ── §69 **生成模式**（用户 2026-10 点名：6–9 月南海季风、8 月中纬/反向季风槽）──────
+# 动机（交接文档 §6.2）: 原来生成【位置】只来自一张平滑的月平均密度场
+#   (`tc_clim['genesis']`) ⇒ 空间上是一整片连续分布，**没有"几种有特色的生成模式"**；
+#   而 `classify_genesis` 那 5 种是**按环境**分的，实测 180 天里 **88% 落到
+#   `easterly_wv` 兜底支**（`output/exploration/mgs_base365.log`）⇒ "5 种"其实只有 1 种。
+#
+# 每个模式 = **区域盒 + 季节(逐月份额) + 自己的核形状**，三样都来自真实 b-deck 实测：
+#   份额 s_k(m) = [该模式在该月的生成数] / [该洋区该月生成数]   （`mode_share_fit.py` 现算）
+#   核参数     = [该模式盒 ∩ 活跃月] 内真实生成点的 均值/σ/倾角（`mode_kernel_fit.py`）
+#   盒与活跃月 = `gen_modes.md` §1.4–1.8
+#
+# 混合方式（**按洋区质量守恒、逐月独立**）:
+#     W = Σ_k s_k(m)（落在该洋区、该月活跃的模式）
+#     d[洋区] ← (1 − f·W)·d[洋区] + Σ_k f·s_k(m)·(洋区质量)·K_k
+#   ⇒ 模式的**总量份额就是实测份额**（修的是"区域份额对不上"，见下），
+#     核形状取自实测分布；未列入的洋区（AL/IO/SI）与未活跃的月份**逐位不变** ✓
+#
+# ⚠ **必须做这一步的理由（实测）**: 现行那张 `tc_clim['genesis']` 密度场在 WP 内部
+#   与 b-deck 实测份额**明显不符**（`gen_field_vs_real.txt`，同一 1° 栅格、同一月）：
+#       8 月 低纬 130–180E/5–15N: 真实 38.4%  密度场 **15.8%**（差 2.4 倍）
+#       9 月 低纬               : 真实 49.8%  密度场 **31.8%**
+#       10 月 中纬 15–25N/130–170E: 真实 13.4%  密度场 **28.6%**（差 2.1 倍）
+#   ⇒ 所以"生成位置不对"不只因为场是月平均的（§6.2），**场本身的区域份额也不对**。
+#
+# ⚠ 默认 `genModeFrac=0` ⇒ 本表**一个字节都不参与** ⇒ 逐位不变（free_hash 已验证）。
+#
+# ⚠ **"8 月反向季风槽"这个名字的口径边界**: 月平均生成场上量不出"NW–SE 槽轴倾斜"
+#   （实测 lat~lon 斜率 8 月 = −0.079 °/°、r = −0.26，12 个月全是负的或近零），
+#   反向季风槽是**月内天气尺度**现象。这里用的是**能取到的对应物**：
+#   "8 月 15–25N/130–170E 占该月 31.4%、1–5 月 = 0.0%"（见 gen_modes.md §1.6）。
+#: 各模式的"洋区盒"（(lon0, lon1, lat0, lat1)）—— 份额的分母就是这个盒
+GEN_MODE_BASINS = {
+    'WP': (100.0, 180.0, 0.0, 60.0),
+    'SP': (135.0, 290.0, -60.0, 0.0),
+}
+GEN_MODES = [
+    # 南海季风槽：5–11 月活跃；占 WP 该月 24.5/22.8/10.8/11.9/12.7/9.3/9.3%
+    dict(name='scs_monsoon', kind='monsoon_dep', rmw0=44.0, org0=0.40,
+         box=(105.0, 122.0, 5.0, 22.0), latc=15.2, lonc=115.9,
+         sig_lat=3.6, sig_lon=3.6, tilt=0.123, basin='WP',
+         share=[0.000, 0.000, 0.000, 0.000, 0.245, 0.228, 0.108, 0.119, 0.127,
+                0.093, 0.093, 0.000]),
+    # 8 月中纬（用户叫"反向季风槽"）/ WNP 15–25N：1–5 月为 0，8 月峰 31.4%
+    dict(name='rmt_midlat', kind='itcz', rmw0=32.0, org0=0.58,
+         box=(130.0, 170.0, 15.0, 25.0), latc=18.9, lonc=147.6,
+         sig_lat=2.8, sig_lon=10.5, tilt=0.031, basin='WP',
+         share=[0.000, 0.000, 0.000, 0.000, 0.000, 0.102, 0.281, 0.314, 0.246,
+                0.155, 0.000, 0.000]),
+    # 低纬 ITCZ / 东风波：全年，占 WP 该月 34.1…65.2%（密度场在这里**少了 2.4 倍**）
+    dict(name='lowlat_itcz', kind='easterly_wv', rmw0=24.0, org0=0.72,
+         box=(130.0, 180.0, 5.0, 15.0), latc=9.5, lonc=149.7,
+         sig_lat=2.7, sig_lon=11.7, tilt=-0.039, basin='WP',
+         share=[0.421, 0.478, 0.341, 0.417, 0.490, 0.509, 0.470, 0.373, 0.493,
+                0.652, 0.644, 0.465]),
+    # 副热带 / 冷涡：25–40N，6–10 月（8 月 9.7%）
+    dict(name='subtrop_low', kind='cold_low', rmw0=38.0, org0=0.46,
+         box=(100.0, 180.0, 25.0, 40.0), latc=27.6, lonc=149.5,
+         sig_lat=2.4, sig_lon=17.8, tilt=0.008, basin='WP',
+         share=[0.000, 0.000, 0.000, 0.000, 0.000, 0.006, 0.051, 0.097, 0.019,
+                0.016, 0.000, 0.000]),
+    # 南半球：珊瑚海 / 澳东北（12–4 月；SP 覆盖只 13 年，份额样本薄，按实测填）
+    dict(name='sh_coral', kind='itcz', rmw0=32.0, org0=0.58,
+         box=(145.0, 165.0, -25.0, -5.0), latc=-13.9, lonc=155.9,
+         sig_lat=4.2, sig_lon=6.3, tilt=0.248, basin='SP',
+         share=[0.480, 0.276, 0.167, 0.500, 0.000, 0.000, 0.000, 0.000, 0.000,
+                0.000, 0.000, 0.214]),
+    dict(name='sh_ausne', kind='itcz', rmw0=32.0, org0=0.58,
+         box=(165.0, 180.0, -25.0, -5.0), latc=-12.9, lonc=171.4,
+         sig_lat=4.6, sig_lon=5.0, tilt=0.453, basin='SP',
+         share=[0.200, 0.276, 0.167, 0.375, 0.000, 0.000, 0.000, 0.000, 0.000,
+                0.000, 0.000, 0.214]),
+]
+
+
+def _gen_mode_blend(sim, d: np.ndarray, f: float) -> np.ndarray:
+    """把月抽样分布 d 的区域份额**按实测份额校正**（按洋区质量守恒、逐月独立）。默认不调用。
+
+    为什么不是"加一个高斯核": 核会**叠加**在原有场上 ⇒ 残差自己的份额也还在
+    （实测 2 月低纬：真实 47.8%，加核后 **84.6%**，比不改（70.1%）还远）。
+    所以这里改成**按目标份额等比缩放该模式的区域盒**（迭代 3 遍、放大封顶 4×）:
+        λ_k = (1 − f) + f·clip(t_k / p_k, 1/4, 4),   在区域盒内乘 λ_k，再把该洋区归一化回原质量
+      （t_k = 该模式的**实测**占洋区该月份额；p_k = 当前场在盒内的份额）
+    ⇒ f=0 时 λ≡1 ⇒ 逐位不变 ✓；f=1 时盒份额收敛到实测值 ✓
+    ⇒ 未列入的洋区（AL/IO/SI）与"该月无活跃模式"的情形**逐位不变** ✓
+
+    模式的**空间形状**就用密度场自己在该盒内的形状（它本来就是观测拟合的分布），
+    模式提供的是**离散身份 = 区域 + 季节 + 份额**（用户要的"生成种类"）。
+    """
+    ny, nx = int(d.shape[0]), int(d.shape[1])
+    if not GEN_MODES:
+        return d
+    m = max(1, min(12, int(sim['month']))) - 1
+    tot = float(d.sum())
+    if tot <= 0.0:
+        return d
+    out = np.array(d, np.float64, copy=True)
+    lat = ((np.arange(ny) + 0.5) - ny / 2.0)[:, None]
+    lon = ((np.arange(nx) + 0.5) * (360.0 / nx))[None, :]
+    for bn, (bx0, bx1, by0, by1) in GEN_MODE_BASINS.items():
+        bmask = (lat >= by0) & (lat <= by1) & (lon >= bx0) & (lon <= bx1)
+        if not bmask.any():
+            continue
+        acts = []
+        for md in GEN_MODES:
+            if md.get('basin') != bn or float(md['share'][m]) <= 0.0:
+                continue
+            x0, x1, y0, y1 = md['box']
+            bm = (lat >= y0) & (lat <= y1) & (lon >= x0) & (lon <= x1)
+            if bm.any():
+                acts.append((bm, float(md['share'][m])))
+        if not acts:
+            continue
+        bmass0 = float(out[bmask].sum())
+        if bmass0 <= 1e-15:
+            continue
+        for _ in range(3):                       # 迭代：盒互相邻近时也能收敛
+            bmass = float(out[bmask].sum())
+            if bmass <= 1e-15:
+                break
+            for bm, t in acts:
+                p = float(out[bm].sum()) / bmass
+                if p <= 1e-12:
+                    continue
+                lam = (1.0 - f) + f * min(4.0, max(0.25, t / p))
+                if lam != 1.0:
+                    out[bm] *= lam
+            s = float(out[bmask].sum())
+            if s > 1e-15:
+                out[bmask] *= bmass0 / s         # 只在本洋区内重新分配，不加总量
+    np.maximum(out, 0.0, out=out)
+    s = float(out.sum())
+    if s > 0.0 and abs(s - tot) > 1e-9 * tot:
+        out *= tot / s                           # 保月总量（只在真需要时动，避免碰未改区域）
+    return out
+
+
+def _gen_mode_attr(sim, lon: float, lat: float):
+    """给一个生成点定**模式身份**（取"该月份额 × 核密度"最大的那个；都不在核里则 None）。"""
+    m = max(1, min(12, int(sim['month']))) - 1
+    best, bestv = None, 1e-12
+    for md in GEN_MODES:
+        if float(md['share'][m]) <= 0.0:
+            continue
+        x0, x1, y0, y1 = md['box']
+        if not (y0 <= lat <= y1 and (x0 <= lon <= x1 if x0 <= x1 else (lon >= x0 or lon <= x1))):
+            continue
+        dx = abs(((lon - md['lonc'] + 180.0) % 360.0) - 180.0) / max(1.0, float(md['sig_lon']))
+        dy = ((lat - md['latc'] - md['tilt'] * (lon - md['lonc']))
+              / max(1.0, float(md['sig_lat'])))
+        v = float(md['share'][m]) * math.exp(-0.5 * (dx * dx + dy * dy))
+        if v > bestv:
+            best, bestv = md, v
+    return best
+
+
 def classify_genesis(sim, env, lon: float, lat: float) -> dict:
     """按生成时的环境把初生系统归类(用户 2026-09-17 需求 4)。
 
@@ -4219,7 +4700,33 @@ def gen_check(sim) -> None:
     #  `rate = 0.84*1.0*(0.4+random)` 在 random<0.5 时 <1, 会拒掉约 24% 的步 ——
     #  所以"早已饱和无效"这句话**已经过期**, 不要再据此判断 `_GEN_RATE` 无用。)
     # 用户目标: 观测全球 ~200 个扰动/年 ⇒ 6 -> 14(2.33 倍)。
-    for _ in range(_GEN_TRIES):
+    # ── B(S14/t2050): **按月的尝试次数**（`genMonthWeight`，**默认开**）──────────────
+    # `dens_w[month]` 月均 = 1 ⇒ `_tries_eff = _GEN_TRIES * dens_w[month]` 的**期望年总量不变**；
+    # 用**无偏随机取整**（小数部分按概率进位）把浮点次数变成整数次，避免系统偏差。
+    # ⚠ **关闭时（`genMonthWeight=False`）`_frac <= 0` ⇒ 连 `rng()` 都不抽** ⇒ 与旧行为**逐位相同** ✓
+    #
+    # **2026-10-05 由 Lead 的整年 A/B 判定后改为默认开**（4 条 1460 步跑完）：
+    #   · 总量不膨胀：A 均值 **196.1**、B 均值 **199.1** ⇒ 差 **1.5%（噪声内）** ✓
+    #     （149 天窗曾看到 +35%，那是"7–11 月权重和 7.38 vs 平坦 5.00"的**窗口效应**；
+    #      整年权重和 = 12 ⇒ 持平 ⇒ `_GEN_RATE` **不需要重标**）
+    #   · 形状对了：B 臂合并两种子排序 **9 > 8 > 10 > 7 > …** 与 `dens_w` 前四名**完全一致**；
+    #     A 臂排序 7 > 10 > 6 > 9（4 月权重最低却有 18–21 个）⇒ **平的、与权重无关** ✓
+    #   · 南半球未被挤掉：A 31/182、37/142；B 25/168、22/183 ⇒ 都在 **13–26%**
+    #   · **饱和关闭**：4 条全部 **撞上限 0/1460** 步 ⇒ 选项 2 永久关闭 ✓
+    # ⚠ 方法论（Lead 2026-10-05）：**单种子、单个月度样本的"排序"测不出季节形状** ——
+    #   每月只有 20–30 个样本、泊松噪声 ±20%，而权重跨度只有 0.5–2.0 ⇒
+    #   **必须合并多个种子看均值**（一合并前四名立刻对齐）。
+    _mw = bool((sim.get('params') or {}).get('genMonthWeight', True))
+    # §69 **生成模式总旋钮**（默认 0 = 全关 ⇒ 抽样分布逐位不变、且不消耗任何随机数）
+    _mf = float(sim['params'].get('genModeFrac', 0.0))
+    _tries_eff = float(_GEN_TRIES)
+    if _mw and C.get('dens_w') is not None:
+        _tries_eff = float(_GEN_TRIES) * float(C['dens_w'][int(sim['month']) - 1])
+    _n_try = int(_tries_eff)
+    _frac = _tries_eff - _n_try
+    if _frac > 0.0 and rng() < _frac:
+        _n_try += 1
+    for _ in range(_n_try):
         if C['dens'] is not None:
             d = np.array(C['dens'][int(sim['month']) - 1], np.float64)
             # 模态调制: 上采样 5° 的 β 到 1° 再叠加(只在有 β 时)
@@ -4261,6 +4768,16 @@ def gen_check(sim) -> None:
                         _mw = np.repeat(np.repeat(_m, _sy, 0), _sx, 1)[:_ny, :_nx]
                         d = 0.5 * d + 0.5 * _mw
             d = np.maximum(d, 0.0)
+            # ── §69 **生成模式混合**（默认关 ⇒ 逐位不变）──────────────────────────
+            # 为什么: 原来生成位置只来自**一张平滑的月平均密度场** ⇒ 空间上是一整片
+            #   连续分布、没有"几种有特色的模式"（用户 2026-10 原话点名"6–9 月南海季风、
+            #   8 月反向季风槽"）。这里把每个月的抽样分布改成
+            #   "**按实测份额校正各区盒**"（口径与效果见 `_gen_mode_blend` 的 docstring
+            #   与 `gen_mode_check_out.txt`）；逐月独立、按洋区质量守恒。
+            #   ⚠ 第一版写的是"加高斯核"，被自己的实测否掉（2 月低纬 47.8% → 加核 84.6%）。
+            #   `_mf` 在函数开头定义（0 = 全关 ⇒ 逐位不变）。
+            if _mf > 0.0:
+                d = _gen_mode_blend(sim, d, _mf)
             if d.sum() <= 0:
                 break
             flat = d.ravel()
@@ -4339,6 +4856,20 @@ def gen_check(sim) -> None:
             # 的大 RMW/低组织度系统天生就难冲高, 与观测一致。
             try:
                 g = classify_genesis(sim, env, lon, lat)
+                # §69: 记录**生成模式身份**（有区域/季节/份额的离散身份）。
+                # ⚠ **默认只写 `genMode` 标签，不动结构与强度** —— 用户【1.1】的界是
+                #   "本阶段只调路径、不管寿命/强度"，而 `genKind` 会经 `rmw0/org0`
+                #   直接改强度上限。要让模式同时决定初始结构，另开 `genModeStruct=1`
+                #   （默认 0 ⇒ 连这一段都不执行 ⇒ 逐位不变 ✓）。
+                if _mf > 0.0:
+                    _md = _gen_mode_attr(sim, lon, lat)
+                    if _md is not None:
+                        tc['genMode'] = _md['name']
+                        if float(sim['params'].get('genModeStruct', 0.0)) > 0.0:
+                            g = dict(g)
+                            g['kind'] = _md['kind']
+                            g['rmw0'] = _md['rmw0']
+                            g['org0'] = _md['org0']
                 tc['genKind'] = g['kind']
                 tc['rmw'] = clamp(g['rmw0'] * (0.85 + 0.30 * rng()), 8.0, 90.0)
                 tc['core_org'] = clamp(g['org0'] + 0.10 * (rng() - 0.5), 0.05, 1.0)
@@ -4827,18 +5358,25 @@ def wind_at_arr(sim, lon, lat, level: float):
 
 
 def cld_sample(sim, lon: float, lat: float) -> float:
+    # ⚠ 审查 R11-1(2026-10-15): 经度必须**先归一 + 回绕**再采样。
+    #   旧实现直接 ，负经度（ATCF/观测里的 30W、150W）会算出
+    #   x0 为负数、被 clamp 到 0 ⇒ 所有西半球的云场采样都落到 0 经线那一列。
+    #   同文件的  早就为此写过同样的归一（注释里记着这次事故）。
+    lon = (float(lon) - C['LON0']) % 360.0 + C['LON0']
     fx = (lon - C['LON0']) / C['CLDD'] - 0.5
     fy = (lat - C['LAT0']) / C['CLDD'] - 0.5
     x0 = int(math.floor(fx))
     y0 = int(math.floor(fy))
-    x1 = clamp(x0, 0, CLDNX - 2)
+    # 经度方向**回绕**（360 与 0 是同一列），纬度方向夹取（极点外没有格点）
+    x1 = x0 % CLDNX
+    x1b = (x1 + 1) % CLDNX
     y1 = clamp(y0, 0, CLDNY - 2)
     tx = clamp(fx - x0, 0, 1)
     ty = clamp(fy - y0, 0, 1)
     a = sim['cld'][y1 * CLDNX + x1]
-    b = sim['cld'][y1 * CLDNX + x1 + 1]
+    b = sim['cld'][y1 * CLDNX + x1b]
     c = sim['cld'][(y1 + 1) * CLDNX + x1]
-    d = sim['cld'][(y1 + 1) * CLDNX + x1 + 1]
+    d = sim['cld'][(y1 + 1) * CLDNX + x1b]
     return float((a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty)
 
 

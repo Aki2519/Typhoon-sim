@@ -5,7 +5,11 @@ import functools
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+import logging
+
 from .chart_helpers import compute_path_km_in_window
+
+logger = logging.getLogger(__name__)
 
 
 def _ace_eligible(pt: dict) -> bool:
@@ -149,6 +153,18 @@ def calculate_season_stats(
 
     # 登陆次数（从 sim.landfall_records 统计 + 从台风数据直接检测）
     lf_records = getattr(sim, 'landfall_records', [])
+    # 用户 2026-10-12 需求 2：**登陆汇总**（可开关，默认关 ⇒ 与以前逐字一致）
+    try:
+        from ..landfall_merge import merge_landfalls
+        lf_records = merge_landfalls(
+            lf_records,
+            enabled=bool(getattr(sim, 'landfall_merge', False)),
+            mode=str(getattr(sim, 'landfall_merge_mode', 'time')),
+            dw=int(getattr(sim, 'landfall_merge_dw', 0) or 0),
+            dt_h=float(getattr(sim, 'landfall_merge_dt_h', 3.0) or 3.0),
+            dist_deg=float(getattr(sim, 'landfall_merge_dist_deg', 0.2) or 0.2))
+    except Exception:
+        logger.debug('登陆汇总失败，按原始记录统计', exc_info=True)
     for lf in lf_records:
         if lf.get('year') == year and (basin_code is None or lf.get('basin') == basin_code):
             stats['landfall_count'] += 1

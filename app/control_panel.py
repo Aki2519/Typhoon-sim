@@ -18,6 +18,8 @@ from .constants import (
 from .utils import lighten_color, darken_color
 from .constants import CONTROL_PANEL_ROW2_Y_OFFSET
 from .ty_sim_mixins.sim_mode_mixin import SIM_LAYERS
+#: 模块开关（用户 2026-10-14）：功能栏按钮按模块启用情况增删
+from .module_registry import MODULES as _MODULES, is_enabled as _mod_on
 
 
 @dataclass
@@ -95,9 +97,12 @@ class ControlPanel:
                          str(getattr(sim.cfg, 'sim_wind_mode', 'barbs')),
                          bool(getattr(sim.cfg, 'sim_shear_fill', True)),
                          round(getattr(sim, 'sp', 1.0), 1))
+        # ⚠ 模块开关必须进缓存键：否则"启用/停用模块"后按钮不会增删
+        #   （build() 每帧调用但命中缓存就早退），表现为"点了没反应"。
+        _mod_state = tuple((m.mid, _mod_on(sim, m.mid)) for m in _MODULES)
         key = (sim.md, sim.pl, id(sim.play_text),
                bool(sim.md == "edit" and sim.edit_typhoon),
-               sim.map_height, sim.screen_width) + sim_state
+               sim.map_height, sim.screen_width, _mod_state) + sim_state
         if key == self._build_key and self._buttons:
             return
         self._build_key = key
@@ -158,6 +163,24 @@ class ControlPanel:
         self._add(PanelButton("mode", self._x(4),
                                by, self.BUTTON_W, self.BUTTON_H,
                                mode_texts.get(md), mode_color))
+
+        # ── 功能栏【右上角】: 「模块」+「域外风暴」（用户 2026-10-14 / 2026-10-12 需求 1.5）──
+        # 「模块」= 模块系统入口，永远在（它就是模块系统的门）；
+        # 「域外风暴」= 一个**模块**的功能栏按钮 ⇒ 只有该模块启用时才出现。
+        if md != "ocean_edit":
+            _mod_x = self.sim.screen_width - self.BUTTON_W - 15
+            self._add(PanelButton("modules", _mod_x, by, self.BUTTON_W, self.BUTTON_H,
+                                  rt(f_s, "模块", (255, 255, 255)), (70, 110, 160)))
+            if _mod_on(self.sim, "offscreen"):
+                # 与「模块」按钮错开一列（同一个右上角区域，先让位给「模块」）
+                _ob_x = _mod_x - self.BUTTON_W - 5
+                _ob_btn = PanelButton("offscreen", _ob_x, by, self.BUTTON_W, self.BUTTON_H,
+                                      rt(f_s, "域外风暴", (240, 240, 245)), (120, 140, 190))
+                # 与 mode/速度条抢位时自我隐藏（窄窗保护，与其它右对齐按钮同一套语义）
+                _speed_left = self._speed_bar_x
+                if _ob_x < _speed_left + self.SPEED_BAR_W + 10:
+                    _ob_btn.visible = False
+                self._add(_ob_btn)
 
         # 窄窗保护: sim 模式 Row1 按钮超宽时隐藏超出屏幕的按钮
         if md == "sim":
@@ -266,9 +289,14 @@ class ControlPanel:
         max_x = max(15, self.sim.screen_width - self.BUTTON_W - 15)
         script_x = min(script_x, max_x)
         max_paint_x = max(15, self.sim.screen_width - self.BUTTON_W - 15)
+        _paint_yield = False
         if script_x >= max_paint_x - self.BUTTON_W:
             # 空间不足: paint 移出(隐藏), script 回到最右
             script_x = max(15, self.sim.screen_width - self.BUTTON_W - 15)
+            # ⚠ 审查 R7 高: 注释说"paint 移出(隐藏)"，但下面仍按原  建
+            #   「绘画」按钮 ⇒ 与 script 同一 x 完全重叠； 按插入序返回
+            #   第一个命中（script），于是**绘画按钮永远点不到**。这里真的不让它建。
+            _paint_yield = True
         # 轮次 158: 把「单步/骰子」这两个**次要**按钮让掉 —— 它们若会压到 script
         # 就自己隐藏(键盘 `.` / `;` 仍然可用)。**必须在 script/paint 定稿之后判**,
         # 且**不能**参与上面的 left_edge 计算, 否则窄窗下会把「绘画」挤没。
@@ -276,8 +304,10 @@ class ControlPanel:
             for _b in row2_btns[_core_n:]:
                 if _b.x + _b.w + 10 > script_x:
                     _b.visible = False
-        # script 按钮
-        if row2_btns:
+        # script 按钮（模块 scriptviz；停用 ⇒ 整个入口不出现）
+        if not _mod_on(self.sim, "scriptviz"):
+            pass                               # 模块停用 ⇒ 不建 script 按钮
+        elif row2_btns:
             # ⚠ 判"重不重叠"只能跟**可见的**左侧按钮比。上面刚把 sim_step/sim_dice
             #   判成隐藏(`visible=False`), 它们就不该再挡住 script ——
             #   实测 800px: 那两个已隐藏, script 放在 615..695 明明不碰任何可见按钮
@@ -307,15 +337,18 @@ class ControlPanel:
                 PanelButton("script", script_x, sby,
                             self.BUTTON_W, self.BUTTON_H,
                             self.sim.script_text, BUTTON_BORDER))
-        # 绘画按钮: 功能栏最右缘
-        paint_btn = PanelButton("paint", paint_x, sby,
-                                self.BUTTON_W, self.BUTTON_H,
-                                self.sim.paint_text, (200, 120, 80))
-        if paint_x < 15 or paint_x + self.BUTTON_W > self.sim.screen_width - 5:
-            paint_btn.visible = False
-        row2_btns.append(paint_btn)
+        # 绘画按钮: 功能栏最右缘（模块 paint；停用 ⇒ 按钮不出现）
+        if _mod_on(self.sim, "paint") and not _paint_yield:
+            paint_btn = PanelButton("paint", paint_x, sby,
+                                    self.BUTTON_W, self.BUTTON_H,
+                                    self.sim.paint_text, (200, 120, 80))
+            if paint_x < 15 or paint_x + self.BUTTON_W > self.sim.screen_width - 5:
+                paint_btn.visible = False
+            row2_btns.append(paint_btn)
 
         for b in row2_btns:
+            if b is None:                      # script 模块停用时占位 None，跳过
+                continue
             self._add(b)
             self._row2_btns.append(b)
 

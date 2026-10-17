@@ -243,7 +243,7 @@ def classify(vmax, sst=None, lat=None, shear=None, land=0.0, age=0.0,
              named=False, weak=0.0, front=False, disturb=False,
              lon=None, motion=None,
              pmin=None, rh=None, u850=None, retropical=False, di_minus=None,
-             td_fresh=False, phase=None):
+             td_fresh=False, phase=None, structure=None):
     """把当前状态判成一个 ATCF 阶段码。**纯函数**: 同样的输入永远同样的输出。
 
     参数
@@ -383,7 +383,31 @@ def classify(vmax, sst=None, lat=None, shear=None, land=0.0, age=0.0,
 
     # 判据顺序就是**相态的优先级**: 温带变性 > 季风低压 > 副热带 > 热带 > 残余/扰动。
     # 顺序错了会出现"40kt 的温带气旋被判成 TS"这类错误 (vmax 先命中热带档)。
-    if ex_ok:
+    # ── 用户裁定(2026-10-09): 转 EX/SS/SD **听物理证据**, 不用纬度约束 ──
+    # 依据本文件自己的教训(见上面 `warmth` 饱和那段注释): "代理量饱和时应该听
+    # 证据, 而不是听饱和的代理"。`structure` = 内核变性分支给出的 cuClass
+    # ('TC'/'SD'/'SS'/'EX')。物理已判为变性/副热带时, 不再要求
+    # `|lat| >= EX_LAT` 或 `in_subtropic` —— 那两道纬度门正是把 2552 步
+    # 已经发生的 EX(及 824 步 SS)全部挡回热带档、再被 LO 阶梯吃掉的墙。
+    # 用户原话: "转EX/SS/SD应该算一下暖心, 而不是用纬度与风速约束"。
+    _st = str(structure or '').upper()
+    if _st in ('EX', 'SS'):
+        # **证据优先也适用于下游**: 既然内核物理已判变性/副热带, 就不能再让
+        # 饱和的 `warmth` 代理把 `_legal_step` / 转移阶梯挡住 —— 那些地方也在
+        # 看 `warm_core`(实测: 只改 natural 时 EX 出来了 2421 步, 但 cuClass
+        # 里的 935 步 SS 仍被挡住 ⇒ 说明还有第二道门, 就是这里)。
+        warm_core = False
+        cold_core = True
+        weak_warm_core = False
+        reasons.append('结构证据 %s → 强制 非暖心(下游 warm_core 门一并放行)' % _st)
+    if _st == 'EX':
+        natural = 'EX'
+        reasons.append('内核物理判为温带变性(cuClass=EX) → EX **不看纬度/风速**')
+    elif _st == 'SS':
+        # SS 与 SD 之间按风速分(与 TS/TD 同口径)
+        natural = 'SS' if v >= KT_TS else 'SD'
+        reasons.append('内核物理判为副热带(cuClass=SS) + %.0fkt → %s' % (v, natural))
+    elif ex_ok:
         natural = 'EX'
     elif in_md and 15.0 <= v <= CAP_KT['MD'] and (not warm_core) and age_v >= 12.0:
         natural = 'MD'

@@ -223,8 +223,13 @@ def inverse(name: str, x: float, y: float, ctx: Dict) -> Tuple[float, float]:
     sig = math.atan2(X, Y)
     lon = ctx['lon_c'] + math.degrees(sig) / ctx['n']
     rho = max(rho, 1e-9)
-    ratio = ctx['rho_k'] / rho
-    lat = math.degrees(2.0 * (math.atan(ratio ** (1.0 / ctx['n'])) - math.pi / 4.0))
+    # ⚠ 审查 R5-4(2026-10-15): 正向是 rho = rho_k * (t(lat)/t(lat_c))**(-n)，
+    #   反解必须把 **t(lat_c)** 乘回来：
+    #       t(lat) = t(lat_c) * (rho_k/rho)**(1/n)
+    #   旧实现只算 (rho_k/rho)**(1/n)，漏了 t(lat_c) ⇒ 只有 lat_c=0 时碰巧对
+    #   （t(0)=1）。实测 lat_c=40 时 (130,25) 反解成 (130,-17.59)，错 42.6°。
+    _t_ = _t(ctx['lat_c']) * (ctx['rho_k'] / rho) ** (1.0 / ctx['n'])
+    lat = math.degrees(2.0 * (math.atan(_t_) - math.pi / 4.0))
     return (lon + 360.0) % 360.0, lat
 
 
@@ -249,8 +254,8 @@ def inverse_arrays(name: str, xs, ys, ctx: Dict):
     rho = np.maximum(np.hypot(X, Y), 1e-9)
     sig = np.arctan2(X, Y)
     lon = ctx['lon_c'] + np.degrees(sig) / ctx['n']
-    ratio = ctx['rho_k'] / rho
-    lat = np.degrees(2.0 * (np.arctan(ratio ** (1.0 / ctx['n'])) - math.pi / 4.0))
+    _t_ = _t(ctx['lat_c']) * (ctx['rho_k'] / rho) ** (1.0 / ctx['n'])
+    lat = np.degrees(2.0 * (np.arctan(_t_) - math.pi / 4.0))
     return (lon + 360.0) % 360.0, lat
 
 

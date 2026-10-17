@@ -133,7 +133,22 @@ def _surface_alpha_bytes(surface: 'pygame.Surface') -> bytes:
     return pygame.image.tobytes(surface, 'RGBA')[3::4]
 
 
+#: 缩放缓动的**时间常数**（秒）。`1 - exp(-dt/tau)` ⇒ 约 3*tau 收敛。
+#: 与两个自评工具、`地图面积` 用同一个值，三处手感一致。
+#:
+#: ⚠ 必须按**时间**逼近，不能"每帧固定比例"：后者与帧率绑定，
+#:   fps_cap 一改（本工程可配）或某帧卡顿，动画时长就跟着变。
+ZOOM_TAU = 0.09
+
+
 class MapView:
+    #: 最大缩放(屏幕像素 / 底图像素)。**唯一来源** —— 原来 8.0 散在
+    #: `resize`/`set_zoom_target`/`zoom_at`/`set_view_region`/`set_view_corner`/
+    #: `target_view_for_region` 六处, 改限位得改六次。钳位一律写成
+    #: `max(self.min_scale, min(x, MapView.MAX_SCALE))`: 小图时 min_scale 可能
+    #: 大于本值(如 200px 宽的图在 2560 屏上 = 12.8), 此时下限优先、地图仍铺满。
+    MAX_SCALE = 8.0
+
     def __init__(self, img_path, lon_min, lon_max, lat_min, lat_max, screen_width, screen_height):
         self.original_img = pygame.image.load(img_path).convert()
         self.img_w, self.img_h = self.original_img.get_size()
@@ -147,10 +162,19 @@ class MapView:
         self._deg_per_px_y = self.height_deg / self.img_h
         self.screen_width = screen_width
         self.screen_height = screen_height
+        #: 逐级减半的底图副本，[0] 是原图。搬自 地图面积：
+        #: ⚠ 必须在 screen_width/screen_height **之后**建 —— `_build_pyramid` 的
+        #:   终止条件要用它们（我第一版建在之前，直接 AttributeError）。
+        #: 内存：10800 的底图建到 675 ⇒ 额外约 78 MB（原图另算）。
+        self._pyramid = self._build_pyramid()
         self.view_x = self.view_y = 0.0
         self.scale = 1.0
         # cover 模式：最小缩放取纵横比较大者，地图始终铺满屏幕（上下/左右不露灰边）
         self.min_scale = max(screen_width / self.img_w, screen_height / self.img_h)
+        #: 缩放缓动：目标 scale 与锚点（屏幕坐标）。None = 不动。
+        #: 与两个自评工具、`地图面积` 同一套（`set_zoom_target` + `step_zoom`）。
+        self._zoom_target = None
+        self._zoom_anchor = (0.0, 0.0)
         self._cached_scale = -1.0
         self._cached_sw = -1
         self._cached_sh = -1
@@ -158,6 +182,40 @@ class MapView:
         self._cached_offset = (0, 0)
         self._cached_extras = (0.0, 0.0)
         self._bottom_align = False
+
+    def _build_pyramid(self):
+        """逐级减半的底图副本，[0] 是原图（最细）。照抄 地图面积。"""
+        #: `TSIM_MAP_PYRAMID=0` 可降级为单层（不给原图外任何塔层）。
+        #: 为什么需要：塔给 10800 底图额外约 78MB，而换图构造新 MapView 时
+        #: 新旧的"图+塔"会四份共存 —— 本机实测在 tests/test_pan_reuse.py 里
+        #: 直接 `pygame.error: Out of memory`；把塔换成单层就全过。
+        #: 内存紧或排查 OOM 时设这个环境变量。
+        if os.environ.get("TSIM_MAP_PYRAMID", "1") in ("0", "false", "False"):
+            return [self.original_img]
+        levels = [self.original_img]
+        img = self.original_img
+        while True:
+            w, h = img.get_size()
+            # ⚠ 必须有 `w <= 1` 兜底：screen_width/height 同时 <= 0 时
+            #   原来的条件永不成立 ⇒ 死循环。
+            if (w <= 1 or h <= 1
+                    or w <= self.screen_width or h <= self.screen_height):
+                break
+            w, h = max(1, w // 2), max(1, h // 2)
+            img = pygame.transform.smoothscale(img, (w, h))
+            levels.append(img)
+        return levels
+
+    def _pick_level(self, scale):
+        """挑够用且最省的一层：宽度 >= scale * img_w 的**最粗**那一层。
+
+        判据推导见本文件顶部（结论：lw >= scale * img_w，不是倒数）。
+        """
+        need = scale * self.img_w
+        for lv in reversed(self._pyramid):      # 由粗到细
+            if lv.get_width() >= need:
+                return lv
+        return self._pyramid[0]                 # 最深：用最细的原图
 
     @property
     def _max_view_y(self):
@@ -201,6 +259,16 @@ class MapView:
         self._cached_sh = -1
         self._pan_cache_key = None
         self._win_cache_key = None
+        # ⚠ 屏幕尺寸变了 ⇒ min_scale 变了 ⇒ 缓动目标必须重夹。
+        #   否则 target 仍是旧 min_scale 下的值，step_zoom 会把 scale
+        #   收敛到新 min_scale 以下 ⇒ `vh*scale < screen_h` = 露灰边
+        #   （正是本方法文档声称修好的那个 bug）。
+        try:
+            if self._zoom_target is not None:
+                self._zoom_target = max(self.min_scale,
+                                        min(self._zoom_target, MapView.MAX_SCALE))
+        except Exception:
+            pass
 
     def geo_to_map(self, lon, lat):
         """视图无关的"地图空间"坐标(缩放后像素): screen = map - view_offset()。
@@ -280,7 +348,7 @@ class MapView:
         """算出"恰好装下该经纬范围"的目标视野 `(scale, view_x, view_y)`, **不改当前视图**。
 
         与 `set_view_region` **同一套公式**(取两轴较紧的那个 fit, 夹在
-        `min_scale .. 8.0`; 零/负跨度时保持当前 scale), 但只**算**不写 ——
+        `min_scale .. MAX_SCALE`; 零/负跨度时保持当前 scale), 但只**算**不写 ——
         供收尾做**平滑推镜**(逐帧把位置与 scale 插值过去)使用。
         `set_view_region` 本身一个字没改(路径缓存/地图空间的口径不受影响)。
         """
@@ -293,7 +361,8 @@ class MapView:
         if lon_span > 0 and lat_span > 0:
             scale = max(self.min_scale, min(
                 self.screen_width / (lon_span * self._scale_x),
-                self.screen_height / (lat_span * self._scale_y), 8.0))
+                self.screen_height / (lat_span * self._scale_y),
+                MapView.MAX_SCALE))
         else:
             scale = self.scale
         view_x = ((clon - self.lon_min) * self._scale_x
@@ -324,11 +393,53 @@ class MapView:
         # 若对取模后的差再取"最短方向", 单次位移 ≥ 半个世界时符号会翻转(拖拽反向跳)
         return (new_vx - old_vx) * self.scale, (self.view_y - old_vy) * self.scale
 
+    def set_zoom_target(self, factor, mx, my):
+        """滚轮一步：只记**目标**缩放，由 `step_zoom` 逐帧逼近（不直接跳）。
+
+        直接赋值会让滚轮一格 = 画面跳一格；设目标值后指数逼近，台阶变斜坡。
+        """
+        ox, oy = self._draw_offset()
+        self._zoom_anchor = (float(mx) - ox, float(my) - oy)
+        # ⚠ 基数必须取**已有的目标值**（若有），不能取 `self.scale`。
+        #   缓动还没收敛时 scale 是滞后的：连续滚轮每次都拿滞后的当前值复合，
+        #   收敛成等比级数。实测 10 次 x1.1、每帧一次 -> 只放大 1.2791
+        #   （1.1^10 = 2.5937，比值 0.493）—— 滚轮手感直接减半，
+        #   而且与"同 10 格并到一帧"（2.5937）不一致。
+        _base = self._zoom_target if self._zoom_target is not None else self.scale
+        self._zoom_target = max(self.min_scale,
+                                min(_base * float(factor), MapView.MAX_SCALE))
+
+    def step_zoom(self, dt_s):
+        """缩放动画走一帧。返回 True 表示**还在动**。"""
+        tgt = self._zoom_target
+        if tgt is None:
+            return False
+        import math as _m
+        mx, my = self._zoom_anchor
+        old = self.scale
+        f = 1.0 - _m.exp(-max(0.0, float(dt_s)) / ZOOM_TAU)
+        self.scale += (tgt - self.scale) * f
+        # 判停用**屏幕像素**：指数逼近永远到不了终点，用很紧的相对阈值会白跑
+        # 几百毫秒，而那期间的重绘谁也看不出来。剩余误差 < 0.5px 就吸附收尾。
+        if abs(tgt - self.scale) / max(1e-9, self.scale) \
+                * max(self.screen_width, self.screen_height) < 0.5:
+            self.scale = tgt
+            self._zoom_target = None
+        # 锚点放回同一屏幕位置
+        self.view_x = (self.view_x + mx / old) - mx / self.scale
+        self.view_y = (self.view_y + my / old) - my / self.scale
+        self.view_x %= self.img_w
+        self._clamp_view_y()
+        return self._zoom_target is not None
+
+    def zooming(self):
+        return self._zoom_target is not None
+
     def zoom_at(self, factor, mx, my):
         ox, oy = self._draw_offset()
         mx, my = mx - ox, my - oy
         old = self.scale
-        self.scale = max(self.min_scale, min(self.scale * factor, 8.0))
+        self.scale = max(self.min_scale, min(self.scale * factor, MapView.MAX_SCALE))
         self.view_x = (self.view_x + mx / old) - mx / self.scale
         self.view_y = (self.view_y + my / old) - my / self.scale
         self.view_x %= self.img_w
@@ -360,7 +471,8 @@ class MapView:
             return
         self.scale = max(self.min_scale, min(
             self.screen_width / (lon_span * self._scale_x),
-            self.screen_height / (lat_span * self._scale_y), 8.0))
+            self.screen_height / (lat_span * self._scale_y),
+            MapView.MAX_SCALE))
         self.view_x = ((clon - self.lon_min) * self._scale_x
                        - self.screen_width / (2.0 * self.scale)) % self.img_w
         self.view_y = (self.lat_max - clat) * self._scale_y \
@@ -372,7 +484,7 @@ class MapView:
         if span_lon <= 0:
             return
         scale_x = self.screen_width / (span_lon * self._scale_x)
-        self.scale = max(self.min_scale, min(scale_x, 8.0))
+        self.scale = max(self.min_scale, min(scale_x, MapView.MAX_SCALE))
         px_bl = (lon_bl - self.lon_min) * self._scale_x
         self.view_x = px_bl % self.img_w
         py_bl = (self.lat_max - lat_bl) * self._scale_y
@@ -399,21 +511,40 @@ class MapView:
 
     def _pan_cache(self):
         """全图尺寸可控时缓存整图渲染；纯平移只按偏移 blit，scale 变化才重建。
-        key 含精确 scale：脚本逐帧微缩放时避免旧缩放内容与新偏移错位（B14）。"""
+
+        两条**性能/安全**约束（2026-10-02 轮2 修）:
+          1. 缓动进行中(`zooming()` 为真)直接放弃缓存 —— scale 每帧都在变，含
+             scale 的 key 必然每帧失配，本函数就退化成"每帧重建整幅图 + 每帧
+             新建 Surface"(全图 ≤2×屏时 5076×2538 ≈ 51MB/帧)。交回
+             `_render_mip_window` 逐帧直绘，收敛后一次性建缓存即可。
+          2. key 里的 scale 用 3 位小数(粗粒度)，但**额外**要求与建缓存时的
+             scale 偏差在全图宽度上 < 0.5px 才复用 —— 保住 B14("脚本逐帧微缩放
+             时旧缩放内容不能与新偏移错位")，同时把重建频率从每帧降到
+             "漂移累计 0.5px 一次"。"""
+        if self.zooming():
+            return None
         w = int(math.ceil(self.img_w * self.scale))
         h = int(math.ceil(self.img_h * self.scale))
         if w > self.screen_width * 2 or h > self.screen_height * 2:
             return None
-        key = (self.scale, self.screen_width, self.screen_height)
-        if getattr(self, '_pan_cache_key', None) != key:
+        key = (round(self.scale, 3), self.screen_width, self.screen_height)
+        _built = getattr(self, '_pan_built_scale', None)
+        if (_built is None
+                or getattr(self, '_pan_cache_key', None) != key
+                or abs(_built - self.scale) * self.img_w > 0.5):
             surf = pygame.Surface((w, h))
             old_vx, old_vy = self.view_x, self.view_y
-            self.view_x = 0.0
-            self.view_y = 0.0
-            self._render_mip_window(surf, surf.get_rect(), 0, 0)
-            self.view_x, self.view_y = old_vx, old_vy
+            try:
+                self.view_x = 0.0
+                self.view_y = 0.0
+                self._render_mip_window(surf, surf.get_rect(), 0, 0)
+            finally:
+                # ⚠ 必须 finally: 渲染抛异常(如 OOM)时若把 view 留在 0, 视图会
+                #   永久跳到左上角, 且 key 没更新 ⇒ 每帧重试重抛。
+                self.view_x, self.view_y = old_vx, old_vy
             self._pan_cache_surf = surf
             self._pan_cache_key = key
+            self._pan_built_scale = self.scale
         return self._pan_cache_surf
 
     _PAN_WINDOW_MARGIN = 512   # 窗口缓存四周留出的平移余量(屏幕 px)
@@ -425,6 +556,12 @@ class MapView:
         60fps 下会吃掉四分之一帧预算; 窗口缓存把重建摊到每 ~512px 平移一次。
         跨 0°/360° 缝或余量不足的窗口直接放弃缓存(交回逐帧缩放), 避免拼接取整误差。"""
         sw, sh = self.screen_width, self.screen_height
+        # ⚠ 审查 R1(2026-10-15): 缩放**缓动**期间每帧 scale 都在变 ⇒ key 每帧不同、
+        #   每帧新建 (cw×ch) 大面（(sw+1024)(sh+1024) 量级）。 早有这道
+        #    守卫，窗口缓存漏了。缓动中直接退回逐帧缩放
+        #   ()，收尾后自动恢复缓存。
+        if self.zooming():
+            return None
         # 缓存按 ox=oy=0 渲染: 若地图未能铺满屏幕(ox/oy 非零)则放弃缓存,
         # 避免缓存与屏幕偏移叠加错位
         if self._draw_offset() != (0, 0):
@@ -438,6 +575,12 @@ class MapView:
             ddy = self.view_y - prev[1]
             if abs(ddx) * self.scale > 120.0 or abs(ddy) * self.scale > 120.0:
                 return None
+        # 缩放缓动中同 `_pan_cache`: scale 每帧都变 ⇒ 窗口 key 必失配, 每帧新建
+        # 一块 (sw+1024)×(sh+1024) 的 Surface(2560×1540 屏约 36MB/帧)。
+        # 缓动期交回 `_render_mip_window` 逐帧直绘, 收敛后按当前 scale 重建一次。
+        # (`_win_prev_view` 已在上方更新, 收敛后不会因 prev 陈旧而多丢一帧)
+        if self.zooming():
+            return None
         map_w = int(math.ceil(self.img_w * self.scale))
         map_h = int(math.ceil(self.img_h * self.scale))
         cw = min(sw + 2 * self._PAN_WINDOW_MARGIN, map_w)
@@ -477,33 +620,76 @@ class MapView:
             self._win_cache_key = key
         return self._win_cache_surf, vx0, vy0
 
+    def _pick_scaler(self, img):
+        """给该层挑缩放函数: 明显下采样时用 smoothscale, 否则保持最近邻。
+
+        判据 `_pick_level` 保证 src/dest ∈ [1, 2): 换层点处比值从 1.0 直接跳到
+        2.0, 而 `pygame.transform.scale` 是**最近邻** —— 2:1 下采样会把海岸线
+        打成锯齿并在缩放中闪。比值 >1.25 交给 smoothscale(双线性), 放大/1:1
+        仍走 scale, 视觉基线与旧实现一致。
+        """
+        ratio = (img.get_width() / float(self.img_w)) / self.scale
+        return (pygame.transform.smoothscale if ratio > 1.25
+                else pygame.transform.scale)
+
+    def _blit_map_segments(self, screen, dest_rect, ox, oy, vw, vh, sx, sy,
+                           img, f, scaler, tag):
+        """把世界窗口 `[sx, sx+vw)` 按该层像素密度贴进 dest_rect。返回成功段数。
+
+        跨 0°/360° 缝时拆两段(缝右侧 + 缝左侧副本)。**任何一段失败都不许静默**:
+        记 warning, 并**无论成败都推进 x_off** —— 否则第二段会贴到第一段该在的
+        位置上(屏左侧显示右侧内容), 而旧实现的 `except ValueError: pass`
+        正是这样既吞异常又让相位错位的。
+        """
+        rw = self.img_w - sx
+        segs = ([(sx, min(rw, vw))] if rw >= vw else [(sx, rw), (0, vw - rw)])
+        x_off = 0
+        ok = 0
+        for seg_x, seg_w in segs:
+            if seg_w <= 0:
+                continue
+            dw = max(1, int(math.ceil(seg_w * self.scale)))
+            dh = max(1, int(math.ceil(vh * self.scale)))
+            rect = pygame.Rect(int(seg_x * f), int(sy * f),
+                               max(1, int(math.ceil(seg_w * f))),
+                               max(1, int(math.ceil(vh * f))))
+            rect = rect.clip(img.get_rect())
+            try:
+                if rect.width <= 0 or rect.height <= 0:
+                    raise ValueError('empty clip rect %s' % (tuple(rect),))
+                screen.blit(scaler(img.subsurface(rect), (dw, dh)),
+                            (dest_rect.left + ox + x_off, dest_rect.top + oy))
+                ok += 1
+            except (ValueError, pygame.error) as ex:
+                logger.warning('%s 地图分段失败(跳过该段): scale=%.4f rect=%s '
+                               'dst=(%d,%d) %s',
+                               tag, self.scale, tuple(rect), dw, dh, ex)
+            x_off += dw          # 成败都推进: 保住跨缝第二段的相位
+        return ok
+
     def _render_mip_window(self, screen, dest_rect, ox=None, oy=None):
         vw = min(dest_rect.width / self.scale, self.img_w)
         vh = min(dest_rect.height / self.scale, self.img_h)
         sx, sy = self.view_x % self.img_w, self._src_y(vh)
         if ox is None or oy is None:
             ox, oy = self._draw_offset()
-        img = self.original_img
-        rw = self.img_w - sx
-
-        x_off = 0
-        for seg_x, seg_w in ([(sx, min(rw, vw))] if rw >= vw
-                             else [(sx, rw), (0, vw - rw)]):
-            if seg_w <= 0:
-                continue
-            rect = pygame.Rect(int(seg_x), int(sy),
-                                int(math.ceil(seg_w)), int(math.ceil(vh)))
-            rect = rect.clip(img.get_rect())
-            if rect.width <= 0 or rect.height <= 0:
-                continue
-            try:
-                scaled = pygame.transform.scale(img.subsurface(rect),
-                    (max(1, int(math.ceil(seg_w * self.scale))),
-                     max(1, int(math.ceil(vh * self.scale)))))
-                screen.blit(scaled, (dest_rect.left + ox + x_off, dest_rect.top + oy))
-                x_off += scaled.get_width()
-            except ValueError:
-                pass
+        # 搬自 地图面积：按需要的像素密度挑金字塔层。
+        # 原来这里直接用 self.original_img（最细那层），缩小时等于每帧
+        # 重采样全分辨率数据。挑层之后源像素量与屏幕需求匹配，不再浪费。
+        img = self._pick_level(self.scale)
+        #: 世界像素 -> 该层像素
+        f = img.get_width() / float(self.img_w)
+        if self._blit_map_segments(screen, dest_rect, ox, oy, vw, vh, sx, sy,
+                                   img, f, self._pick_scaler(img), '金字塔层'):
+            return
+        if img is self.original_img:
+            return              # 原图都画不出来: 上面已记 warning, 不重复刷屏
+        # 整帧都失败(该层不可用/内存不足): 回退原图直绘**一次**, 别让整块地图黑掉
+        logger.warning('地图金字塔层整帧失败, 回退原图直绘一次: scale=%.4f',
+                       self.scale)
+        self._blit_map_segments(screen, dest_rect, ox, oy, vw, vh, sx, sy,
+                                self.original_img, 1.0,
+                                pygame.transform.smoothscale, '原图回退')
 
     def draw(self, screen, dest_rect=None):
         if dest_rect is None:
@@ -581,6 +767,16 @@ class MapManager:
 
     def _init_map_view(self):
         path = self.cmp if self.cmp and os.path.exists(self.cmp) else DEFAULT_MAP
+        # ⚠ 换图前先**断开旧 view 的引用**再构造新的。
+        #   否则 `self.map_view = MapView(...)` 右侧会先完整构造（含建金字塔），
+        #   旧 view 要到赋值之后才失引用 ⇒ 新旧的"底图+金字塔"**四份共存**，
+        #   换图峰值翻倍。实测（rev 审查，tests/test_pan_reuse.py 真图 10800x5400）：
+        #   本机可用 1.55GB 时三次运行 7failed/1passed、3failed/5passed、8passed，
+        #   失败是 `pygame.error: Out of memory` @ :146；
+        #   **只把 _build_pyramid 降成单层、其余一字不改 → 8 passed 两次**。
+        _old_map_view = getattr(self, "map_view", None)
+        self.map_view = None
+        del _old_map_view
         self.map_view = MapView(path, 0.0, 360.0, -90.0, 90.0,
                                 self.sim.screen_width, self.sim.map_height)
         self._fit_view()
@@ -710,6 +906,12 @@ class MapManager:
             # 掩码懒加载：标记 lazy, 由 _ensure_land_mask 首次 is_land 时重建
             self._land_lazy = True
             self._land_pending = False
+            # ⚠ 审查 R1(2026-10-15): 视图变了必须让掩码**失效**。
+            #   只置 lazy 而不清  时， 会因
+            #   "已非 None" 立刻 return ⇒ 掩码永远停在首次构建的那一帧视图，
+            #   缩放/拖动之后登陆判定仍按旧视图取样（海岸线错位、登陆点漂移）。
+            self._land_alpha_bytes = None
+            self._land_w = 0
         w, h = self.sim.screen_width, self.sim.map_height
         if (self._cached_map_render is None
                 or self._cached_map_render.get_size() != (w, h)):

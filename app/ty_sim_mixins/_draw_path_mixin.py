@@ -555,6 +555,13 @@ class TySimDrawPathMixin:
         # 修法: 开关开着却没有平滑数据时**拒绝走平移捷径**, 落到下面全量重投影 + 重建样条。
         if getattr(self, 'smooth_path', False) and len(getattr(v, 'screen_points', ()) or ()) >= 2                 and not v.smooth_map_points and not v.smooth_screen_points:
             return False
+        # ⚠ 审查(2026-10-13) 高#1: 捷径在 dx==dy==0 时**无条件**把 _sp_ver 标成最新，
+        #   而"点被增删过"只会体现在 len(screen_points) != len(ty.pts) 上；
+        #   一旦长度失配又恰好平移为 0，就会**永久**走捷径、每帧早退，
+        #   下游 `for i in range(cur_idx)` 与 `screen_points[i]` 取到错位坐标。
+        #   长度对不上 ⇒ 拒绝捷径，落到下面全量重投影。
+        if len(getattr(v, 'screen_points', ()) or ()) != len(getattr(ty, 'pts', ()) or ()):
+            return False
         if dx == 0 and dy == 0:
             v._sp_ver = getattr(self, '_sp_version', 0)
             return True
@@ -741,8 +748,23 @@ class TySimDrawPathMixin:
                 ty, screen_points, highlight, radius, point_radius_factor,
                 max_seg, cur_idx, n_pts)
 
-        # ── 切到"地图空间"(视图无关): 平移只改 blit 位置, 缓存面不重建 ──
+        # ── 便宜指纹：完全不碰 O(N) 换算就能判断"与上一帧一字不差" ──
+        # 审查 R3 高#2(2026-10-15): 缓存**命中**时下面仍会每帧重建整份
+        # map-space 点表 + smooth 表 + xs/ys 两份 list（207 台风规模下是
+        # 10^5~10^6 次/帧）。先比指纹，命中就直接返回上次的面。
+        # 约束：任何会影响绘制结果的输入都必须进指纹。
         voff = self._view_offset()
+        _fp = (id(ty.pts), len(screen_points),
+               screen_points[0] if screen_points else None,
+               screen_points[-1] if screen_points else None,
+               getattr(ty.v, '_sp_ver', -1), highlight, bool(self.smooth_path),
+               voff, radius, point_radius_factor, max_seg, cur_idx)
+        if (getattr(ty, '_path_fp', None) == _fp
+                and getattr(ty, '_path_cache_full', None) is not None):
+            return (ty._path_cache_full, ty._path_cache_traversed,
+                    getattr(ty, '_path_cache_out_blit',
+                            ty._path_cache_blit))
+        # ── 切到"地图空间"(视图无关): 平移只改 blit 位置, 缓存面不重建 ──
         screen_points = self._map_space_points(ty, screen_points, voff)
         smooth_map = self._map_space_smooth(ty, voff)
         key = self._make_path_cache_key(ty, screen_points, highlight)
@@ -787,6 +809,8 @@ class TySimDrawPathMixin:
                 ty._last_rendered_ci = cur_idx
                 ty._path_cache_blit = (0, 0)
                 ty._path_cache_origin = (0, 0)
+                ty._path_fp = _fp
+                ty._path_cache_out_blit = (0, 0)
                 ty._path_cache_full = pygame.Surface((1, 1), pygame.SRCALPHA)
                 ty._path_cache_traversed = pygame.Surface((1, 1), pygame.SRCALPHA)
                 return ty._path_cache_full, ty._path_cache_traversed, (0, 0)
@@ -942,8 +966,13 @@ class TySimDrawPathMixin:
             ty._last_rendered_ci = cur_idx
 
         bx, by = getattr(ty, '_path_cache_blit', (0, 0))
+        # 记下本帧的指纹与最终 blit 偏移：下一帧若一字不差 ⇒ 顶部早退，省掉
+        # map-space 点表 / smooth 表 / xs,ys 两份 list 的 O(N) 重建。
+        ty._path_fp = _fp
+        ty._path_cache_blit = (bx, by)
+        ty._path_cache_out_blit = (bx - voff[0], by - voff[1])
         return (ty._path_cache_full, ty._path_cache_traversed,
-                (bx - voff[0], by - voff[1]))
+                ty._path_cache_out_blit)
 
     _DRAG_SURF_MAX = 8192   # 拖拽 bbox Surface 单边上限，超出则裁剪到可视区附近
 
@@ -1442,13 +1471,27 @@ class TySimDrawPathMixin:
         surface.blit(grid, (px - R, py - R))
 
     def _get_precomputed_landfalls(self, ty) -> list:
-        """预计算整条路径的登陆点（陆地掩码地理采样，视图无关）。"""
+        """预计算整条路径的登陆点（陆地掩码地理采样，视图无关）。
+
+        ⚠ 2026-10-12 用户: "登陆汇总不起作用 … 显示一大堆 landfall"。
+        根因: 这份记录**只按陆地掩码的 False→True 跳变**生成 —— 一个系统贴着破碎海岸
+        （日本、菲律宾那种）来回上下陆会生成**一大堆**登陆点；而"登陆汇总"当时只接在
+        `season_stats` 的统计上，**没有接到这里** ⇒ 地图上的标记与 "Landfall xkt"
+        标注照样一大堆。现在这里也走同一个 `merge_landfalls`。
+        """
         pts = ty.pts
         if not pts:
             return []
+        merge_on = bool(getattr(self, 'landfall_merge', False))
+        merge_sig = (merge_on,
+                     str(getattr(self, 'landfall_merge_mode', 'time')),
+                     int(getattr(self, 'landfall_merge_dw', 0) or 0),
+                     float(getattr(self, 'landfall_merge_dt_h', 3.0) or 3.0),
+                     float(getattr(self, 'landfall_merge_dist_deg', 0.2) or 0.2))
         # 键含首末报点内容: 只含 id(pts) 时列表被替换后 id 复用会命中陈旧记录
+        # ⚠ 汇总设置必须进键: 否则拨开关/改参数后仍命中旧记录（"看着像没生效"）
         key = (len(pts), pts[0].get('t'), pts[0].get('la'), pts[0].get('lo'),
-               pts[-1].get('t'), pts[-1].get('la'), pts[-1].get('lo'))
+               pts[-1].get('t'), pts[-1].get('la'), pts[-1].get('lo'), merge_sig)
         cached = getattr(ty, '_cached_landfalls', None)
         if cached is not None and cached[0] == key:
             return cached[1]
@@ -1473,10 +1516,37 @@ class TySimDrawPathMixin:
                 lo = p0['lo'] + dlo * t
                 land = mm.is_land_at_geo(la, lo)
                 if prev_land is False and land and name:
-                    recs.append({'la': la, 'lo': lo, 'png': name, 'seg': i, 't': t})
+                    recs.append({'la': la, 'lo': lo, 'png': name, 'seg': i, 't': t,
+                                 'wind': int(p0.get('w', 0) or 0)})
                 prev_land = land
+        if merge_on and recs:
+            recs = self._merge_landfall_recs(ty, recs, merge_sig)
         ty._cached_landfalls = (key, recs)
         return recs
+
+    @staticmethod
+    def _merge_landfall_recs(ty, recs, merge_sig) -> list:
+        """把地图上的登陆点记录按"登陆汇总"设置并成一次（用户 2026-10-12）。"""
+        try:
+            from ..landfall_merge import merge_landfalls
+        except Exception:
+            return recs
+        _pt = getattr(ty, 'points_time', None) or []
+        for r in recs:
+            i = int(r.get('seg', 0))
+            # `points_time` 的单位: 0.5 单位 = 6 模拟小时 ⇒ 1 单位 = 12h
+            _u = float(_pt[i]) if 0 <= i < len(_pt) else 0.0
+            if 0 <= i < len(_pt) - 1:
+                _u += float(r.get('t', 0.0)) * (float(_pt[i + 1]) - float(_pt[i]))
+            r['th'] = _u * 12.0
+            r['name'] = '__self__'          # 同一条轨迹 ⇒ 同名，不跨风暴合并
+            r['year'] = 0
+        try:
+            return merge_landfalls(
+                recs, enabled=True, mode=merge_sig[1], dw=merge_sig[2],
+                dt_h=merge_sig[3], dist_deg=merge_sig[4])
+        except Exception:
+            return recs
 
     _MARKER_FUTURE_ALPHA = 110   # 未登陆时的半透明度
     _marker_fade_cache: dict = {}

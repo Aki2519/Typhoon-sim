@@ -72,6 +72,12 @@ class Settings(DraggableDialog):
         'track_pan_max_step_px': 'tk_step_label',
         'track_jump_px': 'tk_jump_label',
         'track_glide_exit_px': 'tk_glide_label',
+        'track_auto_transition_s': 'tk_autot_label',
+        'track_auto_pad_pct': 'tk_autopad_label',
+        # 登陆汇总(用户 2026-10-12 需求 2)
+        'landfall_merge_dw': 'lfmdw_label',
+        'landfall_merge_dt_h': 'lfmdt_label',
+        'landfall_merge_dist_deg': 'lfmdd_label',
     }
     # checkbox attr → 预渲染标签属性
     _CHECK_LABELS = {
@@ -92,6 +98,8 @@ class Settings(DraggableDialog):
         'show_legend': 'legend_text', 'show_graticule': 'graticule_text',
         'show_ocean_areas': 'ocean_areas_text', 'show_coord_hud': 'coord_hud_text',
         'show_track_label': 'track_label_text',
+        'landfall_merge': 'landfall_merge_text',
+        'show_offscreen_boxes': 'offscreen_boxes_text',
     }
 
     def __init__(self, s):
@@ -194,6 +202,10 @@ class Settings(DraggableDialog):
                 ('checkbox', 'show_graticule'),
                 ('checkbox', 'show_coord_hud'),
                 ('checkbox', 'show_track_label'),
+                # 用户 2026-10-12 需求 1: 域外风暴小窗总开关 —— **已剥离**
+                # ⚠ "域外风暴"勾选框已剥离到模块系统（用户 2026-10-14）：
+                #   启用/停用去功能栏右上角「模块」→ 域外风暴小窗。
+                #   保留 show_offscreen_boxes 字段只为兼容旧配置（module_registry 读它）。
                 ('button', '信息框自定义'),
                 # 用户 2026-10-01: "名字太右上角了。加一个可视化界面可以自行调整吧"
                 # ⇒ 行描述第 3 个元素 = **回调**(不传则沿用「信息框自定义」的老行为)
@@ -212,6 +224,8 @@ class Settings(DraggableDialog):
                 ('field', 'track_pan_max_step_px'),
                 ('field', 'track_jump_px'),
                 ('field', 'track_glide_exit_px'),
+                ('field', 'track_auto_transition_s'),
+                ('field', 'track_auto_pad_pct'),
                 ('note', 'track_note'),
             ]
         if self.tab_index == 2:  # 地图
@@ -278,6 +292,15 @@ class Settings(DraggableDialog):
                 # _init_data、标签全部移除; 绘制代码也一并删掉。
                 ('section', '效果'),
                 ('checkbox', 'show_ri_effect'),
+                # 用户 2026-10-12 需求 2: 登陆汇总(弱登陆合并为一次)
+                ('section', '登陆汇总'),
+                ('checkbox', 'landfall_merge'),
+                ('toggle', 'landfall_merge_mode',
+                 [(s, v) for s, v in zip(self.landfall_merge_mode_modes, ('time', 'place'))],
+                 90, None, 'landfall_merge_mode_text'),
+                ('field', 'landfall_merge_dw'),
+                ('field', 'landfall_merge_dt_h'),
+                ('field', 'landfall_merge_dist_deg'),
                 ('section', '帧率'),
                 ('checkbox', 'show_fps'),
                 ('toggle', 'fps_cap', [(s, v) for s, v in zip(self.fps_cap_modes, (60, 120, 0))],
@@ -444,6 +467,13 @@ class Settings(DraggableDialog):
         'level3_rot_speed': 'level3_rotation_speed',
         'volume': 'volume',
         'landfall_vol_scale': 'landfall_vol_scale',
+        # 登陆汇总(需求 2) + 域外风暴小窗开关(需求 1)
+        'landfall_merge': 'landfall_merge',
+        'landfall_merge_mode': 'landfall_merge_mode',
+        'landfall_merge_dw': 'landfall_merge_dw',
+        'landfall_merge_dt_h': 'landfall_merge_dt_h',
+        'landfall_merge_dist_deg': 'landfall_merge_dist_deg',
+        'show_offscreen_boxes': 'show_offscreen_boxes',
         'name_display_mode': 'name_display_mode',
         'point_name_mode': 'point_name_mode',
         'ace_geo_limit_enabled': 'ace_geo_limit_enabled',
@@ -497,6 +527,12 @@ class Settings(DraggableDialog):
         'track_pan_max_step_px': 'track_pan_max_step_px',
         'track_jump_px': 'track_jump_px',
         'track_glide_exit_px': 'track_glide_exit_px',
+        # ⚠ R6-4(轮2): 自动镜头两项原来**漏在这份镜像之外** —— 布局表
+        #   (tab1 显示→跟踪镜头, 227-228 行) 有这两个 field 行, 但 activate()/本表都没给
+        #   self 赋值 ⇒ `_get_fields_config` 取到 None 后 `str(cur)` 让输入框显示字面量
+        #   "None", `_flush_fields` 的 hasattr 守卫又直接 continue ⇒ 值永不生效。
+        'track_auto_transition_s': 'track_auto_transition_s',
+        'track_auto_pad_pct': 'track_auto_pad_pct',
     }
     # 只从 cfg 读、**不回写**的字段:
     #   ace_geo_limit_enabled —— 仅由 _apply_filter_now 维护, 回写会造成 ACE 口径分裂(见 _sync 处 N3 注释);
@@ -598,6 +634,14 @@ class Settings(DraggableDialog):
         self.mas_label = rt(f_m, "最大速度:", TX)
         self.volume_label = rt(f_m, "音量 (%):", TX)
         self.landfall_vol_text = rt(f_m, "登陆音效随强度增强:", TX)
+        self.landfall_merge_text = rt(f_m, "登陆汇总(弱登陆合并为一次):", TX)
+        self.offscreen_boxes_text = rt(f_m, "域外风暴小窗:", TX)
+        self.landfall_merge_mode_text = rt(f_m, "汇总判据:", TX)
+        self.landfall_merge_mode_modes = [rt(f_m, "时间", (255, 255, 255)),
+                                          rt(f_m, "地点", (255, 255, 255))]
+        self.lfmdw_label = rt(f_m, "强度容差(kt):", TX)
+        self.lfmdt_label = rt(f_m, "时间最大差(h):", TX)
+        self.lfmdd_label = rt(f_m, "地点最大差(经纬距):", TX)
         self.main_rot_label = rt(f_m, "主旋转速度:", TX)
         self.level3_rot_label = rt(f_m, "3级旋转速度:", TX)
         self.point_size_text = rt(f_m, "台风路径点大小 (%):", TX)
@@ -708,9 +752,13 @@ class Settings(DraggableDialog):
         self.tk_step_label = rt(f_m, "摇镜单帧上限(px):", TX)
         self.tk_jump_label = rt(f_m, "瞬移判定(px):", TX)
         self.tk_glide_label = rt(f_m, "摇镜交回平滑(px):", TX)
+        # ── 自动镜头（用户 2026-10-13）──
+        self.tk_autot_label = rt(f_m, "自动镜头响应(s):", TX)
+        self.tk_autopad_label = rt(f_m, "自动镜头边距(%):", TX)
         self.theme_note = rt(f_s, "主题配色即时生效；固定图标与路径点大小需重载数据生效", TD, 400)
         self.track_note = rt(f_s, "跟踪镜头: 边距% / 静置ms / 高亮渐入·保持·渐出ms / "
-                            "推镜ms(最短·每千像素·上限) / 摇镜(单帧上限·瞬移判定·退出)px", TD, 520)
+                            "推镜ms(最短·每千像素·上限) / 摇镜(单帧上限·瞬移判定·退出)px / "
+                            "自动镜头(响应秒·边距%)", TD, 520)
         self.dm_label = rt(f_m, "主题配色:", TX)
         self._section_title_cache = {}
 
@@ -750,6 +798,12 @@ class Settings(DraggableDialog):
         self.level3_rot_speed = self.sim.level3_rotation_speed
         self.volume = self.sim.volume
         self.landfall_vol_scale = getattr(self.sim, 'landfall_vol_scale', True)
+        self.landfall_merge = bool(getattr(self.sim, 'landfall_merge', False))
+        self.landfall_merge_mode = getattr(self.sim, 'landfall_merge_mode', 'time')
+        self.landfall_merge_dw = int(getattr(self.sim, 'landfall_merge_dw', 0))
+        self.landfall_merge_dt_h = float(getattr(self.sim, 'landfall_merge_dt_h', 3.0))
+        self.landfall_merge_dist_deg = float(getattr(self.sim, 'landfall_merge_dist_deg', 0.2))
+        self.show_offscreen_boxes = bool(getattr(self.sim, 'show_offscreen_boxes', True))
         self.name_display_mode = self.sim.name_display_mode
         self.point_name_mode = getattr(self.sim, 'point_name_mode', False)
         self.ace_limit_mode = getattr(self.sim, 'ace_limit_mode', ACE_LIMIT_NONE)
@@ -787,6 +841,10 @@ class Settings(DraggableDialog):
         self.ace_geo_limit_enabled = getattr(self.sim, 'ace_geo_limit_enabled', False)   # N3
         self.icon_set = getattr(self.sim, 'icon_set', ICON_SET_SIMPLE)
         self.color_scheme = getattr(self.sim, 'color_scheme', 1)
+        # R6-4(轮2): 自动镜头两项 —— 补 `_CFG_MIRROR` 之外这里也要显式刷新(镜像只在
+        # __init__ 的 _init_data 里读一次), 否则重开面板拿到的仍是构造期的旧值。
+        self.track_auto_transition_s = getattr(self.sim, 'track_auto_transition_s', 3.0)
+        self.track_auto_pad_pct = getattr(self.sim, 'track_auto_pad_pct', 20)
         if not hasattr(self, 'tab_index') or self.tab_index < 0:
             self.tab_index = 0
         # ⚠ 用户 2026-10-01: "退出设置后返回自动回到退出时的 tab 及滚动到的位置"。
@@ -817,7 +875,11 @@ class Settings(DraggableDialog):
         self._build_basin_list()
         self._update_bg_rect()
         self._refresh_texts()
-        self.rebuild_fields()
+        # ⚠ R6-3(轮2): flush=False —— 772-837 行刚从 sim/cfg 刷新了 self.*, 而
+        #   `self.fields` 里还留着**上次关闭时**的输入框(关闭路径只 deactivate 不清空)。
+        #   默认 flush=True 会把这些残留文本解析回 self, 覆盖刚刷新的值
+        #   ⇒ 面板显示/确认的是旧值, 外部改过的 sim 值(视图范围等)被静默回滚。
+        self.rebuild_fields(flush=False)
 
     def _build_basin_list(self):
         areas = self.sim.res_mgr.ocean_areas.areas
@@ -867,6 +929,9 @@ class Settings(DraggableDialog):
         self._immediate_snapshot = None
         self._deactivate_fields()
         super().deactivate()
+        # R6-3(轮2): 关闭时清空输入框对象 —— 否则下次 activate() 的 rebuild 会
+        # 把这次的残留文本当成"当前值"再 flush 回 self(见 activate 处注释)。
+        self.fields.clear()
         self.dragging = False
         self._basin_dropdown_open = False
         self._error_fields = []
@@ -966,15 +1031,31 @@ class Settings(DraggableDialog):
                     lo, hi = TRACK_FIELD_RANGES[key]
                     v = float(val) if isinstance(hi, float) else int(val)
                     if not (lo <= v <= hi):
-                        self._error_fields.append(field)
+                        # R6-1(轮2): 这里原来写的是 `field` —— 本函数的循环变量是
+                        # `f`(见 978 行), `field` 未定义 ⇒ 任一跟踪字段越界就
+                        # NameError 直接崩, 下面的 show_error/return 永远执行不到。
+                        # 已用 AST 抽函数运行时复现: "NameError: name 'field' is not defined"。
+                        self._error_fields.append(f)
                         self.sim.show_error(
                             '跟踪镜头 %s 需在 %g~%g 之间' % (key, lo, hi))
                         return False
-                    validated[key] = v
+                    # ⚠ 这里原来是 `validated[key] = v` —— `validated` 是
+                    # `apply_settings()` 里的局部变量，`_flush_fields()` 里**没有**
+                    # ⇒ 只要"跟踪镜头"任一字段被编辑过再 rebuild（按 S 打开设置、
+                    # 切 tab、点确定），就 `NameError: name 'validated' is not defined`
+                    # 直接崩（见 output/logs/crash_20261012_201057.log /
+                    # crash_20261012_203000.log）。本函数的职责就是"解析回写 self"，
+                    # 所以正确写法是与上面几个分支一致的 `setattr`。
+                    setattr(self, key, v)
                 elif key in ('mis', 'mas', 'main_rot_speed', 'level3_rot_speed', 'info_box_scale'):
                     setattr(self, key, float(val))
                 elif key == 'smooth_path_segments':
                     setattr(self, key, int(val))
+                elif key == 'landfall_merge_dw':
+                    setattr(self, key, max(0, int(val)))
+                elif key in ('landfall_merge_dt_h', 'landfall_merge_dist_deg'):
+                    _fv = float(val)
+                    setattr(self, key, _fv if _fv >= 0 else 0.0)
                 elif key == 'volume':
                     setattr(self, key, float(val) / 100.0)
                 elif key in ('point_size', 'icon_size', 'name_size', 'peak_label_size',
@@ -990,6 +1071,9 @@ class Settings(DraggableDialog):
             f.deactivate()
         dialog_x, dialog_y = self.bg_rect.x, self.bg_rect.y
         self.fields.clear()
+        # ⚠ 红框列表也要清: 存的是**旧 InputField 对象**, 不放会按旧 rect
+        # 把红框画到新页面的无关控件上（审查 #6）。
+        self._error_fields.clear()
         self._field_offsets.clear()
         for key, val, rect, validator in self._get_fields_config():
             field = InputField(rect, max_length=10, dark=self.dark_mode)
@@ -1083,6 +1167,12 @@ class Settings(DraggableDialog):
                 val, vd = f"{self.screen_width}", int_val
             elif key == 'smooth_path_segments':
                 val, vd = f"{self.smooth_path_segments}", int_val
+            elif key == 'landfall_merge_dw':
+                val, vd = f"{self.landfall_merge_dw}", int_val
+            elif key == 'landfall_merge_dt_h':
+                val, vd = f"{self.landfall_merge_dt_h:g}", float_val
+            elif key == 'landfall_merge_dist_deg':
+                val, vd = f"{self.landfall_merge_dist_deg:g}", float_val
             elif key in ('mlo', 'ace_min_lon'):
                 val, vd = lon_to_display(self.mlo if key == 'mlo' else self.ace_min_lon), lon_val
             elif key in ('Mlo', 'ace_max_lon'):
@@ -1338,6 +1428,7 @@ class Settings(DraggableDialog):
             self._immediate_snapshot = None
             self._deactivate_fields()
             super().deactivate()
+            self.fields.clear()          # R6-3(轮2): 防下次 activate 的 flush 吃残留文本
             self._remember_view_state()      # 点确定也要记住 tab/滚动位置
             self.dragging = False
             self._basin_dropdown_open = False
@@ -1352,6 +1443,7 @@ class Settings(DraggableDialog):
         self._restore_immediate_applied()
         self._deactivate_fields()
         super().deactivate()
+        self.fields.clear()              # R6-3(轮2): 同上, 丢弃路径也要清空
         self._remember_view_state()          # 关闭(丢弃更改)也要记住位置
         self.dragging = False
         self._basin_dropdown_open = False
@@ -1459,7 +1551,11 @@ class Settings(DraggableDialog):
                 or self.ace_min_lat != self.sim.ace_min_lat
                 or self.ace_max_lat != self.sim.ace_max_lat):
             self._ace_recalc_dirty = True
-        self.rebuild_fields()
+        # ⚠ R6-2(轮2): 必须是 flush=False —— 上面 1489-1492 刚把 AppConfig 默认值写进
+        #   self, 而 `self.fields` 里仍是**用户原来的文本**。默认 flush=True 会让
+        #   `_flush_fields()` 把这些旧文本解析回 self, 把刚恢复的默认值覆盖掉
+        #   ⇒「恢复默认」对全部数字输入框无效(只有 checkbox/toggle 生效)。
+        self.rebuild_fields(flush=False)
         self._update_bg_rect()
 
     def _request_restore_defaults(self):
@@ -2414,6 +2510,35 @@ class Settings(DraggableDialog):
                     validated[key] = int(val)
                 elif key == 'volume':
                     validated[key] = float(val) / 100.0
+                # ── R6-5(轮2): 跟踪镜头 / 登陆汇总 —— 原来这里**没有任何分支** ──
+                #   这些字段的文本只在 `_flush_fields()`(切 tab / 切模式 / rebuild)时才
+                #   回写 self; 用户改完直接点「确认」走的是本函数, 于是 validate 不到、
+                #   `validated` 里没有它们, 后面的 `_CFG_MIRROR` 同步反而把 self 里的
+                #   **旧值**写回 sim ⇒ 编辑被静默丢弃(且连越界提示都没有)。
+                #   范围取 config 的 `TRACK_FIELD_RANGES`(唯一真相, 与 _coerce 手改钳制同源)。
+                elif key in TRACK_FIELD_RANGES:
+                    lo, hi = TRACK_FIELD_RANGES[key]
+                    v = float(val) if isinstance(hi, float) else int(val)
+                    if not (lo <= v <= hi):
+                        self._error_fields.append(field)
+                        self.sim.show_error(
+                            '跟踪镜头 %s 需在 %g~%g 之间' % (key, lo, hi))
+                        return False
+                    validated[key] = v
+                elif key == 'landfall_merge_dw':
+                    v = int(val)
+                    if v < 0:
+                        self._error_fields.append(field)
+                        self.sim.show_error("登陆汇总: 强度容差(kt)不能为负")
+                        return False
+                    validated[key] = v
+                elif key in ('landfall_merge_dt_h', 'landfall_merge_dist_deg'):
+                    v = float(val)
+                    if v < 0:
+                        self._error_fields.append(field)
+                        self.sim.show_error(f"登陆汇总: {key} 不能为负")
+                        return False
+                    validated[key] = v
             except ValueError:
                 self._error_fields.append(field)
                 self.sim.show_error(f"无效数字: {val}")

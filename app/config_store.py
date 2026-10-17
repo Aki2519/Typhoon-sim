@@ -230,12 +230,18 @@ class ConfigStore:
 
     # ── 字段筛选 ────────────────────────────────────────────────────────
     @staticmethod
-    def persisted_fields(cfg) -> list:
-        """该 cfg 里**应当被持久化**的字段名, 已剔除运行时状态。"""
+    def persisted_fields(cfg):
+        """该 cfg 里**应当被持久化**的字段名, 已剔除运行时状态。
+
+        ⚠ 审查 R6-7(2026-10-15): 取字段失败时**必须返回 None**，不能返回 []。
+        原来吞成  ⇒  ⇒ 回读校验拿空集和空集比"相等"通过 ⇒
+         把用户的 config.json **覆盖成空对象**（唯一的防线也失效了）。
+        返回 None 时  直接失败、原文件不动。
+        """
         try:
             names = list(cfg._serialize_fields())
         except Exception:
-            names = []
+            return None
         return [n for n in names if n not in RUNTIME_FIELDS]
 
     # ── 落盘 ────────────────────────────────────────────────────────────
@@ -250,7 +256,12 @@ class ConfigStore:
             # "无需写盘即为已保存", 但调用方可以通过 `dirty` 判断是否真的有改动。
             return True
 
-        payload = {k: getattr(cfg, k, None) for k in self.persisted_fields(cfg)}
+        _names = self.persisted_fields(cfg)
+        if not _names:
+            # 取不到字段（或字段表为空）⇒ 绝不能写盘，否则会把配置清空
+            self._last_error = '无法枚举配置字段，已放弃写盘（原文件未改动）'
+            return False
+        payload = {k: getattr(cfg, k, None) for k in _names}
         tmp = self.path + '.tmp'
         try:
             # 1) 备份(仅首次, 且原文件存在)
@@ -261,6 +272,13 @@ class ConfigStore:
             # 2) 写临时文件
             with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
+                f.flush()
+                # ⚠ 审查 R6-9: 原子写缺 fsync ——  只保证"改名原子"，
+                #   不保证数据已落盘；断电可能留下 0 字节的 config.json。
+                try:
+                    os.fsync(f.fileno())
+                except (OSError, AttributeError):
+                    pass
             # 3) **读回校验** —— 写出去的必须能被解析回来, 否则绝不覆盖原文件。
             #    这一步是"写坏一次就没救"的防线(旧实现没有)。
             with open(tmp, 'r', encoding='utf-8') as f:
@@ -295,7 +313,8 @@ class ConfigStore:
             logger.warning('配置加载失败: %s', e)
             return False
         # 只覆盖**持久化字段**, 不碰运行时状态(screen_width 等由窗口决定)
-        for k in self.persisted_fields(cfg):
+        # ⚠  现在可能返回 None（字段枚举失败），不能直接迭代
+        for k in (self.persisted_fields(cfg) or ()):
             if hasattr(fresh, k):
                 try:
                     setattr(cfg, k, getattr(fresh, k))

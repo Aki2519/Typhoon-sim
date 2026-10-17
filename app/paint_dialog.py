@@ -173,6 +173,10 @@ class PaintDialog(DraggableDialog):
         #: R3 七维样式（键名与 `app/paint_style.py` / task-39 冻结命名一致，不自创）
         #: preset: ty4|qq|custom —— 手动改任一维度即变 custom
         self.preset = "ty4"
+        # 审查 R7-2:  只在  里赋值，
+        # 而该回调以前因为键被覆盖**永不触发** ⇒  每次都
+        # AttributeError 被静默吞掉、回落本地七维。这里补上初值。
+        self._preset_base = "ty4"
         #: `palette` 维度的**权威值**（不再靠 scheme 反推 —— 反推会把 `qq` 丢成 2023）
         self.palette = "2023"
         self.label_mode = "none"          # labels: none|edge|inside
@@ -514,8 +518,13 @@ class PaintDialog(DraggableDialog):
         dd = _Dropdown(pygame.Rect(inp_x + 250, self._row_y(2), 200, 26),
                        [(k, k) for k in COMMON_REGIONS.keys()], self.region_preset,
                        self._on_preset_select, dark=self.dark_mode)
-        self._dropdowns["preset"] = dd
-        self._dd_base_y["preset"] = self._row_y(2)
+        # 审查 R7-2(2026-10-15): 这里原本又写 ，
+        # 把上面刚建的**七维样式预设**整条覆盖掉 ⇒ 
+        # 永不触发（ 死路）、 从未初始化、
+        #  每次都 AttributeError 被静默吞掉。
+        # 区域预设改用独立的键。
+        self._dropdowns["region_preset"] = dd
+        self._dd_base_y["region_preset"] = self._row_y(2)
 
     def _on_dd_select(self, key, v):
         """下拉选中回调: 写属性 + 对"容易被误解/看不出效果"的选项给一条解释性提示。
@@ -1295,7 +1304,7 @@ class PaintDialog(DraggableDialog):
                 pygame.draw.rect(surface, (235, 90, 90),
                                  self._fields["region"].rect.inflate(6, 6), 2,
                                  border_radius=5)
-            self._dropdowns["preset"].draw_base(surface, dark)
+            self._dropdowns["region_preset"].draw_base(surface, dark)
         # 参数
         # 参数（P5: 标题放在 row(3) 这个**预留空行**里。原来写 row(3)-26 = row(2)+2,
         # 与上一行内容同 y 完全叠字 —— 区域模式下就是"参数上,左,高,宽)"那种糊字。

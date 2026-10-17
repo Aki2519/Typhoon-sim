@@ -745,6 +745,15 @@ class TyList(DraggableDialog):
                 hl.fill((70, 105, 165, 130) if dark else LIST_HL)
                 surface.blit(hl, (lx + 20, y + 2))
 
+            # 每行一圈**淡白描边**（用户 2026-10-14："给每个风暴加一圈白框，要比较淡"）。
+            # alpha 取值过程：70 像选中、45 仍抢眼、**28** 看得见轮廓但不吵、18 看不见 ⇒ 取 28；
+            # 亮色主题在白底上要更实才看得出 ⇒ 70。
+            # 与 `app/module_dialog.py` 的两个常量保持同一套口径（两个界面必须一致）。
+            _bd = pygame.Surface((lw - 40, 66), pygame.SRCALPHA)
+            pygame.draw.rect(_bd, (255, 255, 255, 28 if dark else 70),
+                             (0, 0, lw - 40, 66), 1, 5)
+            surface.blit(_bd, (lx + 20, y + 2))
+
             if self.ei == oi and self.edit_type == 'name':
                 self._ensure_edit_field(ty)
             else:

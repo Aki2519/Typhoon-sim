@@ -53,9 +53,31 @@ class PlaybackController:
         self.ace_note: Optional[dict] = None
         self._was_fin: dict = {}
         self._lf_last: dict = {}
+        #: 登陆**边沿**状态（本控制器自己拥有，见 `_check_landfall` 的说明）。
+        #: ⚠ 不能用 `typhoon.v.last_on_land` 当边沿：那一份会被
+        #:   `ty_sim.update()` 里的 `view_state.sync_land_state()` 每帧改写成**当前**
+        #:   陆上状态，而它跑在 `_check_landfall()` **之前** ⇒ 边沿被写掉。
+        self._lf_prev_land: dict = {}
 
     def latlon_to_screen(self, la: float, lo: float) -> tuple:
         return self.view.latlon_to_screen(la, lo)
+
+    def clear_landfall_state(self) -> None:
+        """清空**全部**登陆派生状态。时间跳转 / 风季回卷 / 重置的必经清理点。
+
+        ⚠⚠ 2026-10-13（审查发现）: 原来各调用点各写一段，只清
+        `landfall_records` / `_lf_last` / `_was_fin`，而 `_check_landfall()`
+        **自己持有**的边沿状态 `_lf_prev_land`(见本类 :60) 全仓**没有任何清理点**。
+        后果：时间回拨后它仍记着"未来那次在陆上" ⇒ 重播同一段陆上路径时
+        `is_land and not prev_land` 恒假 ⇒ 登陆记录 / 特效 / 音效再次全部消失
+        （与 2026-10-12 那次"登陆特效与音效怎么没了"是同一类问题，只是换了个
+        状态源）。同时这些 dict 以 Typhoon 对象为键、只增不删 ⇒ 删除/重载台风后
+        旧对象被强引用泄漏。集中到一个方法，避免下一个新状态又漏清。
+        """
+        self.landfall_records.clear()
+        self._lf_last.clear()
+        self._was_fin.clear()
+        self._lf_prev_land.clear()
 
     def update_all(self, ct: float, dt: float, dialog_open: bool,
                     season_ctrl: Optional[SeasonController] = None) -> None:
@@ -127,22 +149,27 @@ class PlaybackController:
                 typhoon._mark_finished(ct)
             # R2-2: 单点台风完成标记后,同样走自动推进(ac)/淡出流程
             if typhoon.fin and ct - typhoon.ft >= FADE_COOLDOWN_MS:
-                typhoon.fin = False
-                typhoon._single_fin_done = True
+                # ⚠⚠ 2026-10-13(审查): 清 `fin` 必须和"推进"同进同退。
+                # 原写法先无条件 `typhoon.fin = False` 再看 `not paused` ⇒
+                # 暂停恰好落在这一帧时, fin 被清掉却不推进 cti;恢复后本分支
+                # 永不重入(要走 else 分支, 而 ci 已在末点 ⇒ update_move 直接
+                # return, 也不会重新 _mark_finished) ⇒ 自动连续播放就此**永久停住**。
                 if self.cfg.ac and self.repo.tys and not paused:
+                    typhoon.fin = False
+                    typhoon._single_fin_done = True
                     self.repo.cti = (self.repo.cti + 1) % len(self.repo.tys)
                     if self.repo.current_typhoon():
                         self.repo.current_typhoon().rst()
         elif typhoon.fin:
             if ct - typhoon.ft >= FADE_COOLDOWN_MS:
-                typhoon.fin = False
                 # ⚠⚠ 审查抓到(严重): 这里原来**不看 paused** ⇒ 用户说"跟踪完停下来",
                 # 而暂停后约 500ms(FADE_COOLDOWN_MS)这个分支就把 cti+1 切到下一个台风,
                 # 把"停下 -> 缩放到整条路径 -> 闪 2s -> 慢慢淡出"整套序列打断。
                 # (自动继续)默认 True, 所以这是默认路径上的必然行为。
-                # 暂停时不推进, 但要**保留 **(淡出已完成),
-                # 这样恢复播放后不会重复触发。
+                # 暂停时不推进, 且必须**保留 fin=True**: 这样恢复播放后原分支能重入
+                # 再推进;若像旧代码那样先清 fin 再判 paused, 推进就永久丢失了。
                 if self.cfg.ac and self.repo.tys and not paused:
+                    typhoon.fin = False
                     self.repo.cti = (self.repo.cti + 1) % len(self.repo.tys)
                     if self.repo.current_typhoon():
                         self.repo.current_typhoon().rst()
@@ -289,6 +316,18 @@ class PlaybackController:
 
     def _check_landfall(self, typhoon: Typhoon, ct: float,
                         season_ctrl: Optional[SeasonController] = None) -> None:
+        """检测"刚上陆"这条**边沿**，触发登陆记录 / 特效 / 音效。
+
+        ⚠⚠ 2026-10-12 用户: "登陆特效与音效怎么没了"。
+        根因（实测）: 边沿用的是 `typhoon.v.last_on_land`，而 `TySim.update()` 里
+        **先**调 `self._sync_land_state()`（`ty_sim.py:685` → `view_state.py:97`），
+        它把 `ty.v.last_on_land` 直接写成**当前**陆上状态；**之后**才调
+        `playback_ctrl.update_all()`（`ty_sim.py:714`）→ 本函数。
+        ⇒ 走到 `is_land and not v.last_on_land` 时，`v.last_on_land` 已经等于
+          `is_land` ⇒ **恒为假** ⇒ 登陆记录 / 特效 / 音效全都不发生。
+        修法: 边沿状态由本控制器自己持有（`self._lf_prev_land`），不再借用
+        `v.last_on_land`（那一份是给视图/绘制用的"当前是否在陆上"，语义不同）。
+        """
         if not typhoon.act:
             return
         mm = self.map_mgr
@@ -300,7 +339,9 @@ class PlaybackController:
             if area is not None and not self.repo._ty_in_filter_basin(typhoon, area):
                 pos = typhoon.cpos()
                 if pos:
-                    typhoon.v.last_on_land = mm.is_land_at_geo(pos['la'], pos['lo'])
+                    _v = mm.is_land_at_geo(pos['la'], pos['lo'])
+                    typhoon.v.last_on_land = _v
+                    self._lf_prev_land[typhoon] = _v      # 不在这里补触发, 但要跟上状态
                 return
         pos = typhoon.cpos()
         if not pos:
@@ -313,7 +354,9 @@ class PlaybackController:
         self._lf_last[typhoon] = lkey
         is_land = mm.is_land_at_geo(pos['la'], pos['lo'])
         v = typhoon.v
-        if is_land and not v.last_on_land:
+        # 边沿取**本控制器自己**的上一次状态（首次退化为 v.last_on_land）
+        prev_land = self._lf_prev_land.get(typhoon, v.last_on_land)
+        if is_land and not prev_land:
             current_point = typhoon.cp()
             if current_point:
                 adv_on_land = mm.is_land_at_geo(current_point['la'], current_point['lo'])
@@ -338,6 +381,9 @@ class PlaybackController:
                     'basin': typhoon.basin,
                     'la': pos['la'],
                     'lo': pos['lo'],
+                    # 用户 2026-10-12 需求 2（登陆汇总）需要**时间维**：原来只记了年,
+                    # 而"时间最大差多久(默认 3h)"这条判据没有它无从下手。
+                    't': (cur_pt.get('t', '') if cur_pt else ''),
                 })
                 # 特效与音效仅在登陆点位于屏幕内时播放（记录始终保留）
                 sx, sy = self.view.latlon_to_screen(pos['la'], pos['lo'])
@@ -383,6 +429,7 @@ class PlaybackController:
                     if landed._count > 0:
                         self.effects.append(landed)
         v.last_on_land = is_land
+        self._lf_prev_land[typhoon] = is_land
 
     def _landfall_play_volume(self, wind: int) -> float:
         """按登陆风速缩放登陆音效音量(可开关,曲线参数见 config)。

@@ -15,6 +15,7 @@ from .constants import (
 from .dialog_base import DraggableDialog
 from .input_field import start_text_input_global, stop_text_input_global
 from .script_engine import scan_scripts, Script
+from .script_complete import expand_script, rough_errors, complete_candidates, SCOPE_BLOCK, SCOPE_TOP
 
 # IME 焦点持有者模型: script_dialog 内部同一时刻仅一个部件持有 IME,
 # 切换/关闭时严格配对,避免计数泄漏导致中文输入残留(R2-7)。
@@ -36,9 +37,48 @@ def _ime_release(owner):
         _ime_owner = None
 
 
-# script/ 已并入 tests/script/(用户 2026-09-19 精简主目录)
+# 脚本目录 = 项目根的 `script/`（用户 2026-10-13: "脚本移到 G:\气象\Typhoon-sim\script"）。
+# 历史：曾并入 `tests/script/`（2026-09-19 精简主目录），该目录现已不存在 —— 而根目录的
+# `script/` 里已经有 6 个脚本，之前界面扫的是个**不存在的目录** ⇒ 列表一直是空的。
 SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          'tests', 'script')
+                          'script')
+
+def _theme(dark: bool) -> dict:
+    """脚本界面配色（用户 2026-10-13: "脚本界面似乎没有适配暗色模式, 加上"）。
+
+    亮色沿用原来的观感（白底卡片），暗色给出对应的一套；两套都用同一个键名，
+    调用处只写 ，不再散落魔法颜色。
+    """
+    if dark:
+        return {
+            'list_bg': (30, 34, 44, 235),
+            'list_border': (86, 94, 112),
+            'sep': (58, 64, 78),
+            'hover': (58, 74, 104, 200),
+            'text': (226, 232, 244),
+            'dim': (150, 158, 176),
+            'hint': (150, 158, 176),
+            'field_bg': (24, 27, 35),
+            'field_border': (86, 94, 112),
+            'placeholder': (120, 128, 146),
+            'panel_bg': (24, 27, 35, 246),
+            'panel_border': (92, 100, 118),
+        }
+    return {
+        'list_bg': (255, 255, 255, 200),
+        'list_border': BUTTON_BORDER,
+        'sep': (200, 210, 230),
+        'hover': (200, 220, 255, 180),
+        'text': TXT,
+        'dim': (120, 120, 150),
+        'hint': TXT,
+        'field_bg': (255, 255, 255),
+        'field_border': (150, 158, 172),
+        'placeholder': (160, 168, 182),
+        'panel_bg': (255, 255, 255, 235),
+        'panel_border': BUTTON_BORDER,
+    }
+
 
 # 对话框尺寸
 DIALOG_W = 550
@@ -352,8 +392,12 @@ class _TextArea:
                     self.lines[self.row] = line[1:]
                     self.col = max(0, self.col - 1)
             else:
-                self.lines[self.row] = line[:self.col] + '\t' + line[self.col:]
-                self.col += 1
+                # 需求 3.4：在**命令位置**按 TAB = 补全命令（像 Minecraft 一样可反复按循环
+                # 候选）；不在命令位置时保持原来的"插入缩进"行为。
+                if not self._tab_complete():
+                    self.lines[self.row] = line[:self.col] + '\t' + line[self.col:]
+                    self.col += 1
+
         elif e.unicode and e.unicode.isprintable():
             # 可打印字符由 TEXTINPUT 事件统一插入（避免与 KEYDOWN 双插）
             return True
@@ -367,6 +411,44 @@ class _TextArea:
         return True
 
     # ── 绘制 ──
+
+    def _tab_complete(self) -> bool:
+        """按 TAB 补全当前行的**命令词**（需求 3.4）。
+
+        只在"光标位于行首命令词内"时生效；否则返回 False，调用方走原来的插入缩进。
+        反复按 TAB 在候选之间循环（像 MC 的命令补全），候选表与格式提示由 draw 画。
+        """
+        line = self.lines[self.row]
+        head = line[:self.col]
+        if head.strip() and not re.match(r'^[ \t]*[A-Za-z*]*$', head):
+            return False
+        token = head.strip()
+        scope = SCOPE_TOP
+        indent = len(line) - len(line.lstrip())
+        for r in range(self.row - 1, -1, -1):
+            prev = self.lines[r].strip()
+            if not prev or prev.startswith('#'):
+                continue
+            if prev.endswith(':') and indent > 0:
+                scope = SCOPE_BLOCK
+            break
+        cands = complete_candidates(token, scope)
+        if not cands:
+            self._tab_cands = []
+            return False
+        cycle = getattr(self, '_tab_cands', None)
+        idx = getattr(self, '_tab_idx', -1)
+        if cycle and any(c[0] == token for c in cycle):
+            idx = (idx + 1) % len(cycle)
+        else:
+            idx = 0
+        self._tab_cands = cands
+        self._tab_idx = idx
+        name = cands[idx][0]
+        prefix_len = len(head) - len(token)
+        self.lines[self.row] = line[:prefix_len] + name + line[self.col:]
+        self.col = prefix_len + len(name)
+        return True          # ⚠ 必须返回 True，否则调用方还会再插一个制表符
 
     def draw(self, surface: pygame.Surface) -> None:
         r = self.rect
@@ -432,6 +514,7 @@ class ScriptDialog(DraggableDialog):
         self.run_text = rt(f_s, "运行", (255, 255, 255))
         self.save_text = rt(f_s, "保存", (255, 255, 255))
         self.back_text = rt(f_s, "返回", (255, 255, 255))
+        self.complete_text = rt(f_s, "补全", (255, 255, 255))
 
         self.scripts: List[dict] = []
         self._scroll_offset = 0
@@ -532,7 +615,11 @@ class ScriptDialog(DraggableDialog):
         self._parse_dirty = False
         if self._editor is None:
             return
-        text = self._editor.get_text()
+        raw_text = self._editor.get_text()
+        # 3.3：**直接用粗糙脚本也能跑** —— 先按补全规则展开，展开有硬错误才退回原文
+        # （展开失败时仍然尝试原文，保证"能跑的先跑起来，报错只作提示"）
+        text, _xerrs = expand_script(raw_text)
+        self._rough_errors = [e for e in _xerrs if e.level == 'error']
         try:
             script = Script.parse(text, self._editor_name or "editor")
             n = sum(1 for c in script.commands if c.target is not None)
@@ -549,11 +636,18 @@ class ScriptDialog(DraggableDialog):
         except Exception as ex:
             self._parse_ok = False
             self._parse_status = f"解析失败: {ex}"
+        # 粗糙脚本里的硬错误优先显示（带**行号列号** —— 用户 3.2 要求"详细报错地址"）
+        if getattr(self, '_rough_errors', None):
+            self._parse_ok = False
+            self._parse_status = str(self._rough_errors[0])[:72]
 
     def _run_editor_script(self):
         if self._editor is None:
             return
-        text = self._editor.get_text()
+        # 3.3：运行也走补全路径 —— 粗糙写法直接可跑（有硬错误时按原文跑，让引擎报错）
+        text, _errs = expand_script(self._editor.get_text())
+        if [e for e in _errs if e.level == 'error']:
+            text = self._editor.get_text()
         self._editor_text = text
         engine = self.sim.script_engine
         name = self._editor_name or "实时脚本"
@@ -602,10 +696,13 @@ class ScriptDialog(DraggableDialog):
         list_w = r.width - 40
         list_h = ITEMS_PER_PAGE * ITEM_H
 
-        # 脚本列表背景
+        # 脚本列表背景（暗色/亮色两套）
+        c = _theme(self.dark_mode)
         list_bg = pygame.Rect(list_x, list_y, list_w, list_h)
-        pygame.draw.rect(surface, (255, 255, 255, 200), list_bg, 0, 5)
-        pygame.draw.rect(surface, BUTTON_BORDER, list_bg, 1, 5)
+        _lb = pygame.Surface(list_bg.size, pygame.SRCALPHA)
+        pygame.draw.rect(_lb, c['list_bg'], (0, 0, list_bg.w, list_bg.h), 0, 5)
+        surface.blit(_lb, list_bg)
+        pygame.draw.rect(surface, c['list_border'], list_bg, 1, 5)
 
         # 可见脚本
         visible_scripts = self.scripts[self._scroll_offset:self._scroll_offset + ITEMS_PER_PAGE]
@@ -622,22 +719,24 @@ class ScriptDialog(DraggableDialog):
             # 悬停高亮（编辑按钮区除外）
             hover = item_rect.collidepoint(mx, my) and not edit_btn.collidepoint(mx, my)
             if hover:
-                pygame.draw.rect(surface, (200, 220, 255, 180), item_rect, 0, 4)
+                _hv = pygame.Surface(item_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(_hv, c['hover'], (0, 0, item_rect.w, item_rect.h), 0, 4)
+                surface.blit(_hv, item_rect)
 
             # 分割线
             if i > 0:
-                pygame.draw.line(surface, (200, 210, 230),
+                pygame.draw.line(surface, c['sep'],
                                  (list_x + 5, item_y), (list_x + list_w - 5, item_y), 1)
 
             # 文件名
-            name_surf = rt(f_s, script_info['filename'], TXT)
+            name_surf = rt(f_s, script_info['filename'], c['text'])
             surface.blit(name_surf, (list_x + 10, item_y + 4))
 
             # 简介（小字，宽度截断用 clip 避免 O(n²) rt() 截断循环）
             desc = script_info.get('description', '')
             if desc:
                 max_desc_w = list_w - 250
-                desc_surf = rt(f_s, desc, (120, 120, 150))
+                desc_surf = rt(f_s, desc, c['dim'])
                 if desc_surf.get_width() > max_desc_w:
                     old_clip_desc = surface.get_clip()
                     surface.set_clip(pygame.Rect(list_x + 160, item_y, max_desc_w, desc_surf.get_height()))
@@ -653,12 +752,14 @@ class ScriptDialog(DraggableDialog):
         total = len(self.scripts)
         if total > ITEMS_PER_PAGE:
             scroll_info = f"{self._scroll_offset + 1}-{min(self._scroll_offset + ITEMS_PER_PAGE, total)} / {total}"
-            scroll_surf = rt(f_s, scroll_info, TXT)
+            scroll_surf = rt(f_s, scroll_info, c['text'])
             surface.blit(scroll_surf, (list_x + list_w - scroll_surf.get_width() - 5, list_y + list_h + 8))
 
-        # 提示文字
+        # 提示文字（暗色下用亮色重渲染；预渲染的 self.hint_text 是亮色主题的深字，
+        # 直接 blit 在深底上会看不见 —— 用户 2026-10-13 反馈的"没适配暗色"就包含这条）
         hint_y = r.y + list_h + 80
-        surface.blit(self.hint_text, (r.x + 20, hint_y))
+        _hint = rt(f_s, "点击脚本开始执行，ESC 或点击外部关闭", c['hint'])
+        surface.blit(_hint, (r.x + 20, hint_y))
 
         # 按钮
         btn_y = r.y + r.height - 40
@@ -680,14 +781,16 @@ class ScriptDialog(DraggableDialog):
         self.draw_title(surface, self.edit_title_text, r, y_offset=20)
 
         # 文件名行
-        name_label = rt(f_s, "文件名:", TXT)
+        c0 = _theme(self.dark_mode)
+        name_label = rt(f_s, "文件名:", c0['text'])
         surface.blit(name_label, (r.x + 20, r.y + 58))
+        c = _theme(self.dark_mode)
         name_rect = pygame.Rect(r.x + 20 + name_label.get_width() + 8, r.y + 54, 260, 24)
         self._name_rect = name_rect
-        pygame.draw.rect(surface, (255, 255, 255), name_rect, 0, 5)
-        pygame.draw.rect(surface, (150, 158, 172), name_rect, 1, 5)
+        pygame.draw.rect(surface, c['field_bg'], name_rect, 0, 5)
+        pygame.draw.rect(surface, c['field_border'], name_rect, 1, 5)
         shown = self._editor_name or "(未命名，保存时自动补 .json)"
-        name_color = TXT if self._editor_name else (160, 168, 182)
+        name_color = c['text'] if self._editor_name else c['placeholder']
         surface.blit(rt(f_s, shown, name_color), (name_rect.x + 6, name_rect.y + 4))
 
         # 文本编辑区
@@ -709,6 +812,14 @@ class ScriptDialog(DraggableDialog):
                        (80, 150, 90) if self._parse_ok else BUTTON_DISABLED)
         save_btn = pygame.Rect(r.x + 110, btn_y, 80, 28)
         self._draw_btn(surface, save_btn, self.save_text, BUTTON_BORDER)
+        # 补全按钮（用户 2026-10-13 需求 3.2：把简写补全成规范脚本）
+        comp_btn = pygame.Rect(r.x + 200, btn_y, 80, 28)
+        self._complete_btn_rect = comp_btn
+        self._draw_btn(surface, comp_btn, self.complete_text, (70, 120, 190))
+        # 需求 3.1：入口在**脚本界面里** —— 打开右侧可视化编辑面板
+        vis_btn = pygame.Rect(r.x + 290, btn_y, 110, 28)
+        self._visual_btn_rect = vis_btn
+        self._draw_btn(surface, vis_btn, rt(f_s, "可视化编辑", (255, 255, 255)), (60, 110, 150))
         back_btn = pygame.Rect(r.x + r.width - 100, btn_y, 80, 28)
         self._draw_btn(surface, back_btn, self.back_text, (130, 130, 150))
 
@@ -802,6 +913,44 @@ class ScriptDialog(DraggableDialog):
 
         return False
 
+    def _open_visual_editor(self) -> None:
+        """打开右侧可视化编辑面板（用户 2026-10-13 需求 3.1）。
+
+        把当前编辑区的内容与文件名一起带过去；关掉脚本列表对话框（面板是独立层，
+        否则两个界面互相压）。面板本身由 renderer 的 script_panel 图层绘制。
+        """
+        panel = getattr(self.sim, 'script_panel', None)
+        if panel is None:
+            return
+        text = self._editor.get_text() if self._editor else self._editor_text
+        name = self._editor_name or "实时脚本"
+        self.deactivate()
+        panel.activate(text, name)
+
+    def _apply_completion(self) -> None:
+        """需求 3.2 的"补全"按钮：把简写/粗糙写法展开成规范脚本后写回编辑区。
+
+        有硬错误时**不覆盖**用户原文（只把报错显示在状态行）—— 边写边按补全
+        不能把正在写的半截内容吃掉。
+        """
+        if self._editor is None:
+            return
+        src = self._editor.get_text()
+        out, errs = expand_script(src)
+        hard = [e for e in errs if e.level == 'error']
+        self._rough_errors = hard
+        if hard:
+            self._parse_ok = False
+            self._parse_status = str(hard[0])[:70]
+            self._parse_dirty = False
+            return
+        if out != src:
+            self._editor.set_text(out)
+        self._parse_ok = True
+        self._parse_status = "已补全 ✓"
+        self._parse_dirty = False
+        self._live_parse()
+
     def _handle_editor_event(self, e: pygame.event.Event) -> bool:
         if e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
@@ -822,6 +971,14 @@ class ScriptDialog(DraggableDialog):
             if run_btn.collidepoint(e.pos):
                 if self._parse_ok:
                     self._run_editor_script()
+                return True
+            comp_btn = getattr(self, '_complete_btn_rect', None)
+            if comp_btn and comp_btn.collidepoint(e.pos):
+                self._apply_completion()
+                return True
+            vis_btn = getattr(self, '_visual_btn_rect', None)
+            if vis_btn and vis_btn.collidepoint(e.pos):
+                self._open_visual_editor()
                 return True
             if save_btn.collidepoint(e.pos):
                 self._save_editor_script()

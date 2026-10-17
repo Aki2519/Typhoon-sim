@@ -79,6 +79,8 @@ TRACK_FIELD_RANGES = {
     'track_pan_max_step_px': (0.5, 200.0),  # 单帧上限 <0.5px 会把正常跟随限死
     'track_jump_px': (1.0, 2000.0),         # 太小会把快速台风误判成瞬移
     'track_glide_exit_px': (0.0, 500.0),    # 缺口小于它则交回指数平滑
+    'track_auto_transition_s': (0.2, 30.0),  # 自动镜头的指数响应时间常数(秒)
+    'track_auto_pad_pct': (0, 100),          # 自动镜头 bbox 外扩(%)
 }
 
 
@@ -182,6 +184,18 @@ class AppConfig:
     volume: float = 0.6
     # 登陆音效随强度增强(可开关;曲线参数均可调整)
     landfall_vol_scale: bool = True
+    #: ── 登陆汇总（用户 2026-10-12 需求 2）─────────────────────────────
+    #: "当登陆强度较弱时, 可以把一系列时间地点非常近且强度相同的登陆汇总成一次"
+    #:           总开关
+    #:      汇总判据: 'time'(按时间串) / 'place'(按地点串)
+    #:        强度容差(kt), 默认 0 = 必须完全相同
+    #:      时间最大差(h), 默认 3
+    #:  地点最大差(经纬距), 默认 0.2
+    landfall_merge: bool = False
+    landfall_merge_mode: str = "time"
+    landfall_merge_dw: int = 0
+    landfall_merge_dt_h: float = 3.0
+    landfall_merge_dist_deg: float = 0.2
     landfall_vol_base_kt: int = 65
     landfall_vol_lo_kt: int = 35
     landfall_vol_lo_db: float = -2.0
@@ -210,6 +224,10 @@ class AppConfig:
     peak_dy: int = 0
     peak_label_size: int = 100
     fix_icon_point_size: bool = False
+    #: **域外风暴小窗**（用户 2026-10-12 需求 1）：在屏幕边缘用白色方框显示
+    #: 指定的、不在屏幕内的风暴。哪些风暴走这套显示由「域外风暴」按钮的对话框
+    #: 写入 `ty.offscreen`（见 app/offscreen_storm.py / offscreen_dialog.py）。
+    show_offscreen_boxes: bool = True
     fade_typhoon: bool = True
     fade_path: bool = True
     fade_path_mode: str = "fade"
@@ -263,6 +281,19 @@ class AppConfig:
     track_pan_max_step_px: float = 6.0
     track_jump_px: float = 30.0
     track_glide_exit_px: float = 12.0
+    #: ── 自动镜头（用户 2026-10-13）────────────────────────────────────────
+    #: 与"镜头跟踪"融合：位置仍走 （经度环绕/死区/有界摇镜/相位锁定），
+    #: 自动镜头**只补上缩放那一半** —— 把全体活跃台风的 bbox 装进画面。
+    #:  = 指数响应时间常数（秒），帧率无关：
+    #:   k = 1 - exp(-4.6 * dt / T)   ⇒ 经过 T 秒走完 99%。
+    track_auto_transition_s: float = 3.0
+    #: bbox 每边外扩比例（%）。20 ⇒ 路径占屏约 100/140。
+    track_auto_pad_pct: int = 20
+
+    #: ── 模块系统（用户 2026-10-14）────────────────────────────────────
+    #: 键 = 模块 id（见 app/module_registry.py），值 = 是否启用。
+    #: **没配过的模块走各自的默认值（默认全开）** ⇒ 观感与加模块系统之前一致。
+    modules: Dict[str, bool] = field(default_factory=dict)
 
     tn: Dict[str, str] = field(default_factory=dict)
 

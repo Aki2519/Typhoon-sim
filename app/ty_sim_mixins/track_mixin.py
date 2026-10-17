@@ -95,7 +95,11 @@ def _lon_span_wrap(lons: list) -> float:
 
 
 class TySimTrackMixin(_TrackCfgMixin):
-    """镜头跟踪: tracking_mode = 'off' | 'single' | 'all'。"""
+    """镜头跟踪: tracking_mode = 'off' | 'single' | 'all' | 'auto'。
+
+    auto = **自动镜头**（用户 2026-10-13）：与 all 同样是"全体活跃台风"，
+    但额外按全体 bbox **自动缩放**（见 _track_auto_zoom）。
+    """
 
     def _init_tracking(self) -> None:
         self.tracking_mode: str = 'off'
@@ -122,6 +126,10 @@ class TySimTrackMixin(_TrackCfgMixin):
         self._track_fade_from: int = 0
         self._track_hl_tys: list = []
         self._track_anim_dur: int = 0
+        #: 本帧自动镜头改过 `mv.scale`(由 `_update_tracking` 置位, `_track_pan_to`
+        #: 在**死区早退之前**消费) —— 高#1: scale 一变, 屏幕坐标与 view_y 的合法
+        #: 上限都变了, 不能因为"目标已居中(死区)"就跳过失效/钳制。
+        self._track_scale_changed: bool = False
         self.tracking_finale_reason: str = ''
 
     def set_tracking(self, mode: str, typhoon=None) -> None:
@@ -149,6 +157,7 @@ class TySimTrackMixin(_TrackCfgMixin):
         self._track_fade_from = 0
         self._track_hl_tys = []
         self._track_glide = False
+        self._track_scale_changed = False
 
     def tracking_label(self) -> str:
         """用于界面指示的小标签; 未跟踪返回空串。"""
@@ -160,6 +169,8 @@ class TySimTrackMixin(_TrackCfgMixin):
             if ty is not None:
                 return f"镜头跟踪: {self.get_display_name(ty)}"
             return ""
+        if self.tracking_mode == 'auto':
+            return "自动镜头: 全部活跃"
         if self.tracking_mode == 'all':
             return "镜头跟踪: 全部活跃"
         if self.tracking_typhoon is not None:
@@ -181,6 +192,9 @@ class TySimTrackMixin(_TrackCfgMixin):
             if ty.fin:
                 return []
             return [ty]
+        if self.tracking_mode == 'auto' and self.md != self.MODE_SEASON:
+            # 自动镜头的"框住全体"只在风季成立；正常模式没有意义 ⇒ 不驱动相机
+            return []
         if self.tracking_mode == 'single':
             ty = self.tracking_typhoon
             if ty is not None and ty.act and not ty.sf and ty.pts:
@@ -492,6 +506,16 @@ class TySimTrackMixin(_TrackCfgMixin):
             if lons:
                 clon = _circular_lon_center(lons)
                 clat = sum(lats) / len(lats)
+                # 自动镜头（风季模式）：先按 bbox 调缩放，再交给同一套平移
+                if self.tracking_mode == 'auto' and self.md == self.MODE_SEASON:
+                    # 高#1: 记录本帧是否真的改过 scale。判据是"写没写"而不是
+                    # `_track_auto_zoom` 的 0.2% 脏标记阈值 —— 阈值以下它照样
+                    # 每次写 `mv.scale`，只改脏标记会让缩放与图标相位悄悄漂开。
+                    _s_before = mv.scale
+                    if self._track_auto_zoom(mv, lons, lats, dt):
+                        self._view_dirty = True
+                    if mv.scale != _s_before:
+                        self._track_scale_changed = True
                 self._track_pan_to(mv, clon, clat, ct, dt)
             return
 
@@ -507,9 +531,71 @@ class TySimTrackMixin(_TrackCfgMixin):
         if not tys:
             return
         self._track_start_finale(ct, tys)
+
+    def _track_auto_zoom(self, mv, lons: list, lats: list, dt: float) -> bool:
+        """**自动镜头**（用户 2026-10-13）：把全体活跃台风一起框进画面。
+
+        与"镜头跟踪"的分工（这就是"融合"的做法 —— 不另起一套相机）：
+          · 位置/经度环绕/死区/有界摇镜/相位锁定 → 全部仍由 `_track_pan_to` 负责；
+          · **自动镜头只补上缩放那一半**：目标 scale = 恰好装下"全体活跃台风 bbox+边距"
+            （用 MapView 的 `target_view_for_region`，与收尾推镜同一套公式）。
+        平滑：**几何插值**（等比缩放视觉上才均匀）+ 帧率无关指数响应
+        `k = 1 - exp(-4.6·dt/T)`（T = `track_auto_transition_s`，一个旋钮，改帧率不用重调）。
+        返回 True 表示这一帧改了视图。
+        """
+        fn = getattr(mv, 'target_view_for_region', None)
+        if fn is None or not lons:
+            return False
+        clon = _circular_lon_center(lons)
+        # 用"相对中心的最短差"求跨度：直接 min/max 会在跨 0° 时把 bbox 撑成整圈
+        devs = [((lo - clon + 180.0) % 360.0) - 180.0 for lo in lons]
+        half_lon = max(abs(min(devs)), abs(max(devs)), 0.5)
+        lat0, lat1 = min(lats), max(lats)
+        if lat1 - lat0 < 1.0:                       # 单台风时给个最小框，免得无限放大
+            mid = (lat0 + lat1) / 2.0
+            lat0, lat1 = mid - 0.5, mid + 0.5
+        pad_pct = max(0.0, float(self._tcfg('track_auto_pad_pct')))
+        pad_lon = max(half_lon * pad_pct / 100.0, 0.5)
+        pad_lat = max((lat1 - lat0) / 2.0 * pad_pct / 100.0, 0.5)
+        tgt = fn(clon - half_lon - pad_lon, clon + half_lon + pad_lon,
+                 max(-90.0, lat0 - pad_lat), min(90.0, lat1 + pad_lat))
+        if not tgt:
+            return False
+        tgt_scale = float(tgt[0])
+        cur = float(mv.scale)
+        if cur <= 0.0 or tgt_scale <= 0.0:
+            return False
+        T = max(0.2, float(self._tcfg('track_auto_transition_s')))
+        k = (1.0 - math.exp(-4.6 * float(dt) / T)) if (dt and dt > 0) else 0.0
+        if k <= 0.0:
+            return False
+        # 高#2: 自动镜头接管缩放 ⇒ 先作废滚轮的缓动目标。否则 MapView.step_zoom
+        # 每帧把 scale 拉向 `_zoom_target`、本函数每帧又拉向 bbox 目标，二者同帧
+        # 互抢：滚轮缩放看起来"没反应"，而 `step_zoom` 的吸附判据
+        # (`|tgt-scale|/scale*最大边 < 0.5`) 因 scale 被拉走永不成立 ⇒
+        # `_zoom_target` 常驻、每帧还按旧锚点重算 view_x/view_y。
+        mv._zoom_target = None
+        mv._zoom_prev_ms = None
+        new_scale = cur * (tgt_scale / cur) ** k
+        mv.scale = new_scale
+        # ⚠ 这里**不能**"差别小就早退"：早退点会随 dt 变 ⇒ 30fps 与 60fps 收敛到
+        #   不同位置（实测 3.49 vs 4.10，帧率无关性直接没了）。阈值只用来决定
+        #   "要不要惊动渲染器"（设 `_view_dirty`），收敛本身照常逐帧推进。
+        return abs(new_scale - cur) / cur >= 0.002
+
     def _track_pan_to(self, mv, clon: float, clat: float, ct: int = 0, dt: float = 0.0) -> None:
         """向目标中心平滑平移(带经度环绕感知; 逐帧、帧率无关, 小死区)。
         必须逐帧应用: 若按固定间隔节流, 相机与台风运动失去同步, 台风会在屏幕上抖动。"""
+        # 高#1: 自动镜头**本帧改过 scale** ⇒ (a) 屏幕坐标必然过期,
+        # (b) scale 变大后 `_max_view_y` 缩小、view_y 可能越界。
+        # 两件事都必须在死区早退**之前**处理: 目标已居中(死区命中)时本函数会
+        # 直接 return, 不再走末尾的 `invalidate_screen_points_lazy()`/`_clamp_view_y()`,
+        # 于是底图已按新 scale 绘制、台风图标与路径却仍挂在旧 scale 的屏幕坐标上(错位)。
+        if getattr(self, '_track_scale_changed', False):
+            self._track_scale_changed = False
+            mv._clamp_view_y()
+            self.invalidate_screen_points_lazy()
+            self._view_dirty = True
         px = (clon - mv.lon_min) * mv._scale_x
         py = (mv.lat_max - clat) * mv._scale_y
         # ── "目标瞬移"判定(必须在死区早退之前更新, 否则跳过的帧会累积成假瞬移) ──

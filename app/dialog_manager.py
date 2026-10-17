@@ -31,6 +31,8 @@ from .sim_time_dialog import SimTimeDialog
 from .sim_mode_dialog import SimModeDialog
 from .sim_value_dialog import SimValueDialog
 from .paint_dialog import PaintDialog
+from .offscreen_dialog import OffscreenDialog
+from .module_dialog import ModuleDialog
 
 
 class DialogManager:
@@ -57,6 +59,8 @@ class DialogManager:
         self.sim_mode = SimModeDialog(sim)
         self.sim_value = SimValueDialog(sim)
         self.paint_dialog = PaintDialog(sim)
+        self.offscreen = OffscreenDialog(sim)
+        self.modules = ModuleDialog(sim)
         self._active_count: Optional[int] = None
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -105,5 +109,7 @@ class DialogManager:
             self.path_length_viewer, self.season_stats, self.intensity_comparison,
             self.summary_list, self.multi_year, self.sim_settings,
             self.sim_time, self.sim_mode, self.sim_value, self.paint_dialog,
+            self.offscreen,
+            self.modules,
             getattr(self.sim, 'script_dialog', None),
         ) if d is not None)

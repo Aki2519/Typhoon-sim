@@ -53,6 +53,15 @@ class SimValueDialog(DraggableDialog):
         dy = max(60, (self.sim.screen_height - _H) // 2)
         self.dialog_rect = pygame.Rect(dx, dy, _W, _H)
         self.bg_rect = self.dialog_rect
+        # ⚠ 审查 R7(2026-10-15): 重复 activate（连点面板/脚本连点）时旧 InputField
+        #   的 active/_text_started 被直接丢弃，input_field 的全局 
+        #   只增不减 ⇒ IME 常开、stop_text_input 永不执行。先关旧的。
+        _old = getattr(self, '_field', None)
+        if _old is not None:
+            try:
+                _old.deactivate()
+            except Exception:
+                pass
         self._field = InputField(self._field_rect(), max_length=int(max_length),
                                  dark=self.dark_mode)
         self._field.set_text(str(value))

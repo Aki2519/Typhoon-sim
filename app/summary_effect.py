@@ -44,6 +44,26 @@ _WHITE = (255, 255, 255)
 _border_cache: dict = {}
 _outlined_cache: dict = {}
 
+#: 名字用的**粗体**字体（用户 2026-10-12: "Ragasa 要加粗"）。
+#: ⚠ 用户随后明确: "不要用别的字体, 换回去" ⇒ **仍然用项目自己的 MapleMono**，
+#: 靠 `set_bold(True)` 合成粗体（不引入 msyhbd 之类的外部字体族）。
+#: 又因为 `_load_font` 是按 (文件, 字号) 全局缓存的，**不能**在缓存对象上 set_bold
+#: （会把同字号的其它调用一起变粗）—— 单独 new 一个实例。
+def _make_bold_font(size: int):
+    import os as _os
+    from .constants.fonts import _FONT_DIR, FONT_FILE
+    f = pygame.font.Font(_os.path.join(_FONT_DIR, FONT_FILE), size)
+    f.set_bold(True)
+    return f
+
+
+_BAR_NAME_BOLD = SmartFont(_make_bold_font(26), _make_bold_font(26))
+
+#: 名字左端起点：**避开动画素材自带的强度徽章**。
+#: 实测徽章占帧宽 6.6%~14.0%（C5）/ 7.1%~13.6%（C3）/ 7.6%~13.1%（TS），
+#: 用户 2026-10-12: "先把总结条名字往右移, 让它不会遮挡动画中的图标" ⇒ 取 15%。
+NAME_LEFT_FRAC = 0.15
+
 # 法8: C5 摘要条紫色滤镜结果按 (cat,hemi,frame_idx,size) 缓存,免每帧 copy+numpy 全图
 _purple_summary_cache: dict = {}
 _PURPLE_SUMMARY_CACHE_MAX = 32
@@ -52,27 +72,44 @@ _PURPLE_SUMMARY_CACHE_MAX = 32
 _trunc_cache: dict = {}
 
 
-def _truncate_bar(font, text: str, max_w: int) -> pygame.Surface:
-    """超宽文本二分截断为单行（省略号结尾），避免与右侧数据重叠。结果缓存。"""
+def _display_case(name: str) -> str:
+    """台风名的显示大小写（用户 2026-10-12: "把这里的台风名改成小写(Ragasa)"）。
+
+    只处理**全大写**的名字（RAGASA → Ragasa）：
+      · 已经是正体的（本项目 b-deck 里就是 Ragasa）**原样返回**；
+      · 中文名（桦加沙）没有大小写，isupper() 为假 ⇒ 原样返回；
+      · 带数字/符号的（07W / 90W）同理不动。
+    """
+    if name and name.isupper():
+        return name.title()
+    return name
+
+
+def _truncate_bar(font, text: str, max_w: int, color=_WHITE) -> pygame.Surface:
+    """超宽文本二分截断为单行（省略号结尾），避免与右侧数据重叠。结果缓存。
+
+    `color` 只为描边用（2026-10-12：名字移到外框最左侧后，会压在素材自带的
+    强度徽章上，纯白字在白色徽章上会糊掉 ⇒ 需要一层黑描边）。
+    """
     if max_w <= 0:
         # 无可用空间: 不绘制左列(避免与右侧数据叠字,R2-22)
-        return rt(font, "", _WHITE)
-    key = (id(font), text, max_w)
+        return rt(font, "", color)
+    key = (id(font), text, max_w, color)
     cached = _trunc_cache.get(key)
     if cached is not None:
         return cached
-    full = rt(font, text, _WHITE)
+    full = rt(font, text, color)
     if full.get_width() <= max_w:
         result = full
     else:
         lo, hi = 1, len(text)
         while lo < hi:
             mid = (lo + hi + 1) // 2
-            if rt(font, text[:mid] + "…", _WHITE).get_width() <= max_w:
+            if rt(font, text[:mid] + "…", color).get_width() <= max_w:
                 lo = mid
             else:
                 hi = mid - 1
-        result = rt(font, text[:lo] + "…", _WHITE)
+        result = rt(font, text[:lo] + "…", color)
     if len(_trunc_cache) > 256:
         _trunc_cache.pop(next(iter(_trunc_cache)))
     _trunc_cache[key] = result
@@ -253,6 +290,17 @@ class TyphoonSummary:
         bar_x = max(clock_avoid_x, surface.get_width() - self.RIGHT_MARGIN - bar_w)
         bar_w = min(bar_w, surface.get_width() - self.RIGHT_MARGIN - bar_x)
         bar_w = max(4, bar_w)   # 极窄窗口下保持最小宽度,不强制回扩 64(T3-9)
+        # 这一栏的对齐有两件事，**必须分开**（2026-10-12 连改三轮才对上）：
+        #   ① 动画帧：**左缘贴齐外框左缘**、右缘落在外框右缘内。用户第三次反馈
+        #      "你没发现动画和总结条左边还是对不上吗" —— 之前我把帧缩窄再右移 12%，
+        #      左边就留了一道垫色空缺 ⇒ 动画左缘 ≠ 外框左缘。现在 `frame_shift=0`、
+        #      帧按 `target_size=(bar_w, BAR_H)` 铺满整个外框（原始 20:1 正好合适）。
+        #   ② 左列名字：**回到用户认可的原位置**（第二次反馈"原来总结条名字的位置
+        #      没问题, 放回去吧"）—— 原公式是 `bar_x + 12%·bar_w + 12`。
+        #      ⚠ 原来这个 12% 是跟着"帧位移"走的；帧不再位移后必须**单独**算，
+        #      否则名字会被拖到外框最左侧（就是用户第一次否掉的那个位置）。
+        # 名字左端：避开素材自带的强度徽章（用户 2026-10-12: "往右移, 不会遮挡动画中的图标"）
+        text_inset = max(0, int(bar_w * NAME_LEFT_FRAC))
         target_size = (bar_w, self.BAR_H)
         from .smcy_icon import get_summary_frame     # W1 修复1R: 函数内 import
         frame = get_summary_frame(self._cat, self._hemi, self._frame_idx, target_size)
@@ -288,12 +336,10 @@ class TyphoonSummary:
             _border_cache[('bg',) + bg_key] = bg_surf
         surface.blit(bg_surf, (bar_rect.x, bar_rect.y))
 
-        # 帧水平右移: 视频素材中台风图标位于帧最左 ~12%, 右移后不再贴左缘
-        # (参考 SimCore 总结条: 图标区 + 右侧信息横排)
-        frame_shift = max(0, int(bar_rect.w * 0.12))
+        # 帧**贴齐外框左缘**、宽 = 外框宽 ⇒ 左右都与外框对齐（`frame_shift=0`）
         if frame is not None:
             frame.set_alpha(alpha)
-            surface.blit(frame, (bar_rect.x + frame_shift, bar_rect.y))
+            surface.blit(frame, (bar_rect.x, bar_rect.y))
             frame.set_alpha(255)
 
         # 台风等级颜色描边（按 (尺寸,颜色,alpha量化) 缓存，避免每帧新建 Surface）
@@ -309,11 +355,11 @@ class TyphoonSummary:
         surface.blit(border, (bar_rect.x, bar_rect.y))
 
         # ── 左侧两行：编号 + 等级（小字号）/ 台风名（中小字号） ──
-        display_name = self.ty.cust or self.ty.sname or self.ty.name
+        display_name = _display_case(self.ty.cust or self.ty.sname or self.ty.name)
         code = f"{self.ty.basin}{self.ty.n}" if self.ty.basin else f"{self.ty.b}{self.ty.n}"
         line1 = f"{code} {display_category(self._cat)}"
         s1 = rt(_font_bar_small, line1, _WHITE)
-        s2 = rt(_font_bar_name, display_name, _WHITE)
+        s2 = rt(_BAR_NAME_BOLD, display_name, _WHITE)      # 粗体（用户 2026-10-12）
 
         # ── 右侧单行(大字号, 横排): 前 2s 强度/ACE, 后 2s 活跃/路径/均速 ──
         if elapsed < self._fade + self._phase1:
@@ -342,13 +388,16 @@ class TyphoonSummary:
         r_top = bar_rect.y + (bar_rect.h - rs.get_height()) // 2
         self._blit_outlined(surface, r_font, r_text, _WHITE, rx, r_top, alpha)
 
-        # ── 左侧：从条左缘起，可用宽度止于右侧文本，超宽截断为单行 ──
-        left_x = bar_rect.x + frame_shift + 12
+        # ── 左侧：**回到原来的位置**（2026-10-12 用户第二次反馈:
+        #    "原来总结条名字的位置没问题, 放回去吧"）—— 起点 = 外框左缘 + 素材里
+        #    强度徽章占的 12% + 12px，与"帧右移 12%"时代**同一个绝对位置**。
+        #    可用宽度止于右侧文本，超宽截断为单行。
+        left_x = bar_rect.x + text_inset + 12
         max_left_w = max(0, rx - left_x - 12)
         top = bar_rect.y + (bar_rect.h - s1.get_height() - s2.get_height()) // 2
         # 截断返回 Surface,直接 blit(不再走 _blit_outlined 的字符串渲染,防崩溃)
         t1 = _truncate_bar(_font_bar_small, line1, max_left_w)
-        t2 = _truncate_bar(_font_bar_name, display_name, max_left_w)
+        t2 = _truncate_bar(_BAR_NAME_BOLD, display_name, max_left_w)
         if alpha < 255:
             t1 = t1.copy()
             t1.set_alpha(alpha)

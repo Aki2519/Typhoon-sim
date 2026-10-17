@@ -131,11 +131,15 @@ class SimModeDialog(DraggableDialog):
                     if k == 0:
                         self.sim._sim_set_mode_override({})
                     return True
-            if self._ok.collidepoint(x, y):
+            # ⚠ 审查 R7(2026-10-15):  只在 draw() 里赋值，首帧绘制前
+            #   收到点击就 AttributeError（本文件其它临时矩形  都带 getattr 保护）。
+            _ok = getattr(self, '_ok', None)
+            _no = getattr(self, '_no', None)
+            if _ok is not None and _ok.collidepoint(x, y):
                 self._apply()
                 self.deactivate()
                 return True
-            if self._no.collidepoint(x, y):
+            if _no is not None and _no.collidepoint(x, y):
                 self.deactivate()
                 return True
             for k, fld in self.fields.items():

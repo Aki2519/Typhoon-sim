@@ -567,7 +567,16 @@ class TySimDrawIconMixin:
         return mv.geo_to_screen_round(lo, la)
 
     def draw_typhoon_info(self, surface: pygame.Surface, ty,
-                          with_name: bool = True) -> None:
+                          with_name: bool = True, with_box: bool = True) -> None:
+        """画台风的**图标 + 名字 + 信息框**（三者本来在同一条共享路径上）。
+
+        ⚠ 2026-10-12 用户: "打开设置/台风列表/脚本界面都会导致背景的台风图标消失,
+          当路径等东西还在。台风图标不要消失"。
+        根因不在本函数, 而在调用点 `renderer.scene_layers` 的 `_typhoon_info`:
+        它把「有对话框打开」当成整条共享路径的开关（`not dialog_open`），
+        于是**图标被顺带跳过了** —— 而路径是 `_draw_typhoons` 那一层画的, 所以路径还在。
+        ⇒ 现在把"要不要信息框"与"要不要图标/名字"分开：对话框打开时只免掉信息框。
+        """
         cp = ty.cp()
         if not cp:
             return
@@ -680,17 +689,18 @@ class TySimDrawIconMixin:
         if show_name:
             self.draw_typhoon_name(surface, ty, x, y, icon_factor, icon_alpha)
 
-        if self.md == self.MODE_NORMAL and self.show_info_box_normal:
-            self._draw_info_box(surface, ty, cp)
-        elif self.md == self.MODE_EDIT:
-            display_pt = cp
-            if not self.pl:
-                sel = getattr(self, '_edit_selected_point', None)
-                if sel is not None and 0 <= sel < len(ty.pts):
-                    display_pt = ty.pts[sel]
-                elif 0 <= ty.ci < len(ty.pts):
-                    display_pt = ty.pts[ty.ci]
-            self._draw_info_box(surface, ty, display_pt)
+        if with_box:
+            if self.md == self.MODE_NORMAL and self.show_info_box_normal:
+                self._draw_info_box(surface, ty, cp)
+            elif self.md == self.MODE_EDIT:
+                display_pt = cp
+                if not self.pl:
+                    sel = getattr(self, '_edit_selected_point', None)
+                    if sel is not None and 0 <= sel < len(ty.pts):
+                        display_pt = ty.pts[sel]
+                    elif 0 <= ty.ci < len(ty.pts):
+                        display_pt = ty.pts[ty.ci]
+                self._draw_info_box(surface, ty, display_pt)
 
     # ── 类别渐变过渡 ──
     def _get_transition(self, ty):
@@ -1565,7 +1575,13 @@ class TySimDrawIconMixin:
                 t_lf = pt[seg] + (pt[seg + 1] - pt[seg]) * lf['t']
                 pre = self._PEAK_PRE_S * sp
                 post = self._PEAK_POST_S * sp
-                txt = "Landfall %dkt" % ty.pts[seg]['w']
+                # 用户 2026-10-12: "landfall 需要标上第几次, 也就是 landfall1 这样;
+                # landfall 的次数要跳过被汇总的（汇总后只算一次）"。
+                # 编号口径与上面的 `Peak{n}` **完全一致**（多于一次时才编号）；
+                # `_lfs` 已经是**汇总后**的记录 ⇒ 被并掉的那些不占编号 ✓
+                from ..landfall_merge import landfall_label
+                txt = landfall_label(i, len(_lfs),
+                                     lf.get('wind', ty.pts[seg]['w']))
                 _cands.append((('lf', i), txt, self._get_max_wind_color(ty),
                                t_lf - pre, t_lf + post))
             _plan = self._label_layout(_cands, pk_factor, _base_bottom)

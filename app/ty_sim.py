@@ -336,6 +336,16 @@ class TySim(TySimUtilsMixin,
 
         self.effects: List[LandfallEffect] = []
 
+        # 域外风暴小窗（用户 2026-10-12 需求 1）：状态与绘制都在这个对象里
+        from .offscreen_storm import OffscreenStormBoxes
+        from .script_editor_panel import ScriptEditorPanel
+        from .script_target_box import TargetBox
+        self.offscreen = OffscreenStormBoxes(self)
+        # 需求 3.5：脚本 target 的**地图显示范围黄框**（两个角点可拖）
+        self.script_target_box = TargetBox(self)
+        # 需求 3.1（用户 2026-10-13）：右侧脚本可视化编辑面板（脚本界面里打开）
+        self.script_panel = ScriptEditorPanel(self)
+
         self.info_box_slots: Dict[Typhoon, int] = {}
         self.info_box_free_slots = list(range(MAX_INFO_BOX_SLOTS))
 
@@ -620,7 +630,7 @@ class TySim(TySimUtilsMixin,
                                             now + self._ZOOM_BURST_MS)
 
     def _apply_pending_wheel(self) -> None:
-        """帧末合并滚轮事件：一次 zoom_at + 一次惰性失效（拖16）。"""
+        """帧末合并滚轮事件：**只设缩放目标**，失效交给 `_step_zoom_anim`（拖16）。"""
         if not self._pending_wheel:
             return
         n = self._pending_wheel
@@ -629,7 +639,17 @@ class TySim(TySimUtilsMixin,
             return
         mx, my = pygame.mouse.get_pos()
         factor = 1.1 ** n if n > 0 else 0.9 ** -n
-        self.map_mgr.map_view.zoom_at(factor, mx, my)
+        # 只设**目标**，实际缩放由 `_step_zoom_anim`（update 里）逐帧逼近。
+        # 连续滚动时目标不断刷新，动画一直在跑，不会一格一跳。
+        self.map_mgr.map_view.set_zoom_target(factor, mx, my)
+        # ⚠⚠ 2026-10-13(审查): 这里**不要**再调 `_after_view_zoom()`。
+        # 设完目标后 `update()` 紧接着就会调 `_step_zoom_anim()`, 它内部已经调
+        # `_after_view_zoom()` ⇒ 旧写法同一帧执行两次失效: `_sp_version` 每帧 +2、
+        # `_clear_drag_cache` 全台风扫两遍、MODE_EDIT 下 `update_screen_points()`
+        # 全量重投影两遍。失效由缓动那一侧独占(它每帧都在动, 不会漏)。
+
+    def _after_view_zoom(self) -> None:
+        """缩放改了视图之后的统一失效处理（滚轮与缓动共用，别写两份）。"""
         if self.right_button_dragging:
             # 拖拽中缩放：坐标系冲突 → 惰性重投影 + 清拖拽面，
             # 各可见台风在绘制时按新视图重算（draw_typhoon 拖拽分支）
@@ -654,14 +674,33 @@ class TySim(TySimUtilsMixin,
                 self.edit_typhoon.v._sp_ver = self._sp_version
         self._view_dirty = True
 
+    def _step_zoom_anim(self, dt: float) -> bool:
+        """缩放缓动走一帧。返回是否仍在动（供上层判断要不要救急刷新）。"""
+        mv = self.map_mgr.map_view
+        if mv is None or getattr(mv, '_zoom_target', None) is None:
+            return False
+        still = mv.step_zoom(dt)
+        # 每帧视图都在变 ⇒ 与滚轮一样做惰性失效（复用同一段处理）
+        self._after_view_zoom()
+        return still
+
     def update(self, dt: float) -> None:
         ct = pygame.time.get_ticks()
         self.lst = ct
         self._fps = 1.0 / dt if dt > 0 else 60.0
         self.input_handler.update(ct)
+        # 域外风暴小窗：状态推进（进出屏/被覆盖的渐变）。放在最前面 —— 它只读
+        # 台风位置与已登记的障碍矩形，不依赖本帧后面才更新的东西。
+        try:
+            self.offscreen.update(dt)
+        except Exception:
+            logger.debug('域外风暴小窗更新失败', exc_info=True)
 
         n = self._pending_wheel
         self._apply_pending_wheel()
+        # 缩放缓动：即使没有新的滚轮事件，只要还在动就每帧推进（这就是"流畅"的来源）
+        if self._step_zoom_anim(dt):
+            n = n or 1
         self._update_window_title()
         se = getattr(self, 'script_engine', None)
         if n or (self.right_button_dragging and not (se and se.running)):

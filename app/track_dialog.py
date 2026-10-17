@@ -23,6 +23,9 @@ class TrackDialog(DraggableDialog):
         options = []
         options.append(("关闭镜头跟踪", 'off', None))
         if sim.md == sim.MODE_SEASON:
+            # 用户 2026-10-13: 风季要"自动镜头" —— 把全体活跃台风框进画面并自动缩放。
+            # 放在最前（风季默认要的就是它）；原来的"全部活跃/单个"保留（融合不替换）。
+            options.append(("自动镜头（全部活跃 · 自动缩放）", 'auto', None))
             options.append(("跟踪全部活跃台风", 'all', None))
             active = [ty for ty in sim.tys if ty.act and not ty.sf and ty.pts]
             for ty in active:

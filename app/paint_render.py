@@ -725,7 +725,12 @@ class TrackMapRenderer:
         if sx + sw > mw:
             seg1_w = mw - sx
             seg2_w = sw - seg1_w
-            d1_w = max(1, int(seg1_w / mw * inner.w))
+            # **R15 真 bug 修**：目标宽度必须按**窗口跨度 `sw`** 分配，**不是整幅图 `mw`**。
+            # 旧式 `d1_w = seg1_w / mw * inner.w`：当窗口跨 360°（如 lon[298,362]）时
+            # seg1=1860、seg2=60 ⇒ 旧式给 d1=330、d2=1590 ⇒ **60px 的窄条被放大 26× 铺满画面**
+            # ⇒ 陆地抹成横带（实测 `AL\bal122050.png` 1920×1980，233 张里仅此 1 张跨 360°）。
+            # 正确：d1 = seg1/sw × inner.w = 1860、d2 = 60 ⇒ 与源 1:1（等于等比），不再拉伸。
+            d1_w = max(1, int(round(seg1_w / float(max(1, sw)) * inner.w)))
             d2_w = max(1, inner.w - d1_w)
             c1 = map_img.subsurface((sx, sy, max(1, mw - sx), sh))
             t1 = pygame.transform.smoothscale(c1, (d1_w, inner.h))
@@ -951,6 +956,19 @@ class TrackMapRenderer:
         · `marker="uniform"` = **老行为，逐位兼容**（SS/SD→方块、EX 族→三角、其余→圆）。
         """
         st = str(p.get('st', '')).upper()
+        # ══ 用户 2026-10-14 直接裁定（以此为准）════════════════════════════
+        #   原话："35kt 以上的 LO/DB 应该画成对应风速的颜色的三角形；SS 同理。"
+        #   即：强度已经够 TS 起步的非热带/副热带系统 —— 形状给三角，颜色**跟随风速**
+        #   （不再固定 TD 蓝、也不再是方块）。35kt 以下完全走原规则；uniform 档是老行为
+        #   兼容档，不套这条。
+        if self.marker == "by_status":
+            try:
+                _w = float(p.get('w', 0) or 0)
+            except (TypeError, ValueError):
+                _w = 0.0
+            if _w >= 35 and st in ("LO", "DB", "SS"):
+                return ("triangle",
+                        scheme_color(self.scheme, _ty4_category_of(_w)))
         if self.marker == "by_status":
             # **R7 形状规则（2026-10-03）**：三角家族 = 非热带阶段
             #   · 像素实测：DB、EX（见 docstring ①）

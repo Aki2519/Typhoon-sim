@@ -11,23 +11,42 @@ from ..typhoon_render import _clear_geo_spline_cache
 class TySimEventMixin:
     """事件处理: 键盘、鼠标点击"""
 
+    def _feed_input_handler(self, e: pygame.event.Event) -> None:
+        """把"本函数会提前 return、因而到不了 `self.input_handler.handle_event(e)`"的
+        事件补喂给长按检测器。
+        中#4/低#11: `InputHandler` 的 `_down` 状态只在它自己的 `handle_event`
+        与"对话框打开"(update 里自愈)两条路复位。失焦分支与脚本面板分支既
+        提前 return 又不算对话框 ⇒ `_down` 残留在 True, 200ms 后
+        `update()` 会拿**按下时**的坐标触发 `on_long_press`(编辑模式 = 误弹
+        报点编辑框)。这里只补喂"复位类"事件, 不喂 MOUSEBUTTONDOWN ——
+        面板/失焦期间不该开始新的长按计时。
+        """
+        ih = getattr(self, 'input_handler', None)
+        if ih is not None:
+            ih.handle_event(e)
+
     def handle_event(self, e: pygame.event.Event) -> bool:
         # K20/R2-3: 窗口失焦时若处于拖拽中,松开按键的 MOUSEBUTTONUP 会丢失,
         # 必须复位拖拽状态,否则左键点击/右键拖动永久卡死
         # ACTIVEEVENT: gain=1 为获得焦点(无需复位),gain=0 为失去焦点
         if e.type == pygame.WINDOWFOCUSLOST:
+            self._feed_input_handler(e)          # 中#4: 让 _down 真的复位
             self._cancel_drag()
             self._drag_needs_save = False
             return False
         if e.type == pygame.ACTIVEEVENT:
             if getattr(e, 'gain', 1):
                 return False
+            self._feed_input_handler(e)          # 中#4: 同 WINDOWFOCUSLOST
             self._cancel_drag()
             self._drag_needs_save = False
             return False
 
         # 名称行编辑态: 优先路由(否则中文输入/退格会误触发全局快捷键)
         if getattr(self, '_name_edit_field', None) is not None:
+            if e.type == pygame.MOUSEBUTTONUP:
+                # 低#11 同类: 编辑框会吞掉 UP, 补喂一次让 _down 复位
+                self._feed_input_handler(e)
             if self._handle_name_edit_event(e):
                 return True
 
@@ -51,6 +70,17 @@ class TySimEventMixin:
                     return self._handle_map_pan(e)
                 return True
             # 对话框打开: 交给下方对话框分发; 仅当对话框全部关闭后恢复 WAIT_USER
+
+        # 需求 3.1：右侧脚本可视化编辑面板**优先于对话框**处理事件
+        # （它覆盖在地图与右 1/4 功能栏之上；不吃事件的话时间轴拖不动）
+        panel = getattr(self, 'script_panel', None)
+        if panel is not None and panel.active:
+            if e.type == pygame.MOUSEBUTTONUP:
+                # 低#11: 面板会吃掉 UP, 且"面板打开"不是 dialog_mgr.any_active(),
+                # InputHandler.update 不会自愈 ⇒ 显式补喂一次复位 _down
+                self._feed_input_handler(e)
+            if panel.handle_event(e):
+                return True
 
         # 对话框优先处理（栈顶优先）
         if self.dialog_mgr.any_active():

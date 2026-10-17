@@ -34,6 +34,8 @@
 """
 from __future__ import annotations
 
+import logging
+import math
 from collections import OrderedDict
 from typing import Iterable, Sequence, Tuple
 
@@ -88,8 +90,27 @@ def clear_cache() -> None:
 #: 超过就**自适应降 SS**（4→3→2），而不是放弃 AA —— 见 `_pick_ss`。
 _AA_MAX_SS_PIXELS = 16_000_000
 
-#: 连 SS=2 都放不下时的行为：直接 aliased 绘制（不建临时面）。会**每进程告警一次**。
-_poly_warned = False
+#: 超采样预算不足时的**降级告警计数**：`key -> 本次运行发生次数`。
+#: 语义 = **同一个 key 每进程只打一条日志**（`n == 1` 时才打），但次数**照常累计**
+#: ⇒ 事后可从 `_poly_warned` 读出"这张图里有多少个图元被降级"，而不必刷屏。
+#: ⚠ 历史：这里原来是一个 `_poly_warned = False` 的布尔量，`aa_poly` 里还留着
+#:   `global _poly_warned`，但**全文件没有任何写入点** —— 那是 `_warn_once()` 被删后
+#:   留下的死变量（`aa_disc`/`aa_ring` 仍调用 `_warn_once` ⇒ 一降级就 NameError）。
+#:   现在 `_warn_once` 恢复，`_poly_warned` 就是它唯一的登记表。
+_poly_warned: dict = {}
+
+
+def _warn_once(key: str, msg: str) -> None:
+    """降级路径的**一次性**告警：先计数，再仅在首次（`n == 1`）打 warning。
+
+    为什么不直接 `logging.warning`：一帧里可能有成百上千个点走到降级分支，
+    逐个打会把日志刷爆（本项目已有"每类 warning 只打一次"的既有约定）。
+    """
+    n = _poly_warned.get(key, 0) + 1
+    _poly_warned[key] = n
+    if n != 1:
+        return
+    logging.getLogger(__name__).warning(msg)
 
 
 def _pick_ss(w: int, h: int) -> int:
@@ -243,9 +264,9 @@ def aa_poly(surf: pygame.Surface, color: Color, points: Iterable[Sequence[float]
 
     ⚠ **形状大时自适应降 SS**（2026-10-02 修，见 `_pick_ss` 的说明）：
     全屏级多边形原先在 SS=4 下要 134 MB 一张临时面。现在按面积把 SS 从 4 降到 3/2，
-    **保 AA 而不是保 SS**；只有连 SS=2 都放不下（面积 > 4 M px）才退回 aliased 直绘。
+    **保 AA 而不是保 SS**；只有连 SS=2 都放不下（面积 > 4 M px）才**改走分块超采样**
+    （`_poly_tiled`，AA 全尺寸保留，不是退化成 aliased 直绘）。
     """
-    global _poly_warned
     pts = [(float(x), float(y)) for x, y in points]
     if len(pts) < 3:
         return
@@ -257,6 +278,8 @@ def aa_poly(surf: pygame.Surface, color: Color, points: Iterable[Sequence[float]
     ss = _pick_ss(w, h)
     if ss <= 0:
         #: 超大多边形（bbox > 4 M px，如 4K 全屏）⇒ **分块**，不放弃 AA。
+        _warn_once("poly-tiled",
+                   f"多边形 bbox {w}x{h} 超出超采样预算 ⇒ 改走分块超采样(AA 保留)。")
         _poly_tiled(surf, color, pts, w, h, x0, y0)
         return
     local = [(x - x0, y - y0) for x, y in pts]

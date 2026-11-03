@@ -89,3 +89,21 @@ map/land2.png
 # 测试/隔离产生的配置副本(不是源码)
 config.json.bak
 assets/Area_ocean.json.bak
+
+# ── 发布排除（2026-11-04）────────────────────────────────────────────
+# 台风数据（体积大、随时替换，不进仓库）
+typhoon/
+# 过程产物：导出帧、探针截图、日志
+output/
+review/
+# 临时数据
+data/
+# 备份文件（.bak / .bak_xxx / .old）
+*.bak
+*.bak_*
+*.old
+*.rawcache
+*.rawcache.meta
+# 地图中间产物（只保留 map/map.png 本体）
+map/*.tif
+map/*.bak*

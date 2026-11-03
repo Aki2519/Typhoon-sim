@@ -44,20 +44,19 @@ _WHITE = (255, 255, 255)
 _border_cache: dict = {}
 _outlined_cache: dict = {}
 
-#: 名字用的**粗体**字体（用户 2026-10-12: "Ragasa 要加粗"）。
-#: ⚠ 用户随后明确: "不要用别的字体, 换回去" ⇒ **仍然用项目自己的 MapleMono**，
-#: 靠 `set_bold(True)` 合成粗体（不引入 msyhbd 之类的外部字体族）。
-#: 又因为 `_load_font` 是按 (文件, 字号) 全局缓存的，**不能**在缓存对象上 set_bold
-#: （会把同字号的其它调用一起变粗）—— 单独 new 一个实例。
+#: 总结条里的台风名：**放大**，不加粗（用户 2026-10-19：
+#: "总结框的台风名有问题，你可能把它加粗了，应该是放大而不是加粗"）。
+#: 之前按 2026-10-12 的"要加粗"做了合成粗体 —— 现在改回常规字重，
+#: 把字号从 26 提到 36（约 1.4×），靠**尺寸**做层级而不是靠笔画粗细。
+#: 仍然只用项目自己的 MapleMono，不引入外部字体族。
 def _make_bold_font(size: int):
     import os as _os
     from .constants.fonts import _FONT_DIR, FONT_FILE
     f = pygame.font.Font(_os.path.join(_FONT_DIR, FONT_FILE), size)
-    f.set_bold(True)
     return f
 
 
-_BAR_NAME_BOLD = SmartFont(_make_bold_font(26), _make_bold_font(26))
+_BAR_NAME_BOLD = SmartFont(_make_bold_font(36), _make_bold_font(36))
 
 #: 名字左端起点：**避开动画素材自带的强度徽章**。
 #: 实测徽章占帧宽 6.6%~14.0%（C5）/ 7.1%~13.6%（C3）/ 7.6%~13.1%（TS），

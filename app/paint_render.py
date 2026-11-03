@@ -143,7 +143,7 @@ def compute_track_stats(tys):
         for p in pts:
             w = int(p.get('w', 0) or 0)
             st = str(p.get('st', '')).upper()
-            if st in ('TS', 'TY', 'ST', 'HU', '') and w >= 35:
+            if st in ('TS', 'TY', 'ST', 'HU', 'TC', '') and w >= 35:
                 ace += (w * w) / 10000.0
             la = float(p.get('la', 0) or 0)
             lo = float(p.get('lo', 0) or 0)

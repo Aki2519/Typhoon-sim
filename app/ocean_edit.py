@@ -487,7 +487,7 @@ class OceanEditMode:
         for obj in data:
             code = obj.get('code')
             if obj.get('merged'):
-                continue  # 自动合并洋区不写多边形
+                continue  # 自动生成的子洋区不写多边形
             # 用主洋区字典: get_by_code 也会返回子洋区(OceanSubArea 无 vertices)
             area = getattr(oa, '_by_code', {}).get(code) if code else None
             if area is None or getattr(area, 'is_merged', False):

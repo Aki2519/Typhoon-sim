@@ -127,6 +127,15 @@ class TargetRegion:
     departure_speed: float = 1.0
     dwell_speed: float = 1.0
     jump_on_depart: Optional[datetime] = None
+    #: ── 镜头跟踪（用户 2026-10-19："给 target 命令添加镜头跟踪的功能"）──
+    #: 写法（写在 target 头里，位置随意）：
+    #:     target 120E 10N w=40 track:       跟随，参数全用默认
+    #:     target 120E 10N w=40 track=WP24:  跟随指定风暴（编号/名字都行）
+    #:     target track:                     什么都不给 ⇒ 全默认
+    #:     pad=20 可选，贴在 track 旁边
+    follow: bool = False
+    follow_name: str = ''
+    follow_pad_pct: float = 20.0
     _has_departure_speed: bool = False
     _has_arrive_speed: bool = False
     _has_dwell_speed: bool = False
@@ -269,10 +278,38 @@ class _Parser:
             smooth = True
             header = re.sub(r'(?i)\s+-s(?:mooth)?\s*$', '', header)
 
+        # ── 镜头跟踪（用户 2026-10-19）：track / track=<风暴> / pad=<n> ──
+        # 写在哪都行（header 里按词匹配），不写就是原来的固定视野。
+        follow = False
+        follow_name = ''
+        follow_pad = 20.0
+        m_tr = re.search(r'(?i)(?:^|\s)track(?:=([^\s:]+))?(?=\s|:|$)', header)
+        if m_tr:
+            follow = True
+            follow_name = (m_tr.group(1) or '').strip()
+            header = header[:m_tr.start()] + header[m_tr.end():]
+        m_pad = re.search(r'(?i)(?:^|\s)pad=(\d+(?:\.\d+)?)', header)
+        if m_pad:
+            follow_pad = float(m_pad.group(1))
+            header = header[:m_pad.start()] + header[m_pad.end():]
+        header = header.strip()
+
         # parse: <lon> <lat> w=<deg>
         m = re.match(r'^(\S+)\s+(\S+)\s+w\s*=\s*(\S+)', header)
+        if not m and follow and not header:
+            # target track: —— 只要跟踪，不给经纬/宽度 ⇒ 全用默认（跟着风暴走，
+            # 视野宽度取默认 40°，实际由跟踪系统按台风暴幅自动调）
+            tgt = TargetRegion(0.0, 0.0, 40.0, self._base_target_idx + self._target_count,
+                               constant_speed=not smooth)
+            self._target_count += 1
+            tgt.follow = True
+            tgt.follow_name = follow_name
+            tgt.follow_pad_pct = follow_pad
+            self._parse_sub_commands(tgt)
+            self._script.commands.append(Command(type=CMD_TARGET, target=tgt))
+            return
         if not m:
-            raise ValueError(f"第{self._pos}行: target 格式错误，应为: target <lon> <lat> w=<deg>: {line}")
+            raise ValueError(f"第{self._pos}行: target 格式错误，应为: target <lon> <lat> w=<deg> [track[=风暴]]: {line}")
         lon = _parse_lon(m.group(1))
         lat = _parse_lat(m.group(2))
         try:
@@ -285,6 +322,9 @@ class _Parser:
         idx = self._base_target_idx + self._target_count
         self._target_count += 1
         tgt = TargetRegion(lon, lat, width, idx, constant_speed=not smooth)
+        tgt.follow = follow
+        tgt.follow_name = follow_name
+        tgt.follow_pad_pct = follow_pad
 
         # 解析缩进子命令
         self._parse_sub_commands(tgt)
@@ -519,6 +559,9 @@ class ScriptEngine:
         return True
 
     def stop(self):
+        # 脚本停下时把 target ... track 打开的镜头跟踪关掉（否则镜头继续咬着风暴）
+        if self._current_target is not None:
+            self._release_follow(self._current_target)
         if self.sim.right_button_dragging:
             self.sim.right_button_dragging = False
             self.sim._drag_offset_x = 0
@@ -563,6 +606,9 @@ class ScriptEngine:
             self._cmd_index += 1
 
             if cmd.type == CMD_TARGET:
+                # 离开上一个 track 目标 ⇒ 先松开镜头跟踪（否则会一直咬着那个风暴）
+                if self._current_target is not None:
+                    self._release_follow(self._current_target)
                 self._enter_target(cmd.target)
                 return
             elif cmd.type == CMD_JUMP:
@@ -599,8 +645,92 @@ class ScriptEngine:
 
     # ── DWELL ──
 
+    def _find_follow_target(self, tgt):
+        """target ... track 要跟谁：给了名字按名字找，没给就取离 target 最近的活跃风暴。
+
+        名字比对依次看 `name`（如 WP24）/ `sname` / `cust` / 显示名，全部忽略大小写
+        且忽略空格 —— 用户写 `wp24` / `WP24` / `WP 24` 都能认。
+        """
+        sim = self.sim
+        all_tys = [t for t in getattr(sim, 'tys', []) if getattr(t, 'pts', None)]
+        active = [t for t in all_tys
+                  if getattr(t, 'act', False) and not getattr(t, 'sf', False)]
+        pool = active or all_tys
+        if not pool:
+            return None
+        name = (tgt.follow_name or '').strip().lower().replace(' ', '')
+        if name:
+            for t in pool:
+                cands = [getattr(t, a, '') or '' for a in ('name', 'sname', 'cust')]
+                try:
+                    cands.append(sim.get_display_name(t))
+                except Exception:
+                    pass
+                for c in cands:
+                    if c and c.strip().lower().replace(' ', '') == name:
+                        return t
+            return None
+        # 空名字 ⇒ 默认：离 target 经纬最近的那个（没有位置信息就取第一个）
+        best, best_d = None, None
+        for t in pool:
+            try:
+                pos = t.cpos()
+            except Exception:
+                pos = None
+            if not pos:
+                continue
+            d = ((pos.get('lo', 0.0) - tgt.lon) ** 2
+                 + (pos.get('la', 0.0) - tgt.lat) ** 2)
+            if best_d is None or d < best_d:
+                best, best_d = t, d
+        return best or pool[0]
+
+    def _ensure_follow(self, tgt):
+        """把跟踪系统切到 `tgt` 指定的风暴（每帧调用，幂等）。
+
+        这里**不自己算镜头**，而是复用项目现成的"镜头跟踪"
+        （`sim.set_tracking('single', ty)`）—— 平移/缩放/有界摇镜/相位锁定
+        都在那套里，脚本只负责"什么时候跟谁"。
+        """
+        if not getattr(tgt, 'follow', False):
+            return
+        sim = self.sim
+        ty = self._find_follow_target(tgt)
+        if ty is None:
+            return
+        cur = getattr(sim, 'tracking_typhoon', None)
+        if getattr(sim, 'tracking_mode', 'off') != 'single' or cur is not ty:
+            try:
+                sim.set_tracking('single', ty)
+            except Exception:
+                pass
+        pad = float(getattr(tgt, 'follow_pad_pct', 20.0) or 20.0)
+        # 边距是"跟踪参数"里的一个数；脚本给了就临时改，退出时由 _release_follow 还原
+        cfg = getattr(sim, 'cfg', None)
+        if cfg is not None and hasattr(cfg, 'track_view_pad_pct'):
+            if not hasattr(self, '_saved_pad'):
+                self._saved_pad = cfg.track_view_pad_pct
+            cfg.track_view_pad_pct = pad
+
+    def _release_follow(self, tgt):
+        """离开一个 track 目标：关掉跟踪、还原边距。"""
+        if not getattr(tgt, 'follow', False):
+            return
+        sim = self.sim
+        try:
+            if getattr(sim, 'tracking_mode', 'off') == 'single':
+                sim.set_tracking('off')
+        except Exception:
+            pass
+        if hasattr(self, '_saved_pad'):
+            cfg = getattr(sim, 'cfg', None)
+            if cfg is not None and hasattr(cfg, 'track_view_pad_pct'):
+                cfg.track_view_pad_pct = self._saved_pad
+            self._saved_pad = None
+
     def _update_dwell(self):
         tgt = self._current_target
+        self._ensure_follow(tgt)
         end_abs = self._dt_to_abs_ste(tgt.move_from_date)
         if self._sim_abs_ste() >= end_abs:
             # 仅当 depart 是脚本显式给出的真实日期时才把模拟时间拨到该时刻;

@@ -29,8 +29,10 @@ def _parse_dt(t: str) -> Optional[datetime]:
 def _ace_eligible(pt: dict, strict: bool = False) -> bool:
     """ACE 资格判定: 热带性质(TS/TY/ST/HU/空)且风速 ≥ 35kt 才计
     (与 typhoon_data.recalc_ace 口径一致;B1 阈值回归修复)。"""
-    st = pt['st'].upper()
-    if st not in ('TS', 'TY', 'ST', 'HU', ''):
+    # 状态码兼容（见 utils.is_tropical_status）：标准 TS/TY/HU… 之外
+    # 还认 C1~C5 / STS / STY / SuperTY 等写法，否则 C1 报文整条被丢、ACE 恒 0
+    from .utils import is_tropical_status
+    if not is_tropical_status(pt.get('st', '')):
         return False
     w = pt['w']
     if not isinstance(w, (int, float)) or w < 35:

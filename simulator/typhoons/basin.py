@@ -313,7 +313,7 @@ def ace_of(ty: dict) -> float:
     """单台风 ACE(与回放程序口径一致: ACE = Σ(w²/10000),35kt 阈值+B1)。"""
     ace = 0.0
     for t, la, lo, w, p, st in _pts_of(ty):
-        if w >= 35 and st in ('TS', 'TY', 'ST', 'HU', ''):
+        if w >= 35 and st in ('TS', 'TY', 'ST', 'HU', 'TC', ''):
             ace += (w * w) / 10000.0
     return ace
 

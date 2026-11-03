@@ -171,9 +171,18 @@ class ControlPanel:
             _mod_x = self.sim.screen_width - self.BUTTON_W - 15
             self._add(PanelButton("modules", _mod_x, by, self.BUTTON_W, self.BUTTON_H,
                                   rt(f_s, "模块", (255, 255, 255)), (70, 110, 160)))
+            # 「导出」（用户 2026-10-19）：紧挨在「模块」左边。
+            # 导出对话框是**可选模块**（不在仓库里时不加这个按钮）。
+            _exp_x = _mod_x - self.BUTTON_W - 5
+            if getattr(getattr(self.sim, 'dialog_mgr', None), 'export_dlg', None) is not None:
+                _exp_btn = PanelButton("export", _exp_x, by, self.BUTTON_W, self.BUTTON_H,
+                                       rt(f_s, "导出", (245, 250, 255)), (60, 130, 120))
+                if _exp_x < self._speed_bar_x + self.SPEED_BAR_W + 10:
+                    _exp_btn.visible = False
+                self._add(_exp_btn)
             if _mod_on(self.sim, "offscreen"):
                 # 与「模块」按钮错开一列（同一个右上角区域，先让位给「模块」）
-                _ob_x = _mod_x - self.BUTTON_W - 5
+                _ob_x = _exp_x - self.BUTTON_W - 5
                 _ob_btn = PanelButton("offscreen", _ob_x, by, self.BUTTON_W, self.BUTTON_H,
                                       rt(f_s, "域外风暴", (240, 240, 245)), (120, 140, 190))
                 # 与 mode/速度条抢位时自我隐藏（窄窗保护，与其它右对齐按钮同一套语义）
@@ -602,9 +611,32 @@ class ControlPanel:
             if md_surf is None:
                 md_surf = rt(f_s, mode_label, text_color)
                 self._md_text_cache[md_key] = md_surf
-            surface.blit(md_surf, (
-                sw // 2 - md_surf.get_width() // 2,
-                sim.screen_height - 30))
+            # 居中在**功能栏自己的空白区**，不是屏幕几何中心
+            # （用户 2026-10-19："模式:风季 应该放在功能栏正中间, 你可能放到画面
+            #   正中间去了" —— 左右两侧都有按钮时，屏幕中心会撞到左边那组按钮）。
+            cx = sw // 2
+            try:
+                rows = [b for b in self._buttons if b.visible]
+                if rows:
+                    row_y = max(b.y for b in rows)          # 最底一行 = 模式文字所在行
+                    row = [b for b in rows if b.y == row_y]
+                    spans = sorted((b.x, b.x + b.w) for b in row)
+                    gaps, cursor = [], 0
+                    for a, b2 in spans:
+                        if a > cursor:
+                            gaps.append((cursor, a))
+                        cursor = max(cursor, b2)
+                    gaps.append((cursor, sw))
+                    # 取"包含屏幕中心"的空隙；中心被占就用最宽的那段
+                    cand = [g for g in gaps if g[0] <= sw // 2 <= g[1]] or gaps
+                    if cand:
+                        a, b2 = max(cand, key=lambda g: g[1] - g[0])
+                        if b2 - a > md_surf.get_width() + 8:
+                            cx = (a + b2) // 2
+            except Exception:
+                pass
+            surface.blit(md_surf, (cx - md_surf.get_width() // 2,
+                                   sim.screen_height - 30))
 
         # 脚本运行指示(状态翻转时缓存)
         running = bool(hasattr(sim, 'script_engine') and sim.script_engine

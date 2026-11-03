@@ -290,6 +290,16 @@ class AppConfig:
     #: bbox 每边外扩比例（%）。20 ⇒ 路径占屏约 100/140。
     track_auto_pad_pct: int = 20
 
+    #: ── 右上角 ACE 折线图（用户 2026-10-19）───────────────────────────
+    #: 打开后**隐藏**原来的总 ACE 进度条，改画当年 ACE 累计曲线。
+    ace_chart_enabled: bool = False
+    #: 叠加"历年曲线"（同洋区，细而暗）
+    ace_chart_history: bool = True
+    #: 叠加"当年其它洋区"做对比
+    ace_chart_other: bool = False
+    #: 跟随：把当前 ACE 的线头保持在图中心（开局 ACE 很低时退化为从左显示）
+    ace_chart_follow: bool = False
+
     #: ── 模块系统（用户 2026-10-14）────────────────────────────────────
     #: 键 = 模块 id（见 app/module_registry.py），值 = 是否启用。
     #: **没配过的模块走各自的默认值（默认全开）** ⇒ 观感与加模块系统之前一致。

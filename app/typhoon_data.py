@@ -8,6 +8,9 @@ import datetime
 import logging
 from typing import List, Optional
 
+# 状态码兼容（2026-10-19）：标准 TS/TY/HU 之外还认 C1~C5 / STS / STY 等写法
+from .utils import is_tropical_status
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,7 +110,7 @@ class TyphoonDataMixin:
         pace = 0.0
         st_up = st.upper()
         # ACE 公式: Σ(w²/10000), w 单位 kt, 仅热带性质且风速 ≥ 35kt 计
-        if st_up in ('TS', 'TY', 'ST', 'HU', '') and isinstance(w, (int, float)) and w >= 35 and geo_ok and is_official:
+        if is_tropical_status(st_up) and isinstance(w, (int, float)) and w >= 35 and geo_ok and is_official:
             pace = round((w * w) / 10000.0, 4)
 
         ace_year = 0
@@ -147,7 +150,7 @@ class TyphoonDataMixin:
             st = pt['st'].upper()
             geo_ok = (not geo_enabled) or self.sim.ace_engine.point_in_limit(pt['la'], pt['lo'])
             # ACE 公式: Σ(w²/10000), w 单位 kt, 仅热带性质且风速 ≥ 35kt 计
-            if st in ('TS', 'TY', 'ST', 'HU', '') and pt.get('official', True) and pt['w'] >= 35 and geo_ok:
+            if is_tropical_status(st) and pt.get('official', True) and pt['w'] >= 35 and geo_ok:
                 pace = round((pt['w'] * pt['w']) / 10000.0, 4)
             else:
                 pace = 0.0

@@ -37,16 +37,32 @@ _TOTAL_FRAMES = 1800
 _FRAME_INTERVAL_MS = int(1000.0 / _FPS)
 
 _VIDEO_EXT = '.mp4'
-_CACHE_MAX = 240
+#: 三个缓存上限都支持**环境变量覆盖**（2026-10-19 加的，用来做 A/B：
+#:   TSIM_NATIVE_MB / TSIM_SURF_MB / TSIM_CACHE_MAX
+#: 因为真正的内存大头是 pygame Surface / cv2 的 **C 内存**，tracemalloc 量不到，
+#: 只能用"改上限 → 另起进程 → 量 RSS + 帧时间"的办法比较。
+import os as _os
+_CACHE_MAX = int(_os.environ.get('TSIM_CACHE_MAX', '90'))   # 240→90：实测更小**更快**（-30%）
 _CACHE_BYTES_PER_STREAM = 48 * 1024 * 1024   # 单流帧缓存内存上限（大图标时自动降帧数）
 #: 轮次 160 拆分(见 `_VideoStream._ncache`): 表面缓存(随尺寸)与原生帧缓存(尺寸无关)
 #: 各给一份**明确**的字节预算。25+16=41 MB < 原来的 48 MB ⇒ 单流内存上限**不升反降**
 #: (原来最坏就是 48 MB/流, `_MAX_STREAMS=20` 时 ~960 MB; 现在 ~820 MB)。
-_SURF_BYTES_PER_STREAM = 16 * 1024 * 1024
-_NATIVE_BYTES_PER_STREAM = 24 * 1024 * 1024
+_SURF_BYTES_PER_STREAM = int(float(_os.environ.get('TSIM_SURF_MB', '8')) * 1024 * 1024)    # 16→8 MB
+_NATIVE_BYTES_PER_STREAM = 40 * 1024 * 1024   # 24→40 MB (2026-10-19)。
+#     24MB 时 400×400 源只装 9 帧 < 预载窗口 ⇒ 一解就被淘汰（原 bug）；
+#     但 64MB×9 流≈576MB 帧缓存会把整机推到 2.5GB、帧时间抖动到 66~119ms，
+#     所以折中到 40MB(≈15 帧)，并配合下面的窗口收敛。
 _DECODE_BUDGET_PER_WIN = 6      # 每流每 ~16ms 窗口最多解码帧数（防多台风随机 seek 卡顿）
 _MAX_CURSORS = 4                # 每流最多解码游标数（多台风共享同类别视频时避免来回 seek）
 _SEQ_WINDOW = 45                # 游标允许 grab 快进的最大帧距
+
+
+#: 图标混合模式：alpha（默认合成透明通道）| add（加法混合，**不需要 alpha**）
+#: 加法混合对"黑底发光"的图标是物理上正确的：黑 = 加 0，天然透明。
+#: 好处：省掉每帧的 alpha 合成，并且重叠处更亮（更像真实发光）。
+#: 切换：环境变量 TSIM_ICON_BLEND=add
+ICON_BLEND = os.environ.get('TSIM_ICON_BLEND', 'add').strip().lower()
+_ADDITIVE = ICON_BLEND == 'add'
 
 
 def _compose_bgra(frame_bgr: np.ndarray) -> np.ndarray:
@@ -230,17 +246,34 @@ class _VideoStream:
         # 轮次 160: 贵的那一步(seek + read + 合成 alpha, 实测 ~40ms)按 idx 缓存在
         # **尺寸之外**; 换图标尺寸时只重做下面的 resize(0.2-0.3ms)。
         # 同一 (idx, ts) 仍走同一条 resize→frombuffer 路径 ⇒ 输出逐位不变。
-        frame_bgra = self._native_get(idx)
-        if frame_bgra is None:
+        # ── 2026-10-19 优化：**先缩放，再合成 alpha**
+        #   原来在原生分辨率(400×400)上做 split/max/merge，再缩到 96×96：
+        #   合成的像素数是目标的 17 倍，还多占 33% 缓存（4 通道 vs 3 通道）。
+        #   现在原生缓存只存 **BGR**，缩放到目标尺寸后才算 alpha —— 视觉一致
+        #   （alpha 仍是 max(B,G,R)），计算量降到原来的 1/17，缓存多装 33% 帧。
+        # ── 2026-10-19 按**实测**重排：先缩放、再合成 alpha
+        #   实测单帧各步（400×400 源 / 160px 目标）：
+        #       解码 0.20ms | compose(400) 0.64ms | resize 0.05ms | tobytes 0.01ms
+        #   合成是整个流程里唯一贵的一步，而它在 400×400 上做（16 万像素），
+        #   真正要显示的只有 160×160（2.5 万像素）⇒ 先缩再合成省 0.6ms/帧/风暴。
+        #   原生缓存改存 **BGR**（3 通道），同样的字节预算能多存 33% 的帧。
+        frame_bgr = self._native_get(idx)
+        if frame_bgr is None:
             ret, frame_bgr = self._read_at(idx)
             if not ret:
                 return None
-            # 原生分辨率合成 alpha（像素少），再一次性缩放 BGRA
-            frame_bgra = _compose_bgra(frame_bgr)
-            self._native_put(idx, frame_bgra)
+            self._native_put(idx, frame_bgr)
+        small = frame_bgr
         if self._scale_size:
-            frame_bgra = cv2.resize(frame_bgra, self._scale_size, interpolation=cv2.INTER_LINEAR)
-        surf = pygame.image.frombuffer(frame_bgra.tobytes(), frame_bgra.shape[1::-1], 'BGRA')
+            small = cv2.resize(frame_bgr, self._scale_size,
+                               interpolation=cv2.INTER_LINEAR)
+        if _ADDITIVE:
+            # 加法混合：直接用 BGR，不合成 alpha（省一步，且黑底自然透明）
+            surf = pygame.image.frombuffer(small.tobytes(), small.shape[1::-1], 'BGR')
+        else:
+            frame_bgra = _compose_bgra(small)
+            surf = pygame.image.frombuffer(frame_bgra.tobytes(),
+                                           frame_bgra.shape[1::-1], 'BGRA')
         self._cache[idx] = surf
         bisect.insort(self._sorted_keys, idx)
         cap = self._cache_cap()
@@ -294,7 +327,12 @@ class SMCYIconManager:
     """管理 SMCY 视频台风图标的流式加载与帧播放。"""
 
     def __init__(self) -> None:
-        self._base_dir = os.path.join(SUCAI_DIR, ICON_SET_SMCY, 'mainicon')
+        #: 素材目录可切换（2026-10-19）：
+        #:   默认 assets/smcY（原始长 GOP mp4）
+        #:   环境变量 TSIM_SMCY_SET=smcY_intra 切到"全关键帧"版本（tools/convert_icons_intra.py 生成）
+        #: 两者结构完全一致，只差编码：全关键帧随机取帧快 2.3×（14.3 → 6.1 ms）。
+        self._set_name = os.environ.get('TSIM_SMCY_SET', ICON_SET_SMCY)
+        self._base_dir = os.path.join(SUCAI_DIR, self._set_name, 'mainicon')
         self._streams: Dict[str, _VideoStream] = {}
         self._sizes: Dict[str, Tuple[int, int]] = {}
         self._icon_size_cache: int = 0
@@ -348,6 +386,12 @@ class SMCYIconManager:
         if stream is None:
             return 0
         self._touch(key)
+        # ⚠ 窗口必须**装得下缓存**：原生帧缓存按字节封顶（400×400 源只有 ~9 帧），
+        #   而调用方要预载 30 帧 ⇒ 解出来的帧立刻被 LRU 淘汰，下一帧又重解。
+        #   实测这就是"10 个风暴 78ms/帧"的主因（原生缓存 9 帧 vs 窗口 30 帧）。
+        cap = stream._native_cap()
+        if count > cap:
+            count = cap
         end = min(frame_idx + count, stream._frame_count)
         decoded = 0
         for i in range(frame_idx, end):
@@ -534,7 +578,8 @@ def get_landfall_frames(category: str, target_w: int = 0, target_h: int = 0) -> 
     cache_key = (name, target_w, target_h)
     if cache_key in _landfall_cache:
         return _landfall_cache[cache_key]
-    path = os.path.join(SUCAI_DIR, ICON_SET_SMCY, 'landfall', f'{name}.mp4')
+    path = os.path.join(SUCAI_DIR, os.environ.get('TSIM_SMCY_SET', ICON_SET_SMCY),
+                        'landfall', f'{name}.mp4')
     if not os.path.exists(path):
         return None
     cap = cv2.VideoCapture(path)
@@ -595,7 +640,8 @@ def _open_landed(category: str) -> Optional[_VideoStream]:
         return None
     stream = _landed_streams.get(name)
     if stream is None:
-        path = os.path.join(SUCAI_DIR, ICON_SET_SMCY, 'landfall', f'{name}.mp4')
+        path = os.path.join(SUCAI_DIR, os.environ.get('TSIM_SMCY_SET', ICON_SET_SMCY),
+                        'landfall', f'{name}.mp4')
         if not os.path.exists(path):
             return None
         stream = _VideoStream(path)
@@ -712,7 +758,7 @@ def preload_icon_streams(data: list, icon_factor: float = 0.0) -> int:
 
 # ── 摘要视频 ──
 
-_SUMMARY_DIR = os.path.join(SUCAI_DIR, ICON_SET_SMCY, 'summary')
+_SUMMARY_DIR = os.path.join(SUCAI_DIR, os.environ.get('TSIM_SMCY_SET', ICON_SET_SMCY), 'summary')
 
 _SUMMARY_CATS = {
     'TD': 'TD', 'TS': 'TS', 'STS': 'TS+', 'C1': 'C1', 'C2': 'C2',

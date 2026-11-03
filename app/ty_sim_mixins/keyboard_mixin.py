@@ -766,6 +766,13 @@ class TySimKeyboardMixin:
         self.dialog_mgr.sd.activate()
         return True
 
+    def _btn_export(self):
+        """功能栏「导出」：画面/视频导出（用户 2026-10-19）。"""
+        dlg = getattr(self.dialog_mgr, 'export_dlg', None)
+        if dlg is None:
+            return
+        dlg.activate()
+
     def _btn_modules(self):
         """功能栏「模块」（用户 2026-10-14）：打开模块总表。"""
         dlg = getattr(self.dialog_mgr, 'modules', None)

@@ -115,6 +115,19 @@
   ]
  },
  {
+  "code": "NPAC",
+  "name_cn": "北太平洋",
+  "name_full": "NPAC",
+  "members": [
+   "WP",
+   "CP",
+   "EP"
+  ],
+  "merged": true,
+  "h": "N",
+  "ace": 473.2703
+ },
+ {
   "code": "ECP",
   "name_cn": "中东太平洋",
   "name_full": "ECPA",

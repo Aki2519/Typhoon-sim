@@ -168,6 +168,39 @@ def movement_speed_kt(pts, points_time, ci: int = -1) -> Optional[float]:
     return math.hypot(dlat, dlon) / dt_h
 
 
+#: ── 状态码兼容（用户 2026-10-19 反馈）──────────────────────────────
+#: 标准 b-deck 的类型列是 TS / TY / ST / HU / TC / EX / LO / DB…
+#: 但不少自制/第三方报文直接写**萨菲尔等级**（C1~C5，还有 C2- / C3+ 这种），
+#: 甚至写 STY / SuperTY / STS。旧代码只认白名单
+#: ('TS','TY','ST','HU','TC','')，于是 C1 的点被整条丢掉 ⇒ ACE 恒为 0。
+#: 现在把这些"看起来像等级"的写法都当作**热带**处理（是否计入 ACE 仍由风速 ≥35 决定）。
+_TROPICAL_ALIASES = {
+    'TS', 'TY', 'ST', 'HU', 'TC', 'STS', 'STY', 'SUTY', 'SUPERTY',
+    'C1', 'C1-', 'C1+', 'C2', 'C2-', 'C2+', 'C3', 'C3-', 'C3+',
+    'C4', 'C4-', 'C4+', 'C5', 'C5-', 'C5+',
+    'H', 'MH', 'TYPHOON', 'HURRICANE',
+}
+
+
+def is_tropical_status(stype) -> bool:
+    """该状态码是否代表**热带气旋**（决定有没有资格累计 ACE）。
+
+    空值按热带处理（老数据缺失时不要一刀切丢掉）。
+    """
+    st = (stype or '').strip().upper()
+    if st == '':
+        return True
+    if st in _TROPICAL_ALIASES:
+        return True
+    # C4-ST / C2 MINUS 这类组合写法：取第一段再判
+    for sep in (' ', '-', '_', '/'):
+        if sep in st:
+            head = st.split(sep)[0]
+            if head in _TROPICAL_ALIASES:
+                return True
+    return False
+
+
 def infer_strength_category(wind: int, stype: str) -> str:
     st = stype.upper()
     if st in ('MD', 'SD', 'SS', 'LO', 'TD', 'DB', 'WV'):

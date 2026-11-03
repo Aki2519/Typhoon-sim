@@ -286,18 +286,32 @@ class Renderer:
             #   图标与名字照画 ⇒ 现在传 `with_box=not dialog_open`。
             dialog_open = sim.dialog_mgr.any_active()
             with_box = not dialog_open
+            # 分段隐藏（用户 2026-10-19）： 里放
+            # 'icon' / 'name' / 'box'，导出时分别关掉图标、名字、信息框。
+            # 之前三者捆在一层里，只能一起关。
+            _parts = getattr(sim, 'hide_icon_parts', set()) or set()
+            _with_icon = 'icon' not in _parts
+            _with_name = 'name' not in _parts
+            if 'box' in _parts:
+                with_box = False
             if md == sim.MODE_NORMAL:
                 ty = sim.current_typhoon()
                 if ty and getattr(ty.v, 'icon_alpha', 255) > 0:
-                    sim.draw_typhoon_info(surface, ty, with_box=with_box)
+                    sim.draw_typhoon_info(surface, ty, with_name=_with_name,
+                                              with_box=with_box,
+                                              with_icon=_with_icon)
             elif md == sim.MODE_SEASON:
                 for ty in sim.tys:
                     if ty.act and ty.ss and not ty.sf:
-                        sim.draw_typhoon_info(surface, ty, with_box=with_box)
+                        sim.draw_typhoon_info(surface, ty, with_name=_with_name,
+                                              with_box=with_box,
+                                              with_icon=_with_icon)
             elif md == sim.MODE_EDIT:
                 ty = sim.edit_typhoon
                 if ty and getattr(ty.v, 'icon_alpha', 255) > 0:
-                    sim.draw_typhoon_info(surface, ty, with_box=with_box)
+                    sim.draw_typhoon_info(surface, ty, with_name=_with_name,
+                                              with_box=with_box,
+                                              with_icon=_with_icon)
 
         def _effects(surface) -> None:
             ct = pygame.time.get_ticks()
@@ -329,8 +343,16 @@ class Renderer:
             ('clock', lambda: not is_sim and not hidden, _clock),
             ('ace_bar',
              # 模拟模式也用同一套 ACE 条(2026-09-19 用户: "ace 条像其它模式一样显示")
-             lambda: not hidden and getattr(sim, 'show_ace_bar', True),
+             # 2026-10-19：启用 ACE 折线图时**强制关掉**右上角总 ACE 条
+             lambda: (not hidden and getattr(sim, 'show_ace_bar', True)
+                      and not getattr(sim, 'ace_chart_enabled',
+                                  getattr(sim.cfg, 'ace_chart_enabled', False))),
              lambda s: sim.draw_ace_display(s)),
+            ('ace_chart',
+             # 实时 ACE 折线图（替代上面的总 ACE 条；用户 2026-10-19）
+             lambda: (not hidden and getattr(sim, 'ace_chart_enabled',
+                          getattr(sim.cfg, 'ace_chart_enabled', False))),
+             lambda s: sim.ace_chart.draw(s)),
             ('typhoons', lambda: not is_sim, lambda s: sim._draw_typhoons(s)),
             ('track_label',
              lambda: not is_sim and not hidden
@@ -371,10 +393,20 @@ class Renderer:
         默认空实现; _draw_scene 每帧对每个可见层调用一次。"""
         return None
 
+    #: 要**整层跳过**的图层名（用户 2026-10-19："能隐藏的东西很多"）。
+    #: 名字取自 ：map / graticule / sim_field / ocean_areas /
+    #: ocean_edit / clock / ace_bar / ace_chart / typhoons / track_label /
+    #: season_info_boxes / typhoon_info / offscreen_boxes / effects /
+    #: script_target_box / script_panel
+    hidden_layers: set = set()
+
     def _draw_scene(self, surface: pygame.Surface, hidden: bool = False) -> None:
         surface.fill(BG)
         perf = time.perf_counter
+        skip = self.hidden_layers
         for name, visible, draw in self.scene_layers(hidden):
+            if name in skip:
+                continue
             if visible():
                 t0 = perf()
                 draw(surface)

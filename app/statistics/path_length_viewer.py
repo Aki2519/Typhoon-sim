@@ -21,7 +21,7 @@ def _ts_eligible(pt: dict) -> bool:
     ace_engine._ace_eligible 默认(strict=False)不计 official,但 season_stats
     恒计;本查看器展示的是 TS+ 路径长度这一季节统计口径,故以 season_stats 为准。"""
     st = (pt.get('st') or '').upper()
-    return (st in ('TS', 'TY', 'ST', 'HU', '')
+    return (st in ('TS', 'TY', 'ST', 'HU', 'TC', '')
             and isinstance(pt.get('w'), (int, float))
             and pt['w'] >= 35
             and pt.get('official', True))

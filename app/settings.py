@@ -100,6 +100,10 @@ class Settings(DraggableDialog):
         'show_track_label': 'track_label_text',
         'landfall_merge': 'landfall_merge_text',
         'show_offscreen_boxes': 'offscreen_boxes_text',
+        'ace_chart_enabled': 'ace_chart_label',
+        'ace_chart_history': 'ace_hist_label',
+        'ace_chart_other': 'ace_other_label',
+        'ace_chart_follow': 'ace_follow_label',
     }
 
     def __init__(self, s):
@@ -227,6 +231,13 @@ class Settings(DraggableDialog):
                 ('field', 'track_auto_transition_s'),
                 ('field', 'track_auto_pad_pct'),
                 ('note', 'track_note'),
+                # 用户 2026-10-19：右上角实时 ACE 折线图（替代总 ACE 条）
+                ('section', 'ACE 折线图'),
+                ('checkbox', 'ace_chart_enabled'),
+                ('checkbox', 'ace_chart_history'),
+                ('checkbox', 'ace_chart_other'),
+                ('checkbox', 'ace_chart_follow'),
+                ('note', 'ace_chart_note'),
             ]
         if self.tab_index == 2:  # 地图
             if self._map_range_mode == 0:
@@ -474,6 +485,13 @@ class Settings(DraggableDialog):
         'landfall_merge_dt_h': 'landfall_merge_dt_h',
         'landfall_merge_dist_deg': 'landfall_merge_dist_deg',
         'show_offscreen_boxes': 'show_offscreen_boxes',
+        # ── ACE 折线图（用户 2026-10-19）──
+        # 必须进 _CFG_MIRROR：apply_settings() 只同步这里列出的名字，
+        # 不进这张表 ⇒ 勾了不生效（我第一版就漏了，实测勾完 cfg 还是 False）。
+        'ace_chart_enabled': 'ace_chart_enabled',
+        'ace_chart_history': 'ace_chart_history',
+        'ace_chart_other': 'ace_chart_other',
+        'ace_chart_follow': 'ace_chart_follow',
         'name_display_mode': 'name_display_mode',
         'point_name_mode': 'point_name_mode',
         'ace_geo_limit_enabled': 'ace_geo_limit_enabled',
@@ -759,6 +777,13 @@ class Settings(DraggableDialog):
         self.track_note = rt(f_s, "跟踪镜头: 边距% / 静置ms / 高亮渐入·保持·渐出ms / "
                             "推镜ms(最短·每千像素·上限) / 摇镜(单帧上限·瞬移判定·退出)px / "
                             "自动镜头(响应秒·边距%)", TD, 520)
+        self.ace_chart_label = rt(f_m, "启用 ACE 折线图(替代右上角总ACE)", TX)
+        self.ace_hist_label = rt(f_m, "叠加历年曲线", TX)
+        self.ace_other_label = rt(f_m, "叠加当年其它洋区", TX)
+        self.ace_follow_label = rt(f_m, "跟随当前 ACE(线头居中)", TX)
+        self.ace_chart_note = rt(
+            f_s, "折线图: 当年 ACE 按日累计(西太取 xrq, 其它洋区取官评); "
+                 "跟随模式在 ACE 很低时退化为从左显示", TD, 520)
         self.dm_label = rt(f_m, "主题配色:", TX)
         self._section_title_cache = {}
 
@@ -804,6 +829,9 @@ class Settings(DraggableDialog):
         self.landfall_merge_dt_h = float(getattr(self.sim, 'landfall_merge_dt_h', 3.0))
         self.landfall_merge_dist_deg = float(getattr(self.sim, 'landfall_merge_dist_deg', 0.2))
         self.show_offscreen_boxes = bool(getattr(self.sim, 'show_offscreen_boxes', True))
+        for _k in ('ace_chart_enabled', 'ace_chart_history',
+                   'ace_chart_other', 'ace_chart_follow'):
+            setattr(self, _k, bool(getattr(self.sim, _k, getattr(self.sim.cfg, _k, False))))
         self.name_display_mode = self.sim.name_display_mode
         self.point_name_mode = getattr(self.sim, 'point_name_mode', False)
         self.ace_limit_mode = getattr(self.sim, 'ace_limit_mode', ACE_LIMIT_NONE)

@@ -345,6 +345,13 @@ class TySim(TySimUtilsMixin,
         self.script_target_box = TargetBox(self)
         # 需求 3.1（用户 2026-10-13）：右侧脚本可视化编辑面板（脚本界面里打开）
         self.script_panel = ScriptEditorPanel(self)
+        # 右上角 ACE 折线图（用户 2026-10-19；替代总 ACE 条）
+        from .ace_chart import AceChart
+        #: 开关镜像：设置面板写的是 sim 属性（），这里先按 cfg 初始化一遍
+        for _k, _d in (('ace_chart_enabled', False), ('ace_chart_history', True),
+                       ('ace_chart_other', False), ('ace_chart_follow', False)):
+            setattr(self, _k, bool(getattr(self.cfg, _k, _d)))
+        self.ace_chart = AceChart(self)
 
         self.info_box_slots: Dict[Typhoon, int] = {}
         self.info_box_free_slots = list(range(MAX_INFO_BOX_SLOTS))

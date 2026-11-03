@@ -18,7 +18,7 @@ def _ace_eligible(pt: dict) -> bool:
     单趟化重构时曾漏掉 w>=35 下限,已恢复。"""
 
     st = (pt.get('st') or '').upper()
-    return (st in ('TS', 'TY', 'ST', 'HU', '')
+    return (st in ('TS', 'TY', 'ST', 'HU', 'TC', '')
             and isinstance(pt.get('w'), (int, float))
             and pt['w'] >= 35
             and pt.get('official', True))

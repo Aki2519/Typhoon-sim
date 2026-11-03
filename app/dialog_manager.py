@@ -33,6 +33,10 @@ from .sim_value_dialog import SimValueDialog
 from .paint_dialog import PaintDialog
 from .offscreen_dialog import OffscreenDialog
 from .module_dialog import ModuleDialog
+try:      # 「导出画面」属于拍摄/出片功能的可选模块，缺失时整个入口隐藏
+    from .export_dialog import ExportDialog
+except Exception:      # pragma: no cover
+    ExportDialog = None
 
 
 class DialogManager:
@@ -61,6 +65,7 @@ class DialogManager:
         self.paint_dialog = PaintDialog(sim)
         self.offscreen = OffscreenDialog(sim)
         self.modules = ModuleDialog(sim)
+        self.export_dlg = ExportDialog(sim) if ExportDialog else None
         self._active_count: Optional[int] = None
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -111,5 +116,6 @@ class DialogManager:
             self.sim_time, self.sim_mode, self.sim_value, self.paint_dialog,
             self.offscreen,
             self.modules,
+            self.export_dlg,
             getattr(self.sim, 'script_dialog', None),
         ) if d is not None)

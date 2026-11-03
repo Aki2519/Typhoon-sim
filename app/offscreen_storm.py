@@ -56,9 +56,39 @@ class OffscreenStormBoxes:
             return False
         return bool(getattr(ty, 'offscreen')) and not getattr(ty, 'born_onscreen', False)
 
+    @staticmethod
+    def in_area_limit(sim, ty) -> bool:
+        """这个风暴是否**已经落在当前洋区限制内**（用户 2026-10-19）。
+
+        在限制内的风暴本来就该出现在正常视野里，不该再进"域外小窗"
+        —— 对话框不列它，小窗也不画它。
+
+        ⚠ 限制模式是  时  恒为 True，若照用会把
+        **所有**风暴都判成"域内"（对话框直接空掉）。所以 none 时一律返回
+        False（没有限制 ⇒ 不做这个过滤）。
+        """
+        try:
+            eng = getattr(sim, 'ace_engine', None)
+            mode = getattr(sim, 'ace_limit_mode', 'none')
+            if eng is None or mode == 'none':
+                return False
+            pos = ty.cpos() or {}
+            la, lo = pos.get('la'), pos.get('lo')
+            if la is None or lo is None:
+                p = ty.cp() if hasattr(ty, 'cp') else None
+                if not p:
+                    return False
+                la, lo = p.get('la'), p.get('lo')
+            if la is None or lo is None:
+                return False
+            return bool(eng.point_in_limit(la, lo))
+        except Exception:
+            return False
+
     def candidates(self) -> list:
         return [ty for ty in getattr(self.sim, 'tys', [])
-                if getattr(ty, 'act', False) and self.selected(ty)]
+                if getattr(ty, 'act', False) and self.selected(ty)
+                and not self.in_area_limit(self.sim, ty)]
 
     # ── 几何 ──────────────────────────────────────────────────────────
     def _cp(self, ty):
